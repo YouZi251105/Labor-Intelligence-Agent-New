@@ -1,7 +1,6 @@
 from collections.abc import AsyncIterator
 from functools import lru_cache
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -11,7 +10,6 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import BACKEND_DIR, get_settings
 from app.db.base import Base
-from app.models import User
 from app.services.seed import seed_demo_data
 
 (BACKEND_DIR / "data").mkdir(parents=True, exist_ok=True)
@@ -51,6 +49,4 @@ async def initialize_database() -> None:
         return
 
     async with get_session_factory()() as session:
-        existing_user = await session.scalar(select(User.id).limit(1))
-        if existing_user is None:
-            await seed_demo_data(session)
+        await seed_demo_data(session)
