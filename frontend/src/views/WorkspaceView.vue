@@ -152,6 +152,33 @@
           最近检查：{{ workspace.lastCheckedAt.toLocaleTimeString('zh-CN') }}
         </small>
       </section>
+
+      <section class="context-card context-card--soft">
+        <details class="history-details">
+          <summary>我的历史问题</summary>
+          <div class="history-list">
+            <button
+              v-for="item in historyCases"
+              :key="item.case_id"
+              type="button"
+              @click="router.push(`/cases/${item.case_id}`)"
+            >
+              <strong>{{ item.title }}</strong>
+              <span>{{ disputeLabels[item.dispute_type] || item.dispute_type }}</span>
+            </button>
+            <p v-if="!historyCases.length" class="muted-text">暂无历史案件。</p>
+          </div>
+        </details>
+        <details class="history-details">
+          <summary>大家在问</summary>
+          <div class="topic-cloud">
+            <span v-for="topic in topicSummary.topics" :key="topic.dispute_type">
+              {{ topic.label }} · {{ topic.count }}
+            </span>
+          </div>
+          <small>仅展示匿名聚合类型，不公开任何用户原始咨询。</small>
+        </details>
+      </section>
     </aside>
   </div>
 </template>
@@ -174,7 +201,13 @@ import { RouterLink, useRouter } from 'vue-router'
 import { apiRequest } from '../api/http'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
-import type { CaseItem, ConsultationResponse, MessageItem } from '../types/api'
+import type {
+  CaseItem,
+  ConsultationResponse,
+  HistoryCaseSummary,
+  MessageItem,
+  TopicsResponse,
+} from '../types/api'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -189,6 +222,8 @@ const demoMode = ref(false)
 const requiredInformation = ref<string[]>([])
 const evidenceGaps = ref<string[]>([])
 const riskFlags = ref<string[]>([])
+const historyCases = ref<HistoryCaseSummary[]>([])
+const topicSummary = ref<TopicsResponse>({ topics: [], total: 0 })
 
 const topics = ['拖欠工资', '突然被辞退', '没有签合同', '工伤或受伤'] as const
 const topicIcons = {
@@ -231,7 +266,13 @@ function stageLabel(stage: string) {
 }
 
 async function loadInitialCase() {
-  const cases = await apiRequest<CaseItem[]>('/cases')
+  const [cases, history, topics] = await Promise.all([
+    apiRequest<CaseItem[]>('/cases'),
+    apiRequest<{ cases: HistoryCaseSummary[] }>('/analytics/history'),
+    apiRequest<TopicsResponse>('/analytics/topics'),
+  ])
+  historyCases.value = history.cases
+  topicSummary.value = topics
   if (!cases.length) return
   activeCase.value = cases[0]
   messages.value = await apiRequest<MessageItem[]>(`/cases/${cases[0].id}/messages`)

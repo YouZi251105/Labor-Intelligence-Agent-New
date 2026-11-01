@@ -187,3 +187,29 @@ test('image evidence shows OCR-required status without OCR engine', async ({ pag
   })
   await expect(page.getByText('待 OCR').first()).toBeVisible()
 })
+
+test('worker can practise a role simulation and receive coaching', async ({ page }, testInfo) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, `模拟训练-${testInfo.project.name}`)
+  await page.goto(`/simulation?caseId=${caseId}`)
+
+  await expect(page.getByRole('heading', { name: '模拟对话训练' })).toBeVisible()
+  await page.getByLabel('模拟角色').selectOption('boss')
+  await page.getByLabel('训练场景').fill('向老板确认拖欠工资的支付时间')
+  await page.getByRole('button', { name: '开始模拟' }).click()
+  await page.getByLabel('你的表达').fill('请您确认9月和10月工资的支付时间，并书面确认金额。')
+  await page.getByRole('button', { name: '发送并评分' }).click()
+
+  await expect(page.getByText(/综合评分/)).toBeVisible()
+  await expect(page.locator('.simulation-message--assistant')).toContainText('模拟')
+})
+
+test('help center shows official resources and site lawyers', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+  await page.goto('/help')
+
+  await expect(page.getByRole('heading', { name: '维权帮助' })).toBeVisible()
+  await expect(page.getByText('全国人社政务服务平台')).toBeVisible()
+  await expect(page.getByText('李律师')).toBeVisible()
+  await expect(page.getByText('申请人工协助')).toBeVisible()
+})
