@@ -1607,6 +1607,115 @@ button {
   white-space: pre-wrap;
 }
 
+.workflow-card {
+  margin-bottom: 16px;
+}
+
+.workflow-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 54px;
+}
+
+.workflow-step::before {
+  position: absolute;
+  top: 20px;
+  bottom: 0;
+  left: 9px;
+  width: 2px;
+  background: var(--lia-border);
+  content: '';
+}
+
+.workflow-step:last-child::before {
+  display: none;
+}
+
+.workflow-step__dot {
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--lia-border-strong);
+  border-radius: 50%;
+  background: var(--lia-surface);
+}
+
+.workflow-step--completed .workflow-step__dot {
+  border-color: var(--lia-success);
+  background: var(--lia-success);
+}
+
+.workflow-step--current .workflow-step__dot {
+  border-color: var(--lia-primary);
+  background: var(--lia-primary);
+  box-shadow: 0 0 0 4px rgba(166, 27, 27, 0.12);
+}
+
+.workflow-step--available .workflow-step__dot {
+  border-color: var(--lia-success);
+}
+
+.workflow-step--locked .workflow-step__dot {
+  border-color: var(--lia-border);
+}
+
+.workflow-step__body strong,
+.workflow-step__body small {
+  display: block;
+}
+
+.workflow-step__body strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.workflow-step--locked .workflow-step__body strong {
+  color: var(--lia-text-muted);
+}
+
+.workflow-step__body small {
+  margin-top: 3px;
+  color: var(--lia-text-muted);
+  font-size: 11px;
+}
+
+.workflow-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-top: 1px solid var(--lia-border);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.workflow-option {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workflow-option__reason {
+  margin: 0;
+  color: var(--lia-text-muted);
+  font-size: 10px;
+}
+
+.workflow-option__reason--blocked {
+  color: var(--lia-warning);
+}
+
 .metric-chip {
   display: flex;
   align-items: center;

@@ -28,6 +28,10 @@ test('worker can consult, review a contract, and generate a document', async ({ 
   await expect(page.getByRole('heading', { name: '我的案件' })).toBeVisible()
   await page.locator('.case-card').first().click()
 
+  await expect(page.getByText('案件流程')).toBeVisible()
+  await expect(page.locator('.workflow-step--current strong')).toHaveText('整理证据')
+  await expect(page.getByRole('button', { name: '进入协商或仲裁' })).toBeDisabled()
+
   await page.getByRole('button', { name: '咨询记录' }).click()
   await page.locator('.chat-compose-inline textarea').fill('老板说这周还是不能发工资，我还需要准备什么？')
   await page.getByRole('button', { name: '发送', exact: true }).click()
@@ -45,6 +49,7 @@ test('worker can consult, review a contract, and generate a document', async ({ 
     ),
   })
   await expect(page.getByText(evidenceName)).toBeVisible()
+  await expect(page.getByText(/已有材料：/)).toBeVisible()
 
   await page.getByRole('button', { name: '合同审查' }).click()
   await page.locator('.large-textarea').fill(

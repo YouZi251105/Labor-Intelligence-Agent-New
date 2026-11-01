@@ -36,19 +36,63 @@
 
     <p v-if="error" class="inline-error">{{ error }}</p>
 
-    <section v-if="activeTab === 'overview'" class="detail-grid">
-      <div class="detail-card">
-        <span class="eyebrow">案件事实</span>
-        <p class="pre-line">{{ caseItem.facts || '暂无案件事实' }}</p>
+    <section v-if="activeTab === 'overview'">
+      <div v-if="workflow" class="detail-card workflow-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">案件流程</span>
+            <h2>{{ workflowLabel }}</h2>
+          </div>
+        </div>
+        <ol class="workflow-steps">
+          <li
+            v-for="stage in workflow.stages"
+            :key="stage.stage"
+            :class="`workflow-step workflow-step--${stage.status}`"
+          >
+            <span class="workflow-step__dot" />
+            <div class="workflow-step__body">
+              <strong>{{ stage.label }}</strong>
+              <small v-if="stage.required_actions.length">
+                待办：{{ stage.required_actions.join('、') }}
+              </small>
+            </div>
+          </li>
+        </ol>
+        <div v-if="workflow.options.length" class="workflow-options">
+          <div v-for="option in workflow.options" :key="option.target_stage" class="workflow-option">
+            <button
+              class="secondary-action"
+              type="button"
+              :disabled="!option.enabled"
+              @click="transitionTo(option.target_stage)"
+            >
+              {{ option.label }}
+            </button>
+            <p
+              class="workflow-option__reason"
+              :class="{ 'workflow-option__reason--blocked': !option.enabled }"
+            >
+              {{ option.enabled ? option.description : option.blocked_reasons.join('、') }}
+            </p>
+          </div>
+        </div>
       </div>
-      <div class="detail-card">
-        <span class="eyebrow">当前建议</span>
-        <p>{{ suggestedNextStep || '继续补充咨询信息，系统会更新案件建议。' }}</p>
-        <dl class="meta-list">
-          <div><dt>用工地点</dt><dd>{{ caseItem.location || '待补充' }}</dd></div>
-          <div><dt>更新时间</dt><dd>{{ new Date(caseItem.updated_at).toLocaleString('zh-CN') }}</dd></div>
-          <div><dt>承办律师</dt><dd>{{ caseItem.assigned_lawyer_id ? '已分配' : '尚未分配' }}</dd></div>
-        </dl>
+
+      <div class="detail-grid">
+        <div class="detail-card">
+          <span class="eyebrow">案件事实</span>
+          <p class="pre-line">{{ caseItem.facts || '暂无案件事实' }}</p>
+        </div>
+        <div class="detail-card">
+          <span class="eyebrow">当前建议</span>
+          <p>{{ suggestedNextStep || '继续补充咨询信息，系统会更新案件建议。' }}</p>
+          <dl class="meta-list">
+            <div><dt>用工地点</dt><dd>{{ caseItem.location || '待补充' }}</dd></div>
+            <div><dt>更新时间</dt><dd>{{ new Date(caseItem.updated_at).toLocaleString('zh-CN') }}</dd></div>
+            <div><dt>承办律师</dt><dd>{{ caseItem.assigned_lawyer_id ? '已分配' : '尚未分配' }}</dd></div>
+          </dl>
+        </div>
       </div>
     </section>
 
@@ -93,6 +137,13 @@
         </label>
         <div v-if="evidenceAssessment" class="assessment-box">
           <strong>{{ evidenceAssessment.message }}</strong>
+          <p v-if="evidenceAssessment.present_categories.length">
+            已有材料：{{
+              evidenceAssessment.present_categories
+                .map((item) => categoryLabels[item] || item)
+                .join('、')
+            }}
+          </p>
           <p v-if="evidenceAssessment.missing_labels.length">
             仍缺少：{{ evidenceAssessment.missing_labels.join('、') }}
           </p>
@@ -221,6 +272,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { API_BASE_URL, apiRequest, TOKEN_KEY } from '../api/http'
+import { buildWorkflowResponse } from '../api/mock'
 import type {
   CaseItem,
   ConsultationResponse,
@@ -229,6 +281,7 @@ import type {
   EvidenceItem,
   EvidenceResponse,
   MessageItem,
+  WorkflowResponse,
 } from '../types/api'
 import { formatFileSize } from '../utils/format'
 
@@ -251,6 +304,7 @@ const reviewing = ref(false)
 const contractReview = ref<ContractReviewResponse | null>(null)
 const generatingDocument = ref('')
 const selectedDocument = ref<DocumentItem | null>(null)
+const workflow = ref<WorkflowResponse | null>(null)
 
 const tabs = [
   { key: 'overview', label: '案件概览', icon: Scale },
@@ -294,6 +348,14 @@ const riskLabels = { low: '低', medium: '中', high: '高' }
 
 const latestClassification = computed(() => caseItem.value?.classification ?? {})
 
+const workflowLabel = computed(() => {
+  if (!workflow.value) return '案件流程'
+  const current = workflow.value.stages.find(
+    (item) => item.stage === workflow.value?.current_stage,
+  )
+  return current?.label ?? '案件流程'
+})
+
 async function loadAll() {
   try {
     caseItem.value = await apiRequest<CaseItem>(`/cases/${caseId}`)
@@ -306,6 +368,7 @@ async function loadAll() {
     evidenceItems.value = evidenceData.items
     evidenceAssessment.value = evidenceData.assessment
     documents.value = documentData
+    workflow.value = buildWorkflowResponse(caseItem.value, evidenceData.assessment)
     suggestedNextStep.value = String(
       messageData.at(-1)?.metadata_json?.suggested_next_step ??
         caseItem.value.classification.suggested_next_step ??
@@ -314,6 +377,14 @@ async function loadAll() {
   } catch (err) {
     error.value = err instanceof Error ? err.message : '案件加载失败'
   }
+}
+
+async function transitionTo(targetStage: string) {
+  if (!caseItem.value) return
+  // 阶段 1 演示：后端 /transitions 尚未实现，先用本地规则模拟流转。
+  // 后端实现后改为 apiRequest POST `/cases/${caseId}/transitions` 并刷新 workflow。
+  caseItem.value = { ...caseItem.value, stage: targetStage }
+  workflow.value = buildWorkflowResponse(caseItem.value, evidenceAssessment.value)
 }
 
 async function sendChat() {
@@ -353,6 +424,9 @@ async function uploadEvidence(event: Event) {
     const evidenceData = await apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`)
     evidenceItems.value = evidenceData.items
     evidenceAssessment.value = evidenceData.assessment
+    if (caseItem.value) {
+      workflow.value = buildWorkflowResponse(caseItem.value, evidenceData.assessment)
+    }
     input.value = ''
   } catch (err) {
     error.value = err instanceof Error ? err.message : '上传失败'
