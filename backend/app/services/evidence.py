@@ -2,9 +2,9 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from app.core.config import BACKEND_DIR
 from app.models.case import Case
 from app.models.evidence import Evidence
+from app.services.storage import get_storage
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt", ".doc", ".docx"}
 MAX_FILE_SIZE = 20 * 1024 * 1024
@@ -65,7 +65,7 @@ def validate_signature(extension: str, content: bytes) -> bool:
     return extension == ".txt"
 
 
-def save_upload(case_id: int, filename: str, content: bytes) -> tuple[Path, str]:
+def save_upload(case_id: int, filename: str, content: bytes) -> tuple[str, str]:
     extension = Path(filename).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
         raise ValueError("不支持的文件类型")
@@ -74,12 +74,16 @@ def save_upload(case_id: int, filename: str, content: bytes) -> tuple[Path, str]
     if not validate_signature(extension, content):
         raise ValueError("文件内容与扩展名不匹配")
 
-    upload_dir = BACKEND_DIR / "data" / "uploads" / str(case_id)
-    upload_dir.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(content).hexdigest()
-    target = upload_dir / f"{digest[:16]}{extension}"
-    target.write_bytes(content)
-    return target, digest
+    key = f"case-{case_id}/{digest[:16]}{extension}"
+    return get_storage().save(key, content), digest
+
+
+def read_stored_content(stored_key: str) -> bytes:
+    legacy_path = Path(stored_key)
+    if legacy_path.is_absolute():
+        return legacy_path.read_bytes()
+    return get_storage().read(stored_key)
 
 
 def assess_case_evidence(case: Case, evidence_items: list[Evidence]) -> dict[str, Any]:

@@ -22,6 +22,7 @@ from app.services.evidence import (
     MAX_FILE_SIZE,
     assess_case_evidence,
     detect_category,
+    read_stored_content,
     review_contract,
     save_upload,
     validate_signature,
@@ -99,7 +100,7 @@ async def upload_case_evidence(
         case_id=case_id,
         uploader_id=user.id,
         filename=filename,
-        stored_path=str(stored_path),
+        stored_path=stored_path,
         content_type=file.content_type or "application/octet-stream",
         file_size=len(content),
         sha256=digest,
@@ -157,15 +158,11 @@ async def retry_evidence_extraction(
     evidence = await session.get(Evidence, evidence_id)
     if evidence is None or evidence.case_id != case_id:
         raise HTTPException(status_code=404, detail="材料不存在")
-    stored_path = Path(evidence.stored_path)
-    if not stored_path.exists():
-        raise HTTPException(status_code=404, detail="材料文件不存在")
-
-    extraction = extract_text_from_bytes(
-        evidence.filename,
-        stored_path.read_bytes(),
-        evidence.content_type,
-    )
+    try:
+        content = read_stored_content(evidence.stored_path)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=404, detail="材料文件不存在") from None
+    extraction = extract_text_from_bytes(evidence.filename, content, evidence.content_type)
     apply_extraction(evidence, extraction)
     session.add(
         AuditLog(
@@ -197,9 +194,10 @@ async def download_evidence(
     evidence = await session.get(Evidence, evidence_id)
     if evidence is None or evidence.case_id != case_id:
         raise HTTPException(status_code=404, detail="材料不存在")
-    stored_path = Path(evidence.stored_path)
-    if not stored_path.exists():
-        raise HTTPException(status_code=404, detail="材料文件不存在")
+    try:
+        content = read_stored_content(evidence.stored_path)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=404, detail="材料文件不存在") from None
 
     session.add(
         AuditLog(
@@ -213,11 +211,11 @@ async def download_evidence(
     await session.commit()
     encoded_name = quote(evidence.filename)
     return Response(
-        content=stored_path.read_bytes(),
+        content=content,
         media_type=evidence.content_type,
         headers={
             "Content-Disposition": (
-                f"attachment; filename=\"evidence-{evidence.id}{stored_path.suffix}\"; "
+                f"attachment; filename=\"evidence-{evidence.id}{Path(evidence.filename).suffix}\"; "
                 f"filename*=UTF-8''{encoded_name}"
             )
         },

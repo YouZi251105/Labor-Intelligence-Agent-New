@@ -63,5 +63,12 @@ warn_unused_ignores = true
 exclude = ["alembic/"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "celery.*", "pytesseract", "reportlab", "reportlab.*"]
+module = [
+  "boto3",
+  "celery",
+  "celery.*",
+  "pytesseract",
+  "reportlab",
+  "reportlab.*",
+]
 ignore_missing_imports = true

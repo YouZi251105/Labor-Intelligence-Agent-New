@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     qianwen_api_key: str = ""
     qianwen_model: str = "qwen-plus"
     upload_dir: str = "./data/uploads"
+    storage_backend: str = "local"
+    task_backend: str = "inline"
 
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "labor-minio"
