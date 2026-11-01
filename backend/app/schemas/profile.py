@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserProfileUpdate(BaseModel):
@@ -11,6 +11,8 @@ class UserProfileUpdate(BaseModel):
 
 
 class UserProfileRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     real_name: str
     phone: str
