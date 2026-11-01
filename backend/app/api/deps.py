@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -42,7 +42,7 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-def require_roles(*roles: str) -> Callable[[CurrentUser], User]:
+def require_roles(*roles: str) -> Callable[[User], Awaitable[User]]:
     async def checker(user: CurrentUser) -> User:
         if user.role not in roles:
             raise HTTPException(

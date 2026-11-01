@@ -467,6 +467,116 @@
         }
       }
     },
+    "/api/v1/cases/{case_id}/evidence/{evidence_id}/extract": {
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Retry Evidence Extraction",
+        "operationId": "retry_evidence_extraction_api_v1_cases__case_id__evidence__evidence_id__extract_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceExtractionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/evidence/{evidence_id}/download": {
+      "get": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Download Evidence",
+        "operationId": "download_evidence_api_v1_cases__case_id__evidence__evidence_id__download_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cases/{case_id}/contract-review": {
       "post": {
         "tags": [
@@ -507,6 +617,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ContractReviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/contract-review/file": {
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Review Contract File",
+        "operationId": "review_contract_file_api_v1_cases__case_id__contract_review_file_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_review_contract_file_api_v1_cases__case_id__contract_review_file_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractFileReviewResponse"
                 }
               }
             }
@@ -614,6 +781,139 @@
                 "schema": {
                   "$ref": "#/components/schemas/DocumentRead"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/documents/{document_id}/revisions": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Create Document Revision",
+        "operationId": "create_document_revision_api_v1_cases__case_id__documents__document_id__revisions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentRevisionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/documents/{document_id}/export": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Export Document",
+        "operationId": "export_document_api_v1_cases__case_id__documents__document_id__export_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "docx",
+                "pdf"
+              ],
+              "type": "string",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -1061,6 +1361,20 @@
   },
   "components": {
     "schemas": {
+      "Body_review_contract_file_api_v1_cases__case_id__contract_review_file_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_review_contract_file_api_v1_cases__case_id__contract_review_file_post"
+      },
       "Body_upload_case_evidence_api_v1_cases__case_id__evidence_post": {
         "properties": {
           "file": {
@@ -1247,6 +1561,40 @@
         ],
         "title": "ConsultationResponse"
       },
+      "ContractFileReviewResponse": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "extraction_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "extracted",
+              "ocr_required",
+              "unsupported",
+              "failed"
+            ],
+            "title": "Extraction Status"
+          },
+          "extracted_text": {
+            "type": "string",
+            "title": "Extracted Text"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ContractReviewResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "extraction_status",
+          "extracted_text",
+          "review"
+        ],
+        "title": "ContractFileReviewResponse"
+      },
       "ContractFinding": {
         "properties": {
           "level": {
@@ -1347,6 +1695,34 @@
         ],
         "title": "DocumentCreate"
       },
+      "DocumentEvidenceRead": {
+        "properties": {
+          "evidence_id": {
+            "type": "integer",
+            "title": "Evidence Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "filename",
+          "category",
+          "sha256"
+        ],
+        "title": "DocumentEvidenceRead"
+      },
       "DocumentRead": {
         "properties": {
           "id": {
@@ -1377,6 +1753,13 @@
             "type": "integer",
             "title": "Version"
           },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentEvidenceRead"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -1395,6 +1778,69 @@
           "created_at"
         ],
         "title": "DocumentRead"
+      },
+      "DocumentRevisionCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 10,
+            "title": "Content"
+          },
+          "status": {
+            "type": "string",
+            "const": "draft",
+            "title": "Status",
+            "default": "draft"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "DocumentRevisionCreate"
+      },
+      "EvidenceExtractionResponse": {
+        "properties": {
+          "evidence_id": {
+            "type": "integer",
+            "title": "Evidence Id"
+          },
+          "extraction_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "extracted",
+              "ocr_required",
+              "unsupported",
+              "failed"
+            ],
+            "title": "Extraction Status"
+          },
+          "extracted_text": {
+            "type": "string",
+            "title": "Extracted Text"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "extraction_status",
+          "extracted_text",
+          "message"
+        ],
+        "title": "EvidenceExtractionResponse"
       },
       "EvidenceRead": {
         "properties": {
@@ -1434,6 +1880,28 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Assessment"
+          },
+          "text_preview": {
+            "type": "string",
+            "title": "Text Preview",
+            "default": ""
+          },
+          "extraction_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "extracted",
+              "ocr_required",
+              "unsupported",
+              "failed"
+            ],
+            "title": "Extraction Status",
+            "default": "pending"
+          },
+          "extraction_message": {
+            "type": "string",
+            "title": "Extraction Message",
+            "default": ""
           },
           "created_at": {
             "type": "string",

@@ -46,7 +46,7 @@ def classify_message(text: str) -> dict[str, Any]:
         dispute: sum(1 for keyword in keywords if keyword in text)
         for dispute, keywords in DISPUTE_KEYWORDS.items()
     }
-    dispute_type = max(scores, key=scores.get)
+    dispute_type = max(scores, key=lambda dispute: scores[dispute])
     if scores[dispute_type] == 0:
         dispute_type = "general"
 
@@ -56,7 +56,11 @@ def classify_message(text: str) -> dict[str, Any]:
         "dispute_type": dispute_type,
         "dispute_label": DISPUTE_LABELS[dispute_type],
         "legal_relationship": legal_relationship,
-        "signals": [keyword for keyword in DISPUTE_KEYWORDS.get(dispute_type, []) if keyword in text],
+        "signals": [
+            keyword
+            for keyword in DISPUTE_KEYWORDS.get(dispute_type, [])
+            if keyword in text
+        ],
     }
 
 

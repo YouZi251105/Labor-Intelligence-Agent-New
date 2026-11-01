@@ -104,7 +104,12 @@ def assess_case_evidence(case: Case, evidence_items: list[Evidence]) -> dict[str
 def review_contract(text: str) -> dict[str, Any]:
     findings: list[dict[str, str]] = []
     checks = [
-        ("自愿放弃社会保险", "high", "放弃社会保险条款", "该条款可能影响劳动者社会保险权益，应重点人工核验。"),
+        (
+            "自愿放弃社会保险",
+            "high",
+            "放弃社会保险条款",
+            "该条款可能影响劳动者社会保险权益，应重点人工核验。",
+        ),
         ("随时解除", "high", "单方随时解除", "解除条件过于宽泛，可能增加被违法解除的风险。"),
         ("押金", "high", "收取押金", "用工方收取押金存在较高合规风险。"),
         ("违约金", "medium", "违约金条款", "需要确认违约金适用情形和金额是否合理。"),

@@ -1,3 +1,15 @@
+from contextlib import suppress
+from html import escape
+from io import BytesIO
+
+from docx import Document as DocxDocument
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
 from app.models.case import Case
 from app.models.evidence import Evidence
 
@@ -57,3 +69,48 @@ def generate_document(
             "提交前应核对主体、金额、请求事项、管辖和事实表述，并建议由律师复核。\n"
         )
     return title, content
+
+
+def render_document_docx(title: str, content: str) -> bytes:
+    document = DocxDocument()
+    document.add_heading(title, level=1)
+    for line in content.splitlines():
+        if line.strip():
+            document.add_paragraph(line)
+        else:
+            document.add_paragraph("")
+    buffer = BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def render_document_pdf(content: str) -> bytes:
+    buffer = BytesIO()
+    with suppress(KeyError, ValueError):
+        pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+
+    style = ParagraphStyle(
+        "LegalDocument",
+        fontName="STSong-Light",
+        fontSize=11,
+        leading=18,
+        spaceAfter=5,
+        wordWrap="CJK",
+    )
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=20 * mm,
+        leftMargin=20 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title="劳务通法律文书草稿",
+    )
+    flowables = []
+    for line in content.splitlines():
+        if line.strip():
+            flowables.append(Paragraph(escape(line), style))
+        else:
+            flowables.append(Spacer(1, 6))
+    document.build(flowables)
+    return buffer.getvalue()

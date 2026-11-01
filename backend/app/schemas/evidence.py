@@ -3,6 +3,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+ExtractionStatus = Literal[
+    "pending",
+    "extracted",
+    "ocr_required",
+    "unsupported",
+    "failed",
+]
+
 
 class EvidenceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -16,6 +24,9 @@ class EvidenceRead(BaseModel):
     category: str
     screening_status: str
     assessment: dict[str, Any]
+    text_preview: str = ""
+    extraction_status: ExtractionStatus = "pending"
+    extraction_message: str = ""
     created_at: datetime
 
 
@@ -34,3 +45,17 @@ class ContractReviewResponse(BaseModel):
     findings: list[ContractFinding]
     missing_items: list[str]
     disclaimer: str
+
+
+class EvidenceExtractionResponse(BaseModel):
+    evidence_id: int
+    extraction_status: ExtractionStatus
+    extracted_text: str
+    message: str
+
+
+class ContractFileReviewResponse(BaseModel):
+    filename: str
+    extraction_status: ExtractionStatus
+    extracted_text: str
+    review: ContractReviewResponse

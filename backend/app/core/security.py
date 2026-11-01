@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import jwt
 from pwdlib import PasswordHash
@@ -33,4 +33,7 @@ def create_access_token(*, user_id: int, username: str, role: str) -> str:
 
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
-    return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    return cast(
+        dict[str, Any],
+        jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM]),
+    )
