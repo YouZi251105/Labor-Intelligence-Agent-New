@@ -1,4 +1,6 @@
-FROM python:3.13-slim
+ARG PYTHON_BASE_IMAGE=python:3.13-slim
+FROM ${PYTHON_BASE_IMAGE}
+ARG PIP_INDEX_URL=https://pypi.org/simple
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -12,7 +14,13 @@ COPY alembic ./alembic
 COPY app ./app
 
 RUN python -m pip install --upgrade pip \
-    && python -m pip install .
+    && PIP_INDEX_URL=${PIP_INDEX_URL} python -m pip install .
+
+RUN useradd --system --create-home --uid 10001 app \
+    && mkdir -p /app/data/uploads \
+    && chown -R app:app /app
+
+USER app
 
 EXPOSE 8000
 

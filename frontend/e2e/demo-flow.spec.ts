@@ -1,5 +1,7 @@
 import { expect, type Page, test } from '@playwright/test'
 
+const API_BASE_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:8000'
+
 async function login(page: Page, username: string, password: string) {
   await page.goto('/login')
   await page.getByRole('textbox').first().fill(username)
@@ -15,7 +17,7 @@ async function createDemoCase(
 ): Promise<number> {
   const token = await page.evaluate(() => localStorage.getItem('lia_token'))
   expect(token).toBeTruthy()
-  const created = await page.request.post('http://127.0.0.1:8000/api/v1/cases', {
+  const created = await page.request.post(`${API_BASE_URL}/api/v1/cases`, {
     headers: { Authorization: `Bearer ${token}` },
     data: {
       title,
@@ -29,7 +31,7 @@ async function createDemoCase(
 
   if (moveToEvidence) {
     const consultation = await page.request.post(
-      `http://127.0.0.1:8000/api/v1/cases/${caseId}/consultations`,
+      `${API_BASE_URL}/api/v1/cases/${caseId}/consultations`,
       {
         headers: { Authorization: `Bearer ${token}` },
         data: { message: '老板拖欠工资两个月了，我需要准备什么？' },

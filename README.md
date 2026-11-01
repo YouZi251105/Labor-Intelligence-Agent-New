@@ -144,6 +144,8 @@ docker compose up --build
 
 Compose 会启用 PostgreSQL、MinIO/S3 和 Celery；后端启动时会执行 Alembic 迁移，创建镜像后可用 `/metrics` 查看基础请求指标。完整部署、备份和恢复步骤见 [部署与恢复](docs/deployment/部署与恢复.md)。
 
+隔离服务器环境已额外验证 PostgreSQL、Redis/Celery、MinIO、Nginx、非 root 容器、远程 Playwright 和数据库备份恢复。验证栈配置位于 `infra/validation/docker-compose.yml`。
+
 ## 安全约定
 
 - 不提交 `.env`、真实密钥或用户材料。

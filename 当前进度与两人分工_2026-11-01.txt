@@ -24,8 +24,9 @@ main
 3. 阶段 2 已完成并验收。
 4. 阶段 3 已完成并验收，合并提交为 823843c，标签为 stage-3-accepted。
 5. 后续阶段功能先进入 integration/stage<N>，统一回归后再合并 main。
-6. 阶段 4 代码与本地验证完成，外部基础设施实机验证待环境。
+6. 阶段 4 已在隔离服务器验证 PostgreSQL、Redis/Celery、MinIO、Nginx、非 root 容器和备份恢复。
 7. 后端 54 项测试、前端 3 项测试和 18 项 Playwright 通过。
+8. 云安全组公网测试端口和正式 CA HTTPS 尚待配置。
 
 
 二、阶段 1 验收结果
