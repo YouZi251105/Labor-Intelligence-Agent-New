@@ -686,6 +686,110 @@
         }
       }
     },
+    "/api/v1/cases/{case_id}/workflow": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Get Case Workflow",
+        "operationId": "get_case_workflow_api_v1_cases__case_id__workflow_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/transitions": {
+      "post": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Transition Case",
+        "operationId": "transition_case_api_v1_cases__case_id__transitions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/lawyer/cases": {
       "get": {
         "tags": [
@@ -1119,6 +1223,9 @@
             "type": "object",
             "title": "Classification"
           },
+          "structured": {
+            "$ref": "#/components/schemas/StructuredAIResult"
+          },
           "suggested_next_step": {
             "type": "string",
             "title": "Suggested Next Step"
@@ -1134,6 +1241,7 @@
           "user_message",
           "assistant_message",
           "classification",
+          "structured",
           "suggested_next_step",
           "demo_mode"
         ],
@@ -1548,6 +1656,76 @@
         ],
         "title": "RegisterRequest"
       },
+      "StructuredAIResult": {
+        "properties": {
+          "intent": {
+            "type": "string",
+            "title": "Intent"
+          },
+          "dispute_label": {
+            "type": "string",
+            "title": "Dispute Label"
+          },
+          "legal_relationship": {
+            "type": "string",
+            "title": "Legal Relationship"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "suggested_next_step": {
+            "type": "string",
+            "title": "Suggested Next Step"
+          },
+          "required_information": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Information"
+          },
+          "evidence_gaps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Gaps"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Risk Flags"
+          },
+          "citations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "demo_mode": {
+            "type": "boolean",
+            "title": "Demo Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "intent",
+          "dispute_label",
+          "legal_relationship",
+          "summary",
+          "suggested_next_step",
+          "required_information",
+          "evidence_gaps",
+          "risk_flags",
+          "citations",
+          "demo_mode"
+        ],
+        "title": "StructuredAIResult"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -1569,6 +1747,27 @@
           "user"
         ],
         "title": "TokenResponse"
+      },
+      "TransitionRequest": {
+        "properties": {
+          "target_stage": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Target Stage"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_stage"
+        ],
+        "title": "TransitionRequest"
       },
       "UserRead": {
         "properties": {
@@ -1646,6 +1845,113 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkflowOption": {
+        "properties": {
+          "target_stage": {
+            "type": "string",
+            "title": "Target Stage"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "blocked_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Reasons",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_stage",
+          "label",
+          "description",
+          "enabled"
+        ],
+        "title": "WorkflowOption"
+      },
+      "WorkflowResponse": {
+        "properties": {
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "current_stage": {
+            "type": "string",
+            "title": "Current Stage"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStage"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowOption"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "current_stage",
+          "stages",
+          "options"
+        ],
+        "title": "WorkflowResponse"
+      },
+      "WorkflowStage": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "current",
+              "available",
+              "locked"
+            ],
+            "title": "Status"
+          },
+          "required_actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Actions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "label",
+          "status"
+        ],
+        "title": "WorkflowStage"
       }
     },
     "securitySchemes": {
