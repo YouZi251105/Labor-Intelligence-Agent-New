@@ -8,7 +8,7 @@ celery_app = Celery(
     "labor_intelligence_agent",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=[],
+    include=["app.workers.tasks"],
 )
 celery_app.conf.update(
     task_serializer="json",

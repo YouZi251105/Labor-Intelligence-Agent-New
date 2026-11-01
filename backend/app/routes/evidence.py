@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
+from app.core.config import get_settings
 from app.models.audit import AuditLog
 from app.models.evidence import Evidence
 from app.routes.cases import get_accessible_case
@@ -28,6 +29,7 @@ from app.services.evidence import (
     validate_signature,
 )
 from app.services.extraction import ExtractionResult, extract_text_from_bytes
+from app.services.jobs import dispatch_evidence_extraction
 
 router = APIRouter(prefix="/cases", tags=["evidence"])
 
@@ -158,6 +160,14 @@ async def retry_evidence_extraction(
     evidence = await session.get(Evidence, evidence_id)
     if evidence is None or evidence.case_id != case_id:
         raise HTTPException(status_code=404, detail="材料不存在")
+    if get_settings().task_backend.lower() == "celery":
+        dispatch = dispatch_evidence_extraction(evidence.id)
+        return EvidenceExtractionResponse(
+            evidence_id=evidence.id,
+            extraction_status="pending",
+            extracted_text="",
+            message=f"已加入后台提取队列：{dispatch.task_id}",
+        )
     try:
         content = read_stored_content(evidence.stored_path)
     except (FileNotFoundError, ValueError):
