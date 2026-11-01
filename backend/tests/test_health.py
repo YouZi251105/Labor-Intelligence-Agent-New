@@ -11,7 +11,7 @@ def test_health_endpoint() -> None:
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["service"] == "labor-intelligence-agent"
-    assert payload["version"] == "0.1.0"
+    assert payload["version"] == "0.2.0"
     assert payload["environment"] in {"development", "test", "production"}
 
 

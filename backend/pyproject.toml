@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "labor-intelligence-agent-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "FastAPI backend for the Labor Intelligence Agent"
 requires-python = ">=3.12"
 dependencies = [
@@ -63,5 +63,12 @@ warn_unused_ignores = true
 exclude = ["alembic/"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "celery.*", "pytesseract", "reportlab", "reportlab.*"]
+module = [
+  "boto3",
+  "celery",
+  "celery.*",
+  "pytesseract",
+  "reportlab",
+  "reportlab.*",
+]
 ignore_missing_imports = true

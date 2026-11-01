@@ -1,4 +1,4 @@
-# Labor Intelligence Agent
+# Labor Intelligence Agent 0.2.0
 
 面向基层劳动者的劳动纠纷法律服务平台。当前已完成可运行的业务 Demo，覆盖咨询、案件、证据、合同、文书和律师协作基础流程。
 
@@ -74,6 +74,7 @@ docs/      需求、架构和实施文档
 - [法律内容迁移与责任边界](docs/development/法律内容迁移与责任边界.md)
 - [开发与测试指南](docs/development/开发与测试指南.md)
 - [安全与权限说明](docs/security/安全与权限说明.md)
+- [部署与恢复](docs/deployment/部署与恢复.md)
 - [API 概览](docs/api/API概览.md)
 - [接口契约 v1](docs/api/接口契约_v1.md)
 - [OpenAPI v1 JSON](docs/api/openapi.v1.json)
@@ -140,6 +141,8 @@ docker compose up --build
 ```
 
 当前机器未安装 Docker，因此 Compose 配置尚未在本机实际启动验证。
+
+Compose 会启用 PostgreSQL、MinIO/S3 和 Celery；后端启动时会执行 Alembic 迁移，创建镜像后可用 `/metrics` 查看基础请求指标。完整部署、备份和恢复步骤见 [部署与恢复](docs/deployment/部署与恢复.md)。
 
 ## 安全约定
 

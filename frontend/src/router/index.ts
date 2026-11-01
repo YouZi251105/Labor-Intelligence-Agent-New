@@ -2,18 +2,20 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AppLayout from '../layouts/AppLayout.vue'
 import { useAuthStore } from '../stores/auth'
-import AdminDashboardView from '../views/AdminDashboardView.vue'
-import CaseDetailView from '../views/CaseDetailView.vue'
-import CasesView from '../views/CasesView.vue'
-import HelpCenterView from '../views/HelpCenterView.vue'
-import LawyerDashboardView from '../views/LawyerDashboardView.vue'
-import LoginView from '../views/LoginView.vue'
-import ModulePlaceholderView from '../views/ModulePlaceholderView.vue'
-import SimulationView from '../views/SimulationView.vue'
-import WorkspaceView from '../views/WorkspaceView.vue'
+
+const LoginView = () => import('../views/LoginView.vue')
+const WorkspaceView = () => import('../views/WorkspaceView.vue')
+const CasesView = () => import('../views/CasesView.vue')
+const CaseDetailView = () => import('../views/CaseDetailView.vue')
+const ModulePlaceholderView = () => import('../views/ModulePlaceholderView.vue')
+const SimulationView = () => import('../views/SimulationView.vue')
+const HelpCenterView = () => import('../views/HelpCenterView.vue')
+const LawyerDashboardView = () => import('../views/LawyerDashboardView.vue')
+const AdminDashboardView = () => import('../views/AdminDashboardView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior: () => ({ top: 0 }),
   routes: [
     {
       path: '/login',
