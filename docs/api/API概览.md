@@ -99,7 +99,11 @@ Content-Type: application/json
 |---|---|---|
 | GET | `/cases/{case_id}/evidence` | 材料列表和缺口评估 |
 | POST | `/cases/{case_id}/evidence` | multipart 上传材料 |
+| POST | `/cases/{case_id}/evidence/{evidence_id}/extract` | 重新提取文本 |
+| GET | `/cases/{case_id}/evidence/{evidence_id}/download` | 下载原始材料 |
+| GET | `/cases/{case_id}/evidence-assessment` | 证据四性评估 |
 | POST | `/cases/{case_id}/contract-review` | 合同文本审查 |
+| POST | `/cases/{case_id}/contract-review/file` | 合同文件提取审查 |
 
 上传字段：
 
@@ -122,6 +126,8 @@ file
 | GET | `/cases/{case_id}/documents` | 文书列表 |
 | POST | `/cases/{case_id}/documents` | 生成文书 |
 | GET | `/cases/{case_id}/documents/{document_id}/download` | 下载 TXT |
+| GET | `/cases/{case_id}/documents/{document_id}/export` | 导出 DOCX/PDF |
+| POST | `/cases/{case_id}/documents/{document_id}/revisions` | 保存新版本 |
 
 生成参数：
 
@@ -142,6 +148,10 @@ file
 | 方法 | 路径 | 说明 | 权限 |
 |---|---|---|---|
 | GET | `/lawyer/cases` | 已分配案件 | 律师 |
+| GET/POST | `/lawyer/opinions`、`/lawyer/cases/{id}/opinions` | 律师意见 | 律师 |
+| GET/POST | `/lawyer/service-records` | 服务记录 | 律师 |
+| PATCH | `/lawyer/service-records/{id}/status` | 更新服务状态 | 律师 |
+| GET/POST | `/lawyer/revenue` | 收益台账 | 律师 |
 
 ## 8. 管理
 
@@ -153,6 +163,12 @@ file
 | GET | `/admin/lawyers` | 律师列表 | 管理员 |
 | GET | `/admin/cases` | 全部案件 | 管理员 |
 | POST | `/admin/cases/{case_id}/assign` | 分配律师 | 管理员 |
+| GET | `/admin/materials` | 材料元数据 | 管理员 |
+| GET | `/admin/audit-logs` | 审计日志 | 管理员 |
+| GET/PATCH | `/admin/rules`、`/admin/rules/{id}` | 规则复核 | 管理员 |
+| PATCH | `/admin/lawyers/{id}/status` | 律师状态 | 管理员 |
+| GET | `/admin/service-records`、`/admin/revenue` | 服务与收益 | 管理员 |
+| PATCH | `/admin/revenue/{id}/status` | 收益状态 | 管理员 |
 
 分配参数：
 
@@ -162,7 +178,20 @@ file
 }
 ```
 
-## 9. 错误格式
+## 9. 模拟、帮助与历史
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET/POST | `/cases/{case_id}/simulations` | 模拟会话 |
+| GET | `/cases/{case_id}/simulations/{session_id}` | 模拟详情 |
+| POST | `/cases/{case_id}/simulations/{session_id}/messages` | 发送表达并评分 |
+| GET | `/help/resources` | 仲裁、法院和法律援助入口 |
+| GET | `/help/site-lawyers` | 本站律师 |
+| GET/PUT | `/users/me/profile` | 实名资料 |
+| GET | `/analytics/history` | 当前用户历史 |
+| GET | `/analytics/topics` | 匿名纠纷类型聚合 |
+
+## 10. 错误格式
 
 FastAPI 默认错误格式：
 
@@ -181,10 +210,10 @@ FastAPI 默认错误格式：
 - `409`：用户名或材料重复。
 - `500`：服务端异常。
 
-## 10. 当前版本说明
+## 11. 当前版本说明
 
-- 接口尚无版本兼容策略。
-- 文书只返回文本内容。
-- 证据未接入 OCR。
+- 新增字段保持 v1 向后兼容，破坏性变更必须使用新版本。
+- 文书支持 TXT、DOCX 和 PDF 导出。
+- TXT、可复制 PDF 和 DOCX 支持文本提取；图片 OCR 取决于本机或外部 Provider。
 - 未提供 WebSocket，AI 回复当前为普通 JSON。
-- 生产环境需要补充限流、审计查询和更细粒度权限。
+- 审计查询已提供管理员接口；生产环境仍需补充限流、监控和更细粒度权限。
