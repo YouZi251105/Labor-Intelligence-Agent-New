@@ -78,6 +78,15 @@ python -m venv .venv
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
 
+如果使用的 IDE 或部署工具只识别 `requirements.txt`，可以改用：
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m pip install -r requirements-dev.txt
+```
+
+项目根目录也提供 `requirements.txt` 和 `requirements-dev.txt` 兼容入口。`pyproject.toml` 仍是主依赖声明。
+
 访问：
 
 - API 文档：<http://localhost:8000/docs>

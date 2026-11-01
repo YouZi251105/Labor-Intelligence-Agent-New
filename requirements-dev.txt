@@ -1,0 +1,2 @@
+# Compatibility entry point for tools that inspect the repository root.
+-r backend/requirements-dev.txt

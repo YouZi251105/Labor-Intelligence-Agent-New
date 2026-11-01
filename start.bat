@@ -32,7 +32,11 @@ if not exist "%~dp0backend\.venv\.lia-deps-installed" (
     ".venv\Scripts\python.exe" -m pip install --upgrade pip
     if errorlevel 1 goto backend_setup_failed
     ".venv\Scripts\python.exe" -m pip install -e ".[dev]"
-    if errorlevel 1 goto backend_setup_failed
+    if errorlevel 1 (
+        echo Editable package install failed. Retrying with requirements-dev.txt...
+        ".venv\Scripts\python.exe" -m pip install -r requirements-dev.txt
+        if errorlevel 1 goto backend_setup_failed
+    )
     type nul > ".venv\.lia-deps-installed"
     popd
 ) else (
