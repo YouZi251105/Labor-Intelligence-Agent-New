@@ -10,13 +10,14 @@
 - PostgreSQL/pgvector、Redis、Celery、MinIO 的开发环境配置。
 - 浅色法律风格视觉基线。
 - 多轮 AI 咨询、案件上下文和本地演示规则。
-- 证据上传与材料缺口提示。
-- 合同文本风险审查。
-- 协商和解协议、仲裁申请书和民事起诉状草稿。
-- 管理员律师分配和律师案件工作台。
-- 自动化测试和构建流程。
+- 证据上传、PDF/DOCX 提取、四性评估和材料缺口提示。
+- 合同文本风险审查和文件提取审查。
+- 协商和解协议、仲裁申请书和民事起诉状草稿，支持 TXT/DOCX/PDF 导出。
+- 律师意见、服务记录、收益台账和管理员分配。
+- AI 角色模拟、评分、帮助目录、本站律师和匿名话题。
+- 自动化测试、类型检查、静态检查和构建流程。
 
-当前 AI 默认为本地演示规则；配置千问 API Key 后会调用真实模型。证据 OCR、DOCX/PDF 导出、在线支付和正式电子存证仍属于后续阶段。
+当前 AI 默认为本地演示规则；配置千问 API Key 后会调用真实模型。扫描版 OCR、在线支付、正式电子存证和公开律师市场仍属于后续或首期外范围。
 
 ## 演示账号
 
@@ -38,11 +39,17 @@
 
 ![管理后台](docs/screenshots/admin-desktop.png)
 
+![模拟对话](docs/screenshots/simulation-desktop.png)
+
+![维权帮助](docs/screenshots/help-desktop.png)
+
 移动端预览：
 
 - [登录页](docs/screenshots/login-mobile.png)
 - [咨询工作台](docs/screenshots/workspace-mobile.png)
 - [案件工作台](docs/screenshots/case-workspace-mobile.png)
+- [模拟对话](docs/screenshots/simulation-mobile.png)
+- [维权帮助](docs/screenshots/help-mobile.png)
 
 ## 目录
 
@@ -143,8 +150,7 @@ docker compose up --build
 
 ## 后续里程碑
 
-1. 接入真实 OCR 和 DOCX/PDF 导出。
-2. 完善案件状态机和程序期限提醒。
-3. 完善证据筛查、合同审查和人工复核。
-4. 增加律师服务记录和收益台账。
-5. 完成生产级数据安全、对象存储和部署。
+1. 完善生产级 OCR、对象存储和异步任务。
+2. 完善案件期限提醒和更细的纠纷规则。
+3. 增加正式律师资质审核和运营流程。
+4. 完成监控、备份恢复和部署验证。

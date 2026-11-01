@@ -203,3 +203,166 @@ export interface EvidenceAssessmentResponse {
   completeness: CompletenessAssessment
   disclaimer: string
 }
+
+export type SimulationRole = 'boss' | 'hr' | 'arbitrator' | 'judge' | 'lawyer'
+
+export interface SimulationScore {
+  clarity: number
+  evidence_awareness: number
+  legal_appropriateness: number
+  overall: number
+  suggestions: string[]
+}
+
+export interface SimulationMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  score: SimulationScore | null
+  created_at: string
+}
+
+export interface SimulationSession {
+  id: number
+  case_id: number
+  user_id: number
+  role_type: SimulationRole
+  scenario: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SimulationSessionDetail extends SimulationSession {
+  messages: SimulationMessage[]
+}
+
+export interface SimulationReply {
+  session: SimulationSession
+  user_message: SimulationMessage
+  assistant_message: SimulationMessage
+  score: SimulationScore
+}
+
+export interface HelpResource {
+  id: number
+  resource_type: string
+  name: string
+  region: string
+  address: string
+  website: string
+  phone: string
+  description: string
+  status: string
+  created_at: string
+}
+
+export interface SiteLawyer {
+  id: number
+  display_name: string
+  specialties: string
+  bio: string
+  status: string
+}
+
+export interface TopicSummary {
+  dispute_type: string
+  label: string
+  count: number
+}
+
+export interface TopicsResponse {
+  topics: TopicSummary[]
+  total: number
+}
+
+export interface HistoryCaseSummary {
+  case_id: number
+  title: string
+  dispute_type: string
+  stage: string
+  summary: string
+  updated_at: string
+}
+
+export interface HistoryResponse {
+  cases: HistoryCaseSummary[]
+}
+
+export interface LawyerOpinion {
+  id: number
+  case_id: number
+  lawyer_id: number
+  content: string
+  status: string
+  created_at: string
+}
+
+export interface ServiceRecord {
+  id: number
+  case_id: number
+  lawyer_id: number
+  service_type: string
+  summary: string
+  duration_minutes: number
+  status: string
+  occurred_at: string
+  created_at: string
+}
+
+export interface RevenueLedger {
+  id: number
+  lawyer_id: number
+  case_id: number | null
+  service_record_id: number | null
+  amount_cents: number
+  entry_type: string
+  status: string
+  note: string
+  created_at: string
+}
+
+export interface MaterialSummary {
+  id: number
+  case_id: number
+  filename: string
+  content_type: string
+  file_size: number
+  category: string
+  screening_status: string
+  extraction_status: string
+  created_at: string
+}
+
+export interface AuditLogItem {
+  id: number
+  actor_id: number | null
+  action: string
+  object_type: string
+  object_id: number
+  metadata_json: Record<string, unknown>
+  created_at: string
+}
+
+export interface RuleConfigItem {
+  id: number
+  dispute_type: string
+  name: string
+  evidence_requirements: string[]
+  next_steps: string[]
+  source_note: string
+  review_status: string
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface UserProfileItem {
+  user_id: number
+  real_name: string
+  phone: string
+  id_number_masked: string
+  verification_status: 'unverified' | 'pending' | 'verified' | 'rejected'
+  created_at: string
+  updated_at: string
+}

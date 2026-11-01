@@ -1,0 +1,120 @@
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+def auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def login(client: TestClient, username: str, password: str) -> str:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"username": username, "password": password},
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def test_help_resources_and_site_lawyers_are_available() -> None:
+    with TestClient(app) as client:
+        token = login(client, "demo", "Demo123!")
+        resources = client.get("/api/v1/help/resources", headers=auth(token))
+        lawyers = client.get("/api/v1/help/site-lawyers", headers=auth(token))
+
+    assert resources.status_code == 200
+    assert any(item["resource_type"] == "arbitration" for item in resources.json())
+    assert lawyers.status_code == 200
+    assert lawyers.json()
+    assert "password_hash" not in lawyers.json()[0]
+    assert "phone" not in lawyers.json()[0]
+
+
+def test_profile_masks_identity_number_and_is_user_scoped() -> None:
+    with TestClient(app) as client:
+        token = login(client, "demo", "Demo123!")
+        updated = client.put(
+            "/api/v1/users/me/profile",
+            headers=auth(token),
+            json={
+                "real_name": "张三",
+                "phone": "13800000000",
+                "id_number": "110101199001011234",
+            },
+        )
+        fetched = client.get("/api/v1/users/me/profile", headers=auth(token))
+
+    assert updated.status_code == 200
+    payload = updated.json()
+    assert payload["id_number_masked"] == "110***********1234"
+    assert payload["verification_status"] == "pending"
+    assert "id_number" not in payload
+    assert "id_number_hash" not in payload
+    assert fetched.json()["real_name"] == "张三"
+
+
+def test_topics_only_expose_aggregated_dispute_counts() -> None:
+    with TestClient(app) as client:
+        token = login(client, "demo", "Demo123!")
+        created = client.post(
+            "/api/v1/cases",
+            headers=auth(token),
+            json={
+                "title": "匿名聚合测试",
+                "dispute_type": "overtime",
+                "facts": "这一段不应出现在公共话题中的原始案情。",
+            },
+        )
+        case_id = created.json()["id"]
+        client.post(
+            f"/api/v1/cases/{case_id}/consultations",
+            headers=auth(token),
+            json={"message": "请问加班费如何准备证据？"},
+        )
+        topics = client.get("/api/v1/analytics/topics", headers=auth(token))
+
+    assert topics.status_code == 200
+    serialized = topics.text
+    assert "原始案情" not in serialized
+    assert "case_id" not in serialized
+    assert "user_id" not in serialized
+    assert any(item["dispute_type"] == "overtime" for item in topics.json()["topics"])
+
+
+def test_admin_can_review_rules_and_query_audit_logs() -> None:
+    with TestClient(app) as client:
+        admin_token = login(client, "admin", "Admin123!")
+        rules = client.get("/api/v1/admin/rules", headers=auth(admin_token))
+        assert rules.status_code == 200
+        rule_id = rules.json()[0]["id"]
+        updated = client.patch(
+            f"/api/v1/admin/rules/{rule_id}",
+            headers=auth(admin_token),
+            json={
+                "review_status": "approved",
+                "source_note": "法律内容负责人演示复核",
+            },
+        )
+        audit = client.get(
+            "/api/v1/admin/audit-logs?action=admin.rule_reviewed",
+            headers=auth(admin_token),
+        )
+        user_token = login(client, "demo", "Demo123!")
+        forbidden = client.get("/api/v1/admin/audit-logs", headers=auth(user_token))
+
+    assert updated.status_code == 200
+    assert updated.json()["review_status"] == "approved"
+    assert audit.status_code == 200
+    assert audit.json()
+    assert forbidden.status_code == 403
+
+
+def test_admin_material_list_omits_material_text() -> None:
+    with TestClient(app) as client:
+        admin_token = login(client, "admin", "Admin123!")
+        response = client.get("/api/v1/admin/materials", headers=auth(admin_token))
+
+    assert response.status_code == 200
+    if response.json():
+        assert "text_content" not in response.json()[0]
+        assert "assessment" not in response.json()[0]

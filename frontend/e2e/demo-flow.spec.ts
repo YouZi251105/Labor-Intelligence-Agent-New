@@ -142,8 +142,9 @@ test('admin can open the management dashboard', async ({ page }, testInfo) => {
   await expect(page.getByRole('heading', { name: '管理后台' })).toBeVisible()
   await expect(page.getByText('案件与律师')).toBeVisible()
   await expect(page.getByText('用户管理', { exact: true })).toBeVisible()
+  await expect(page.locator('.metric-grid article').first().locator('strong')).not.toHaveText('0')
   await page.screenshot({
-    path: testInfo.outputPath(`admin-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/admin-${testInfo.project.name}.png`,
     fullPage: true,
   })
 })
@@ -153,7 +154,7 @@ test('lawyer can open the assigned-case dashboard', async ({ page }, testInfo) =
   await expect(page.getByRole('heading', { name: '律师工作台' })).toBeVisible()
   await expect(page.getByText('这里只展示管理员已经分配给你的案件')).toBeVisible()
   await page.screenshot({
-    path: testInfo.outputPath(`lawyer-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/lawyer-${testInfo.project.name}.png`,
     fullPage: true,
   })
 })
@@ -186,4 +187,39 @@ test('image evidence shows OCR-required status without OCR engine', async ({ pag
     buffer: jpeg,
   })
   await expect(page.getByText('待 OCR').first()).toBeVisible()
+})
+
+test('worker can practise a role simulation and receive coaching', async ({ page }, testInfo) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, `模拟训练-${testInfo.project.name}`)
+  await page.goto(`/simulation?caseId=${caseId}`)
+
+  await expect(page.getByRole('heading', { name: '模拟对话训练' })).toBeVisible()
+  await page.getByLabel('模拟角色').selectOption('boss')
+  await page.getByLabel('训练场景').fill('向老板确认拖欠工资的支付时间')
+  await page.getByRole('button', { name: '开始模拟' }).click()
+  await page.getByLabel('你的表达').fill('请您确认9月和10月工资的支付时间，并书面确认金额。')
+  await page.getByRole('button', { name: '发送并评分' }).click()
+
+  await expect(page.getByText(/综合评分/)).toBeVisible()
+  await expect(page.locator('.simulation-message--assistant')).toContainText('模拟')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.screenshot({
+    path: `../docs/screenshots/simulation-${testInfo.project.name}.png`,
+    fullPage: true,
+  })
+})
+
+test('help center shows official resources and site lawyers', async ({ page }, testInfo) => {
+  await login(page, 'demo', 'Demo123!')
+  await page.goto('/help')
+
+  await expect(page.getByRole('heading', { name: '维权帮助' })).toBeVisible()
+  await expect(page.getByText('全国人社政务服务平台')).toBeVisible()
+  await expect(page.getByText('李律师')).toBeVisible()
+  await expect(page.getByText('申请人工协助')).toBeVisible()
+  await page.screenshot({
+    path: `../docs/screenshots/help-${testInfo.project.name}.png`,
+    fullPage: true,
+  })
 })

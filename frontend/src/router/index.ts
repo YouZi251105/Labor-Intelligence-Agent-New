@@ -5,9 +5,11 @@ import { useAuthStore } from '../stores/auth'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
 import CaseDetailView from '../views/CaseDetailView.vue'
 import CasesView from '../views/CasesView.vue'
+import HelpCenterView from '../views/HelpCenterView.vue'
 import LawyerDashboardView from '../views/LawyerDashboardView.vue'
 import LoginView from '../views/LoginView.vue'
 import ModulePlaceholderView from '../views/ModulePlaceholderView.vue'
+import SimulationView from '../views/SimulationView.vue'
 import WorkspaceView from '../views/WorkspaceView.vue'
 
 const router = createRouter({
@@ -55,22 +57,14 @@ const router = createRouter({
         {
           path: 'simulation',
           name: 'simulation',
-          component: ModulePlaceholderView,
-          meta: {
-            title: '模拟对话',
-            eyebrow: '沟通训练',
-            description: '后续将支持老板、仲裁员、法官和律师角色模拟、评分与建议。',
-          },
+          component: SimulationView,
+          meta: { title: '模拟对话' },
         },
         {
           path: 'help',
           name: 'help',
-          component: ModulePlaceholderView,
-          meta: {
-            title: '维权帮助',
-            eyebrow: '服务支持',
-            description: '后续将展示仲裁委、法院入口、办理指南和本站律师。',
-          },
+          component: HelpCenterView,
+          meta: { title: '维权帮助' },
         },
         {
           path: 'lawyer',
