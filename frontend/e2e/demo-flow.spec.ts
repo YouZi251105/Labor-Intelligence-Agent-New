@@ -92,7 +92,9 @@ test('worker can consult, review a contract, and generate a document', async ({ 
     ),
   })
   await expect(page.getByText(evidenceName)).toBeVisible()
-  await expect(page.getByText(/已有材料：/)).toBeVisible()
+  await expect(page.getByText('证据四性评估')).toBeVisible()
+  await expect(page.getByText('完整性')).toBeVisible()
+  await expect(page.getByText('已提取').first()).toBeVisible()
 
   await page.getByRole('button', { name: '合同审查' }).click()
   await page.locator('.large-textarea').fill(
@@ -154,4 +156,34 @@ test('lawyer can open the assigned-case dashboard', async ({ page }, testInfo) =
     path: testInfo.outputPath(`lawyer-${testInfo.project.name}.png`),
     fullPage: true,
   })
+})
+
+test('evidence upload shows error for unsupported file type', async ({ page }, testInfo) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, `异常-不支持类型-${testInfo.project.name}`, true)
+  await page.goto(`/cases/${caseId}`)
+  await page.getByRole('button', { name: '证据材料' }).click()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'program.exe',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('MZ not-a-valid-upload'),
+  })
+  await expect(page.getByText(/不支持的文件类型/)).toBeVisible()
+})
+
+test('image evidence shows OCR-required status without OCR engine', async ({ page }, testInfo) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, `异常-图片OCR-${testInfo.project.name}`, true)
+  await page.goto(`/cases/${caseId}`)
+  await page.getByRole('button', { name: '证据材料' }).click()
+  const jpeg = Buffer.from(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q==',
+    'base64',
+  )
+  await page.locator('input[type="file"]').setInputFiles({
+    name: '现场照片.jpg',
+    mimeType: 'image/jpeg',
+    buffer: jpeg,
+  })
+  await expect(page.getByText('待 OCR').first()).toBeVisible()
 })

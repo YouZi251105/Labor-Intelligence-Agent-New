@@ -13,7 +13,7 @@ def main() -> None:
         json.dumps(app.openapi(), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"OpenAPI exported to {OUTPUT_PATH}")
+    print(f"OpenAPI exported to {OUTPUT_PATH.relative_to(ROOT_DIR).as_posix()}")
 
 
 if __name__ == "__main__":

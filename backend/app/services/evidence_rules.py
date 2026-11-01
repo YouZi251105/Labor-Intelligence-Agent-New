@@ -1,0 +1,184 @@
+"""独立证据规则模块（开发 B 负责）。
+
+接收结构化输入（纠纷类型 + 证据条目列表），返回可解释的"四性"判断结果：
+
+- legality     合法性：形式异常与隔离状态复核。
+- relevance    关联性：证据类别是否与案件纠纷类型相关。
+- sufficiency  充分性：核心证据类别是否具备。
+- completeness 完整性：所需证据类别覆盖与缺口。
+
+设计约束：
+
+- 与上传、存储、权限和数据库解耦，只接收结构化输入、返回可解释结果。
+- 不直接改变案件状态，不修改 routes/evidence.py、services/evidence.py、
+  证据模型或数据库迁移。
+- 结果只用于材料整理提示，不下真伪鉴定结论。
+
+规则样例为本地演示规则，正式法律依据由法律内容负责人复核后补充。
+"""
+
+from typing import Any
+
+# 纠纷类型 -> 需要覆盖的证据类别（完整性，与演示规则一致）
+REQUIRED_CATEGORIES: dict[str, list[str]] = {
+    "wage": ["payroll", "chat", "contract"],
+    "termination": ["contract", "chat", "payroll"],
+    "contract": ["contract", "chat", "attendance"],
+    "overtime": ["attendance", "chat", "payroll"],
+    "injury": ["medical", "chat", "contract"],
+    "insurance": ["social_insurance", "payroll", "contract"],
+    "service_pay": ["settlement", "chat", "payroll"],
+    "general": ["contract", "chat", "payroll"],
+}
+
+# 纠纷类型 -> 核心证据类别（充分性，缺失时提示优先补充）
+CORE_CATEGORIES: dict[str, list[str]] = {
+    "wage": ["payroll", "chat"],
+    "termination": ["contract", "chat"],
+    "contract": ["contract", "chat"],
+    "overtime": ["attendance", "chat"],
+    "injury": ["medical", "chat"],
+    "insurance": ["social_insurance", "payroll"],
+    "service_pay": ["settlement", "chat"],
+    "general": ["contract", "chat"],
+}
+
+CATEGORY_LABELS: dict[str, str] = {
+    "contract": "合同或协议",
+    "chat": "聊天记录",
+    "payroll": "工资或转账记录",
+    "attendance": "考勤或排班记录",
+    "medical": "就医或伤情材料",
+    "social_insurance": "社保记录",
+    "settlement": "结算单",
+    "other": "其他材料",
+}
+
+# 允许的文件 MIME 前缀（形式合法性，与上传校验边界一致）
+ALLOWED_CONTENT_TYPES = (
+    "image/",
+    "application/pdf",
+    "text/",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+)
+
+MAX_FILE_SIZE = 20 * 1024 * 1024
+
+DISCLAIMER = "规则评估仅用于材料整理提示，不构成证据合法性或证明力结论。"
+
+
+def assess_evidence_rules(
+    dispute_type: str,
+    items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """评估证据四性，返回可解释的判断结果。
+
+    参数 ``items`` 中每一项至少包含 ``category`` 和 ``screening_status``，
+    可选 ``filename``、``content_type``、``file_size``。
+
+    返回值不直接修改案件状态，仅提供结构化、可解释的提示。
+    """
+    required = REQUIRED_CATEGORIES.get(dispute_type, REQUIRED_CATEGORIES["general"])
+    core = CORE_CATEGORIES.get(dispute_type, CORE_CATEGORIES["general"])
+
+    present = sorted({item.get("category", "other") for item in items})
+    missing = [category for category in required if category not in present]
+    missing_core = [category for category in core if category not in present]
+
+    legality = _assess_legality(items)
+    relevance = _assess_relevance(dispute_type, required, items)
+    sufficiency = _assess_sufficiency(core, missing_core)
+    completeness = _assess_completeness(required, present, missing)
+
+    return {
+        "legality": legality,
+        "relevance": relevance,
+        "sufficiency": sufficiency,
+        "completeness": completeness,
+        "disclaimer": DISCLAIMER,
+    }
+
+
+def _assess_legality(items: list[dict[str, Any]]) -> dict[str, Any]:
+    findings: list[dict[str, str]] = []
+    for item in items:
+        name = item.get("filename") or item.get("category") or "材料"
+        if item.get("screening_status") == "quarantined":
+            findings.append(
+                {"level": "issue", "message": f"{name} 已被隔离，需人工复核。"}
+            )
+            continue
+
+        content_type = item.get("content_type", "")
+        if content_type and not content_type.startswith(ALLOWED_CONTENT_TYPES):
+            findings.append(
+                {"level": "issue", "message": f"{name} 文件形式异常，需人工确认。"}
+            )
+
+        file_size = item.get("file_size")
+        if isinstance(file_size, int) and file_size > MAX_FILE_SIZE:
+            findings.append(
+                {"level": "issue", "message": f"{name} 超过 20MB 限制。"}
+            )
+
+    status = "issue" if any(f["level"] == "issue" for f in findings) else "ok"
+    return {"status": status, "findings": findings}
+
+
+def _assess_relevance(
+    dispute_type: str,
+    required: list[str],
+    items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    findings: list[dict[str, str]] = []
+    for item in items:
+        category = item.get("category", "other")
+        if category == "other":
+            findings.append(
+                {
+                    "level": "warning",
+                    "message": "存在未识别类别的材料，关联性需要人工确认。",
+                }
+            )
+        elif category not in required:
+            findings.append(
+                {
+                    "level": "warning",
+                    "message": (
+                        f"{CATEGORY_LABELS.get(category, category)} 与"
+                        f"“{dispute_type}”案件的关联性需要人工确认。"
+                    ),
+                }
+            )
+
+    status = "warning" if findings else "ok"
+    return {"status": status, "findings": findings}
+
+
+def _assess_sufficiency(
+    core: list[str],
+    missing_core: list[str],
+) -> dict[str, Any]:
+    if not missing_core:
+        return {"status": "ok", "findings": []}
+
+    labels = [CATEGORY_LABELS.get(item, item) for item in missing_core]
+    findings = [
+        {"level": "issue", "message": f"缺少核心证据：{'、'.join(labels)}。"}
+    ]
+    return {"status": "issue", "findings": findings}
+
+
+def _assess_completeness(
+    required: list[str],
+    present: list[str],
+    missing: list[str],
+) -> dict[str, Any]:
+    return {
+        "status": "ready" if not missing else "needs_more",
+        "required_categories": required,
+        "present_categories": present,
+        "missing_categories": missing,
+        "missing_labels": [CATEGORY_LABELS.get(item, item) for item in missing],
+    }

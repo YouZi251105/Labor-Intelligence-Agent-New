@@ -1,10 +1,9 @@
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.case import Case, Conversation, Message
-from app.models.user import User
 from app.schemas.case import (
     CaseCreate,
     CaseRead,

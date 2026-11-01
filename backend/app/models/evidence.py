@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -25,3 +25,15 @@ class Evidence(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+    @property
+    def extraction_status(self) -> str:
+        return str((self.assessment or {}).get("extraction", {}).get("status", "pending"))
+
+    @property
+    def extraction_message(self) -> str:
+        return str((self.assessment or {}).get("extraction", {}).get("message", ""))
+
+    @property
+    def text_preview(self) -> str:
+        return self.text_content[:500]

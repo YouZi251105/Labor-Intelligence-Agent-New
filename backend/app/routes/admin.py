@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 
-from app.api.deps import CurrentUser, DbSession, require_roles
+from app.api.deps import DbSession, require_roles
 from app.core.security import hash_password
 from app.models.audit import AuditLog
 from app.models.case import Case

@@ -90,7 +90,7 @@ def _required_actions(
         if case.stage != "evidence":
             return []
         assessment = assess_case_evidence(case, evidence_items)
-        return assessment["missing_labels"]
+        return [str(item) for item in assessment["missing_labels"]]
     if stage == "procedure":
         return ["确认协商或仲裁路径"]
     if stage == "document":

@@ -1,7 +1,9 @@
 import hashlib
 from pathlib import Path
+from typing import Annotated, Any
+from urllib.parse import quote
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
@@ -9,18 +11,34 @@ from app.models.audit import AuditLog
 from app.models.evidence import Evidence
 from app.routes.cases import get_accessible_case
 from app.schemas.evidence import (
+    ContractFileReviewResponse,
     ContractReviewRequest,
     ContractReviewResponse,
+    EvidenceExtractionResponse,
     EvidenceRead,
 )
 from app.services.evidence import (
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_SIZE,
     assess_case_evidence,
     detect_category,
     review_contract,
     save_upload,
+    validate_signature,
 )
+from app.services.extraction import ExtractionResult, extract_text_from_bytes
 
 router = APIRouter(prefix="/cases", tags=["evidence"])
+
+
+def apply_extraction(evidence: Evidence, result: ExtractionResult) -> None:
+    evidence.text_content = result.text
+    evidence.screening_status = (
+        "accepted" if result.status == "extracted" else "needs_review"
+    )
+    assessment = dict(evidence.assessment or {})
+    assessment["extraction"] = result.as_assessment()
+    evidence.assessment = assessment
 
 
 @router.get("/{case_id}/evidence")
@@ -28,7 +46,7 @@ async def list_case_evidence(
     case_id: int,
     session: DbSession,
     user: CurrentUser,
-) -> dict:
+) -> dict[str, Any]:
     case = await get_accessible_case(case_id, session, user)
     results = await session.scalars(
         select(Evidence)
@@ -51,7 +69,7 @@ async def upload_case_evidence(
     case_id: int,
     session: DbSession,
     user: CurrentUser,
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File()],
 ) -> Evidence:
     case = await get_accessible_case(case_id, session, user)
     filename = Path(file.filename or "未命名材料").name
@@ -71,14 +89,12 @@ async def upload_case_evidence(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
 
-    text_content = ""
-    if stored_path.suffix.lower() == ".txt":
-        try:
-            text_content = content.decode("utf-8")
-        except UnicodeDecodeError:
-            text_content = content.decode("utf-8", errors="ignore")
-
-    category = detect_category(filename, file.content_type or "", text_content)
+    extraction = extract_text_from_bytes(
+        filename,
+        content,
+        file.content_type or "",
+    )
+    category = detect_category(filename, file.content_type or "", extraction.text)
     evidence = Evidence(
         case_id=case_id,
         uploader_id=user.id,
@@ -88,7 +104,11 @@ async def upload_case_evidence(
         file_size=len(content),
         sha256=digest,
         category=category,
-        text_content=text_content,
+        text_content=extraction.text,
+        screening_status=(
+            "accepted" if extraction.status == "extracted" else "needs_review"
+        ),
+        assessment={"extraction": extraction.as_assessment()},
     )
     session.add(evidence)
     await session.flush()
@@ -96,7 +116,9 @@ async def upload_case_evidence(
     all_evidence = list(
         await session.scalars(select(Evidence).where(Evidence.case_id == case_id))
     )
-    evidence.assessment = assess_case_evidence(case, all_evidence)
+    assessment = assess_case_evidence(case, all_evidence)
+    assessment["extraction"] = extraction.as_assessment()
+    evidence.assessment = assessment
     case.stage = "evidence"
     session.add(
         AuditLog(
@@ -107,9 +129,99 @@ async def upload_case_evidence(
             metadata_json={"category": category, "sha256": digest},
         )
     )
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="evidence.extracted",
+            object_type="evidence",
+            object_id=evidence.id,
+            metadata_json={"status": extraction.status, "provider": extraction.provider},
+        )
+    )
     await session.commit()
     await session.refresh(evidence)
     return evidence
+
+
+@router.post(
+    "/{case_id}/evidence/{evidence_id}/extract",
+    response_model=EvidenceExtractionResponse,
+)
+async def retry_evidence_extraction(
+    case_id: int,
+    evidence_id: int,
+    session: DbSession,
+    user: CurrentUser,
+) -> EvidenceExtractionResponse:
+    await get_accessible_case(case_id, session, user)
+    evidence = await session.get(Evidence, evidence_id)
+    if evidence is None or evidence.case_id != case_id:
+        raise HTTPException(status_code=404, detail="材料不存在")
+    stored_path = Path(evidence.stored_path)
+    if not stored_path.exists():
+        raise HTTPException(status_code=404, detail="材料文件不存在")
+
+    extraction = extract_text_from_bytes(
+        evidence.filename,
+        stored_path.read_bytes(),
+        evidence.content_type,
+    )
+    apply_extraction(evidence, extraction)
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="evidence.extraction_retried",
+            object_type="evidence",
+            object_id=evidence.id,
+            metadata_json={"status": extraction.status, "provider": extraction.provider},
+        )
+    )
+    await session.commit()
+    await session.refresh(evidence)
+    return EvidenceExtractionResponse(
+        evidence_id=evidence.id,
+        extraction_status=extraction.status,
+        extracted_text=extraction.text,
+        message=extraction.message,
+    )
+
+
+@router.get("/{case_id}/evidence/{evidence_id}/download")
+async def download_evidence(
+    case_id: int,
+    evidence_id: int,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    await get_accessible_case(case_id, session, user)
+    evidence = await session.get(Evidence, evidence_id)
+    if evidence is None or evidence.case_id != case_id:
+        raise HTTPException(status_code=404, detail="材料不存在")
+    stored_path = Path(evidence.stored_path)
+    if not stored_path.exists():
+        raise HTTPException(status_code=404, detail="材料文件不存在")
+
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="evidence.downloaded",
+            object_type="evidence",
+            object_id=evidence.id,
+            metadata_json={"content_type": evidence.content_type},
+        )
+    )
+    await session.commit()
+    encoded_name = quote(evidence.filename)
+    return Response(
+        content=stored_path.read_bytes(),
+        media_type=evidence.content_type,
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=\"evidence-{evidence.id}{stored_path.suffix}\"; "
+                f"filename*=UTF-8''{encoded_name}"
+            )
+        },
+    )
 
 
 @router.post("/{case_id}/contract-review", response_model=ContractReviewResponse)
@@ -118,7 +230,7 @@ async def review_case_contract(
     payload: ContractReviewRequest,
     session: DbSession,
     user: CurrentUser,
-) -> dict:
+) -> dict[str, Any]:
     case = await get_accessible_case(case_id, session, user)
     result = review_contract(payload.text)
     session.add(
@@ -132,3 +244,56 @@ async def review_case_contract(
     )
     await session.commit()
     return result
+
+
+@router.post(
+    "/{case_id}/contract-review/file",
+    response_model=ContractFileReviewResponse,
+)
+async def review_contract_file(
+    case_id: int,
+    session: DbSession,
+    user: CurrentUser,
+    file: Annotated[UploadFile, File()],
+) -> ContractFileReviewResponse:
+    case = await get_accessible_case(case_id, session, user)
+    filename = Path(file.filename or "未命名合同").name
+    extension = Path(filename).suffix.lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="不支持的文件类型")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="文件超过 20MB 限制")
+    if not validate_signature(extension, content):
+        raise HTTPException(status_code=400, detail="文件内容与扩展名不匹配")
+
+    extraction = extract_text_from_bytes(
+        filename,
+        content,
+        file.content_type or "",
+    )
+    if extraction.status != "extracted" or len(extraction.text) < 10:
+        raise HTTPException(status_code=422, detail=extraction.message)
+
+    review = review_contract(extraction.text)
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="contract.file_reviewed",
+            object_type="case",
+            object_id=case.id,
+            metadata_json={
+                "filename": filename,
+                "risk_level": review["risk_level"],
+                "provider": extraction.provider,
+            },
+        )
+    )
+    await session.commit()
+    return ContractFileReviewResponse(
+        filename=filename,
+        extraction_status=extraction.status,
+        extracted_text=extraction.text,
+        review=ContractReviewResponse.model_validate(review),
+    )

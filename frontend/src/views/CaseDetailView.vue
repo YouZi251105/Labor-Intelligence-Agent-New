@@ -135,19 +135,44 @@
           <span>上传后会自动分类并生成材料缺口提示</span>
           <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.doc,.docx" @change="uploadEvidence" />
         </label>
-        <div v-if="evidenceAssessment" class="assessment-box">
-          <strong>{{ evidenceAssessment.message }}</strong>
-          <p v-if="evidenceAssessment.present_categories.length">
-            已有材料：{{
-              evidenceAssessment.present_categories
-                .map((item) => categoryLabels[item] || item)
-                .join('、')
-            }}
-          </p>
-          <p v-if="evidenceAssessment.missing_labels.length">
-            仍缺少：{{ evidenceAssessment.missing_labels.join('、') }}
-          </p>
-          <small>{{ evidenceAssessment.disclaimer }}</small>
+
+        <div v-if="evidenceRulesAssessment" class="rules-assessment">
+          <div class="detail-section-heading">
+            <div>
+              <span class="eyebrow">证据四性评估</span>
+              <h2>材料评估</h2>
+            </div>
+          </div>
+          <div
+            class="dimension-card"
+            :class="`dimension--${evidenceRulesAssessment.completeness.status === 'ready' ? 'ok' : 'warning'}`"
+          >
+            <strong>完整性</strong>
+            <span>
+              {{ evidenceRulesAssessment.completeness.status === 'ready' ? '材料类别已覆盖' : '仍有缺口' }}
+            </span>
+            <p v-if="evidenceRulesAssessment.completeness.missing_labels.length">
+              缺少：{{ evidenceRulesAssessment.completeness.missing_labels.join('、') }}
+            </p>
+            <p v-if="evidenceRulesAssessment.completeness.present_categories.length">
+              已有：{{
+                evidenceRulesAssessment.completeness.present_categories
+                  .map((item) => categoryLabels[item] || item)
+                  .join('、')
+              }}
+            </p>
+          </div>
+          <div
+            v-for="dim in dimensions"
+            :key="dim.key"
+            class="dimension-card"
+            :class="`dimension--${dim.status}`"
+          >
+            <strong>{{ dim.label }}</strong>
+            <span>{{ dimStatusLabel(dim.status) }}</span>
+            <p v-for="finding in dim.findings" :key="finding.message">{{ finding.message }}</p>
+          </div>
+          <small class="muted-text">{{ evidenceRulesAssessment.disclaimer }}</small>
         </div>
       </div>
       <div class="detail-card">
@@ -160,12 +185,22 @@
         <div class="evidence-list">
           <article v-for="item in evidenceItems" :key="item.id">
             <FileText :size="19" />
-            <div>
+            <div class="evidence-list__main">
               <strong>{{ item.filename }}</strong>
               <span>{{ categoryLabels[item.category] || item.category }} · {{ formatFileSize(item.file_size) }}</span>
-              <small>SHA256 {{ item.sha256.slice(0, 18) }}...</small>
+              <small v-if="item.text_preview" class="evidence-list__preview">{{ item.text_preview }}</small>
             </div>
-            <span class="status-tag status-tag--success">{{ item.screening_status }}</span>
+            <div class="evidence-list__side">
+              <span class="status-tag" :class="`extract-${item.extraction_status}`">
+                {{ extractionStatusLabels[item.extraction_status] || item.extraction_status }}
+              </span>
+              <div class="row-actions">
+                <button type="button" :disabled="extractingId === item.id" @click="extractEvidence(item)">
+                  {{ extractingId === item.id ? '提取中...' : '重新提取' }}
+                </button>
+                <button type="button" @click="downloadEvidence(item)">下载</button>
+              </div>
+            </div>
           </article>
           <p v-if="!evidenceItems.length" class="muted-text">还没有上传材料。</p>
         </div>
@@ -173,9 +208,9 @@
     </section>
 
     <section v-else-if="activeTab === 'contract'" class="detail-grid">
-      <div class="detail-card detail-card--wide">
+      <div class="detail-card">
         <span class="eyebrow">合同审查</span>
-        <h2>粘贴合同内容进行风险提示</h2>
+        <h2>粘贴合同内容</h2>
         <p>演示版基于文本规则识别明显风险，不构成合同真实性或法律效力结论。</p>
         <textarea
           v-model="contractText"
@@ -198,6 +233,38 @@
             建议补充：{{ contractReview.missing_items.join('、') }}
           </p>
           <small>{{ contractReview.disclaimer }}</small>
+        </div>
+      </div>
+      <div class="detail-card">
+        <span class="eyebrow">文件审查</span>
+        <h2>上传合同文件</h2>
+        <p>支持 TXT、PDF、DOCX 和图片，系统会先提取文本再审查。</p>
+        <label class="upload-zone">
+          <Upload :size="24" />
+          <strong>{{ reviewingFile ? '正在审查...' : '选择合同文件' }}</strong>
+          <span>上传后自动提取文本并做风险提示</span>
+          <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.doc,.docx" @change="reviewContractFile" />
+        </label>
+        <div v-if="contractFileReview" class="review-result">
+          <span class="status-tag" :class="`extract-${contractFileReview.extraction_status}`">
+            {{ extractionStatusLabels[contractFileReview.extraction_status] || contractFileReview.extraction_status }}
+          </span>
+          <span class="status-tag" :class="`risk-${contractFileReview.review.risk_level}`">
+            风险等级：{{ riskLabels[contractFileReview.review.risk_level] }}
+          </span>
+          <article v-for="finding in contractFileReview.review.findings" :key="finding.title">
+            <strong>{{ finding.title }}</strong>
+            <p>{{ finding.detail }}</p>
+          </article>
+          <p v-if="contractFileReview.review.missing_items.length">
+            建议补充：{{ contractFileReview.review.missing_items.join('、') }}
+          </p>
+          <small>{{ contractFileReview.review.disclaimer }}</small>
+        </div>
+        <div class="manual-review-entry">
+          <ShieldCheck :size="16" />
+          <span>风险判断需要专业复核？</span>
+          <RouterLink to="/help" class="text-link">申请人工复核</RouterLink>
         </div>
       </div>
     </section>
@@ -233,13 +300,45 @@
             <div>
               <strong>{{ document.title }}</strong>
               <span>版本 {{ document.version }} · {{ new Date(document.created_at).toLocaleString('zh-CN') }}</span>
+              <small v-if="document.evidence.length">引用 {{ document.evidence.length }} 份证据</small>
             </div>
             <div class="row-actions">
               <button type="button" @click="selectedDocument = document">预览</button>
-              <button type="button" @click="downloadDocument(document)">下载</button>
+              <button type="button" @click="startEditDocument(document)">编辑</button>
+              <button type="button" :disabled="exportingFormat !== ''" @click="exportDocument(document, 'docx')">DOCX</button>
+              <button type="button" :disabled="exportingFormat !== ''" @click="exportDocument(document, 'pdf')">PDF</button>
+              <button type="button" @click="downloadDocument(document)">TXT</button>
             </div>
           </article>
           <p v-if="!documents.length" class="muted-text">还没有生成文书。</p>
+        </div>
+      </div>
+      <div v-if="editingDocument" class="detail-card detail-card--wide">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">编辑文书</span>
+            <h2>保存为新版本</h2>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-grid__wide">
+            <label>
+              标题
+              <input v-model="editTitle" />
+            </label>
+          </div>
+          <div class="form-grid__wide">
+            <label>
+              内容
+              <textarea v-model="editContent" rows="12" />
+            </label>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="primary-action primary-action--compact" type="button" :disabled="savingRevision" @click="saveRevision">
+            {{ savingRevision ? '保存中...' : '保存为新版本' }}
+          </button>
+          <button class="secondary-action" type="button" @click="editingDocument = null">取消</button>
         </div>
       </div>
       <div v-if="selectedDocument" class="detail-card detail-card--wide">
@@ -266,6 +365,7 @@ import {
   FileText,
   MessageSquareText,
   Scale,
+  ShieldCheck,
   Upload,
 } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
@@ -275,8 +375,11 @@ import { API_BASE_URL, apiRequest, TOKEN_KEY } from '../api/http'
 import type {
   CaseItem,
   ConsultationResponse,
+  ContractFileReviewResponse,
   ContractReviewResponse,
   DocumentItem,
+  EvidenceAssessmentResponse,
+  EvidenceExtractionResponse,
   EvidenceItem,
   EvidenceResponse,
   MessageItem,
@@ -305,6 +408,15 @@ const generatingDocument = ref('')
 const selectedDocument = ref<DocumentItem | null>(null)
 const workflow = ref<WorkflowResponse | null>(null)
 const transitioningTarget = ref('')
+const evidenceRulesAssessment = ref<EvidenceAssessmentResponse | null>(null)
+const extractingId = ref<number | null>(null)
+const contractFileReview = ref<ContractFileReviewResponse | null>(null)
+const reviewingFile = ref(false)
+const editingDocument = ref<DocumentItem | null>(null)
+const editTitle = ref('')
+const editContent = ref('')
+const savingRevision = ref(false)
+const exportingFormat = ref('')
 
 const tabs = [
   { key: 'overview', label: '案件概览', icon: Scale },
@@ -346,7 +458,47 @@ const documentOptions = [
 ] as const
 const riskLabels = { low: '低', medium: '中', high: '高' }
 
+const extractionStatusLabels: Record<string, string> = {
+  pending: '待提取',
+  extracted: '已提取',
+  ocr_required: '待 OCR',
+  unsupported: '不支持',
+  failed: '提取失败',
+}
+
+function dimStatusLabel(status: string) {
+  if (status === 'ok') return '正常'
+  if (status === 'warning') return '需关注'
+  if (status === 'issue') return '需复核'
+  return status
+}
+
 const latestClassification = computed(() => caseItem.value?.classification ?? {})
+
+const dimensions = computed(() => {
+  const rules = evidenceRulesAssessment.value
+  if (!rules) return []
+  return [
+    {
+      key: 'legality',
+      label: '合法性（形式）',
+      status: rules.legality.status,
+      findings: rules.legality.findings,
+    },
+    {
+      key: 'relevance',
+      label: '关联性',
+      status: rules.relevance.status,
+      findings: rules.relevance.findings,
+    },
+    {
+      key: 'sufficiency',
+      label: '充分性',
+      status: rules.sufficiency.status,
+      findings: rules.sufficiency.findings,
+    },
+  ]
+})
 
 const workflowLabel = computed(() => {
   if (!workflow.value) return '案件流程'
@@ -358,19 +510,22 @@ const workflowLabel = computed(() => {
 
 async function loadAll() {
   try {
-    const [caseData, messageData, evidenceData, documentData, workflowData] = await Promise.all([
-      apiRequest<CaseItem>(`/cases/${caseId}`),
-      apiRequest<MessageItem[]>(`/cases/${caseId}/messages`),
-      apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`),
-      apiRequest<DocumentItem[]>(`/cases/${caseId}/documents`),
-      apiRequest<WorkflowResponse>(`/cases/${caseId}/workflow`),
-    ])
+    const [caseData, messageData, evidenceData, documentData, workflowData, rulesAssessment] =
+      await Promise.all([
+        apiRequest<CaseItem>(`/cases/${caseId}`),
+        apiRequest<MessageItem[]>(`/cases/${caseId}/messages`),
+        apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`),
+        apiRequest<DocumentItem[]>(`/cases/${caseId}/documents`),
+        apiRequest<WorkflowResponse>(`/cases/${caseId}/workflow`),
+        apiRequest<EvidenceAssessmentResponse>(`/cases/${caseId}/evidence-assessment`),
+      ])
     caseItem.value = caseData
     messages.value = messageData
     evidenceItems.value = evidenceData.items
     evidenceAssessment.value = evidenceData.assessment
     documents.value = documentData
     workflow.value = workflowData
+    evidenceRulesAssessment.value = rulesAssessment
     suggestedNextStep.value = String(
       messageData.at(-1)?.metadata_json?.suggested_next_step ??
         caseItem.value.classification.suggested_next_step ??
@@ -440,6 +595,9 @@ async function uploadEvidence(event: Event) {
     const evidenceData = await apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`)
     evidenceItems.value = evidenceData.items
     evidenceAssessment.value = evidenceData.assessment
+    evidenceRulesAssessment.value = await apiRequest<EvidenceAssessmentResponse>(
+      `/cases/${caseId}/evidence-assessment`,
+    )
     workflow.value = await apiRequest<WorkflowResponse>(`/cases/${caseId}/workflow`)
     input.value = ''
   } catch (err) {
@@ -505,6 +663,127 @@ async function downloadDocument(documentItem: DocumentItem) {
   link.download = `${documentItem.title}.txt`
   link.click()
   URL.revokeObjectURL(url)
+}
+
+async function extractEvidence(item: EvidenceItem) {
+  extractingId.value = item.id
+  error.value = ''
+  try {
+    await apiRequest<EvidenceExtractionResponse>(
+      `/cases/${caseId}/evidence/${item.id}/extract`,
+      { method: 'POST' },
+    )
+    const evidenceData = await apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`)
+    evidenceItems.value = evidenceData.items
+    evidenceAssessment.value = evidenceData.assessment
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '重新提取失败'
+  } finally {
+    extractingId.value = null
+  }
+}
+
+async function downloadEvidence(item: EvidenceItem) {
+  const response = await fetch(
+    `${API_BASE_URL}/cases/${caseId}/evidence/${item.id}/download`,
+    {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ''}`,
+      },
+    },
+  )
+  if (!response.ok) {
+    error.value = '材料下载失败'
+    return
+  }
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = item.filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+async function reviewContractFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  reviewingFile.value = true
+  error.value = ''
+  try {
+    const body = new FormData()
+    body.append('file', file)
+    contractFileReview.value = await apiRequest<ContractFileReviewResponse>(
+      `/cases/${caseId}/contract-review/file`,
+      { method: 'POST', body },
+    )
+    input.value = ''
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '合同文件审查失败'
+  } finally {
+    reviewingFile.value = false
+  }
+}
+
+function startEditDocument(documentItem: DocumentItem) {
+  editingDocument.value = documentItem
+  editTitle.value = documentItem.title
+  editContent.value = documentItem.content
+}
+
+async function saveRevision() {
+  if (!editingDocument.value) return
+  savingRevision.value = true
+  error.value = ''
+  try {
+    const revision = await apiRequest<DocumentItem>(
+      `/cases/${caseId}/documents/${editingDocument.value.id}/revisions`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle.value.trim(),
+          content: editContent.value,
+        }),
+      },
+    )
+    documents.value = await apiRequest<DocumentItem[]>(`/cases/${caseId}/documents`)
+    selectedDocument.value = revision
+    editingDocument.value = null
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '保存版本失败'
+  } finally {
+    savingRevision.value = false
+  }
+}
+
+async function exportDocument(documentItem: DocumentItem, format: 'docx' | 'pdf') {
+  exportingFormat.value = format
+  error.value = ''
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/cases/${caseId}/documents/${documentItem.id}/export?format=${format}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ''}`,
+        },
+      },
+    )
+    if (!response.ok) {
+      error.value = '导出失败'
+      return
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${documentItem.title}.${format}`
+    link.click()
+    URL.revokeObjectURL(url)
+  } finally {
+    exportingFormat.value = ''
+  }
 }
 
 onMounted(loadAll)

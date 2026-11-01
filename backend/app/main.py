@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import HTMLResponse, ORJSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
@@ -46,7 +46,7 @@ app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/docs", include_in_schema=False)
-async def local_swagger_ui():
+async def local_swagger_ui() -> HTMLResponse:
     return get_swagger_ui_html(
         openapi_url="/openapi.json",
         title=f"{settings.app_name} - API 文档",
