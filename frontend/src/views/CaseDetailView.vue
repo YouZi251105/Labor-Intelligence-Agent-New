@@ -64,10 +64,10 @@
             <button
               class="secondary-action"
               type="button"
-              :disabled="!option.enabled"
+              :disabled="!option.enabled || transitioningTarget === option.target_stage"
               @click="transitionTo(option.target_stage)"
             >
-              {{ option.label }}
+              {{ transitioningTarget === option.target_stage ? '处理中...' : option.label }}
             </button>
             <p
               class="workflow-option__reason"
@@ -272,7 +272,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { API_BASE_URL, apiRequest, TOKEN_KEY } from '../api/http'
-import { buildWorkflowResponse } from '../api/mock'
 import type {
   CaseItem,
   ConsultationResponse,
@@ -305,6 +304,7 @@ const contractReview = ref<ContractReviewResponse | null>(null)
 const generatingDocument = ref('')
 const selectedDocument = ref<DocumentItem | null>(null)
 const workflow = ref<WorkflowResponse | null>(null)
+const transitioningTarget = ref('')
 
 const tabs = [
   { key: 'overview', label: '案件概览', icon: Scale },
@@ -358,17 +358,19 @@ const workflowLabel = computed(() => {
 
 async function loadAll() {
   try {
-    caseItem.value = await apiRequest<CaseItem>(`/cases/${caseId}`)
-    const [messageData, evidenceData, documentData] = await Promise.all([
+    const [caseData, messageData, evidenceData, documentData, workflowData] = await Promise.all([
+      apiRequest<CaseItem>(`/cases/${caseId}`),
       apiRequest<MessageItem[]>(`/cases/${caseId}/messages`),
       apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`),
       apiRequest<DocumentItem[]>(`/cases/${caseId}/documents`),
+      apiRequest<WorkflowResponse>(`/cases/${caseId}/workflow`),
     ])
+    caseItem.value = caseData
     messages.value = messageData
     evidenceItems.value = evidenceData.items
     evidenceAssessment.value = evidenceData.assessment
     documents.value = documentData
-    workflow.value = buildWorkflowResponse(caseItem.value, evidenceData.assessment)
+    workflow.value = workflowData
     suggestedNextStep.value = String(
       messageData.at(-1)?.metadata_json?.suggested_next_step ??
         caseItem.value.classification.suggested_next_step ??
@@ -381,10 +383,23 @@ async function loadAll() {
 
 async function transitionTo(targetStage: string) {
   if (!caseItem.value) return
-  // 阶段 1 演示：后端 /transitions 尚未实现，先用本地规则模拟流转。
-  // 后端实现后改为 apiRequest POST `/cases/${caseId}/transitions` 并刷新 workflow。
-  caseItem.value = { ...caseItem.value, stage: targetStage }
-  workflow.value = buildWorkflowResponse(caseItem.value, evidenceAssessment.value)
+  transitioningTarget.value = targetStage
+  error.value = ''
+  try {
+    workflow.value = await apiRequest<WorkflowResponse>(`/cases/${caseId}/transitions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_stage: targetStage }),
+    })
+    caseItem.value = {
+      ...caseItem.value,
+      stage: workflow.value.current_stage,
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '案件阶段推进失败'
+  } finally {
+    transitioningTarget.value = ''
+  }
 }
 
 async function sendChat() {
@@ -400,6 +415,7 @@ async function sendChat() {
     messages.value.push(response.user_message, response.assistant_message)
     caseItem.value = response.case
     suggestedNextStep.value = response.suggested_next_step
+    workflow.value = await apiRequest<WorkflowResponse>(`/cases/${caseId}/workflow`)
     chatInput.value = ''
   } catch (err) {
     error.value = err instanceof Error ? err.message : '发送失败'
@@ -424,9 +440,7 @@ async function uploadEvidence(event: Event) {
     const evidenceData = await apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`)
     evidenceItems.value = evidenceData.items
     evidenceAssessment.value = evidenceData.assessment
-    if (caseItem.value) {
-      workflow.value = buildWorkflowResponse(caseItem.value, evidenceData.assessment)
-    }
+    workflow.value = await apiRequest<WorkflowResponse>(`/cases/${caseId}/workflow`)
     input.value = ''
   } catch (err) {
     error.value = err instanceof Error ? err.message : '上传失败'

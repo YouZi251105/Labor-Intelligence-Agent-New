@@ -50,6 +50,18 @@ export interface ConsultationResponse {
     legal_relationship: string
     signals: string[]
   }
+  structured: {
+    intent: string
+    dispute_label: string
+    legal_relationship: string
+    summary: string
+    suggested_next_step: string
+    required_information: string[]
+    evidence_gaps: string[]
+    risk_flags: string[]
+    citations: string[]
+    demo_mode: boolean
+  }
   suggested_next_step: string
   demo_mode: boolean
 }

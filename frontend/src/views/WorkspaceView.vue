@@ -123,6 +123,19 @@
           <span class="status-tag">{{ activeCase.legal_relationship === 'service' ? '劳务关系' : '劳动关系' }}</span>
           <span v-if="demoMode" class="status-tag status-tag--warning">演示规则</span>
         </div>
+        <div v-if="requiredInformation.length" class="structured-hints">
+          <strong>还需要确认</strong>
+          <div class="tag-row">
+            <span v-for="item in requiredInformation" :key="item" class="status-tag">{{ item }}</span>
+          </div>
+        </div>
+        <div v-if="evidenceGaps.length" class="structured-hints">
+          <strong>建议补充材料</strong>
+          <div class="tag-row">
+            <span v-for="item in evidenceGaps" :key="item" class="status-tag status-tag--warning">{{ item }}</span>
+          </div>
+        </div>
+        <p v-if="riskFlags.length" class="structured-risk">{{ riskFlags[0] }}</p>
         <RouterLink :to="`/cases/${activeCase.id}`" class="text-link">
           查看证据与文书
           <ArrowRight :size="16" />
@@ -173,6 +186,9 @@ const sending = ref(false)
 const error = ref('')
 const suggestedNextStep = ref('')
 const demoMode = ref(false)
+const requiredInformation = ref<string[]>([])
+const evidenceGaps = ref<string[]>([])
+const riskFlags = ref<string[]>([])
 
 const topics = ['拖欠工资', '突然被辞退', '没有签合同', '工伤或受伤'] as const
 const topicIcons = {
@@ -220,8 +236,18 @@ async function loadInitialCase() {
   activeCase.value = cases[0]
   messages.value = await apiRequest<MessageItem[]>(`/cases/${cases[0].id}/messages`)
   if (messages.value.length) {
-    suggestedNextStep.value =
-      String(messages.value.at(-1)?.metadata_json?.suggested_next_step ?? '')
+    const metadata = messages.value.at(-1)?.metadata_json ?? {}
+    suggestedNextStep.value = String(metadata.suggested_next_step ?? '')
+    const structured = metadata.structured as
+      | {
+          required_information?: string[]
+          evidence_gaps?: string[]
+          risk_flags?: string[]
+        }
+      | undefined
+    requiredInformation.value = structured?.required_information ?? []
+    evidenceGaps.value = structured?.evidence_gaps ?? []
+    riskFlags.value = structured?.risk_flags ?? []
   }
 }
 
@@ -256,6 +282,9 @@ async function sendMessage() {
     messages.value.push(response.user_message, response.assistant_message)
     suggestedNextStep.value = response.suggested_next_step
     demoMode.value = response.demo_mode
+    requiredInformation.value = response.structured.required_information
+    evidenceGaps.value = response.structured.evidence_gaps
+    riskFlags.value = response.structured.risk_flags
     input.value = ''
   } catch (err) {
     error.value = err instanceof Error ? err.message : '发送失败'

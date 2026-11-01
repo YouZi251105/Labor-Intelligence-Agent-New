@@ -1716,6 +1716,27 @@ button {
   color: var(--lia-warning);
 }
 
+.structured-hints {
+  margin-top: 12px;
+}
+
+.structured-hints strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--lia-text-secondary);
+  font-size: 11px;
+}
+
+.structured-hints .tag-row {
+  margin: 4px 0 0;
+}
+
+.structured-risk {
+  border-left: 2px solid var(--lia-warning);
+  color: var(--lia-warning) !important;
+  padding-left: 9px;
+}
+
 .metric-chip {
   display: flex;
   align-items: center;
