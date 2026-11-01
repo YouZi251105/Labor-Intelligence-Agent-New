@@ -66,6 +66,8 @@ export interface ConsultationResponse {
   demo_mode: boolean
 }
 
+export type ExtractionStatus = 'pending' | 'extracted' | 'ocr_required' | 'unsupported' | 'failed'
+
 export interface EvidenceItem {
   id: number
   case_id: number
@@ -76,6 +78,9 @@ export interface EvidenceItem {
   category: string
   screening_status: string
   assessment: Record<string, unknown>
+  text_preview: string
+  extraction_status: ExtractionStatus
+  extraction_message: string
   created_at: string
 }
 
@@ -103,6 +108,13 @@ export interface ContractReviewResponse {
   disclaimer: string
 }
 
+export interface DocumentEvidenceItem {
+  evidence_id: number
+  filename: string
+  category: string
+  sha256: string
+}
+
 export interface DocumentItem {
   id: number
   case_id: number
@@ -111,6 +123,7 @@ export interface DocumentItem {
   content: string
   status: string
   version: number
+  evidence: DocumentEvidenceItem[]
   created_at: string
 }
 
@@ -141,4 +154,24 @@ export interface WorkflowResponse {
 export interface TransitionRequest {
   target_stage: string
   note?: string
+}
+
+export interface EvidenceExtractionResponse {
+  evidence_id: number
+  extraction_status: ExtractionStatus
+  extracted_text: string
+  message: string
+}
+
+export interface ContractFileReviewResponse {
+  filename: string
+  extraction_status: ExtractionStatus
+  extracted_text: string
+  review: ContractReviewResponse
+}
+
+export interface DocumentRevisionCreate {
+  title: string
+  content: string
+  status?: 'draft'
 }
