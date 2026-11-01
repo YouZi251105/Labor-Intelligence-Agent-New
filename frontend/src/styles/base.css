@@ -2433,6 +2433,12 @@ button {
   font-size: 12px;
 }
 
+.site-lawyer-list .secondary-action {
+  min-width: 92px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .ledger-list__actions {
   display: flex;
   align-items: center;
@@ -2448,6 +2454,12 @@ button {
   background: #fff;
   padding: 6px 9px;
   cursor: pointer;
+}
+
+.assignment-list {
+  max-height: 760px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .help-guidance ul {
@@ -2582,6 +2594,14 @@ button {
   .ledger-list article,
   .admin-table article {
     flex-wrap: wrap;
+  }
+
+  .site-lawyer-list article {
+    flex-wrap: wrap;
+  }
+
+  .site-lawyer-list article .secondary-action {
+    margin-left: 46px;
   }
 
   .ledger-list__actions {

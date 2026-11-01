@@ -142,8 +142,9 @@ test('admin can open the management dashboard', async ({ page }, testInfo) => {
   await expect(page.getByRole('heading', { name: '管理后台' })).toBeVisible()
   await expect(page.getByText('案件与律师')).toBeVisible()
   await expect(page.getByText('用户管理', { exact: true })).toBeVisible()
+  await expect(page.locator('.metric-grid article').first().locator('strong')).not.toHaveText('0')
   await page.screenshot({
-    path: testInfo.outputPath(`admin-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/admin-${testInfo.project.name}.png`,
     fullPage: true,
   })
 })
@@ -153,7 +154,7 @@ test('lawyer can open the assigned-case dashboard', async ({ page }, testInfo) =
   await expect(page.getByRole('heading', { name: '律师工作台' })).toBeVisible()
   await expect(page.getByText('这里只展示管理员已经分配给你的案件')).toBeVisible()
   await page.screenshot({
-    path: testInfo.outputPath(`lawyer-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/lawyer-${testInfo.project.name}.png`,
     fullPage: true,
   })
 })
@@ -202,9 +203,14 @@ test('worker can practise a role simulation and receive coaching', async ({ page
 
   await expect(page.getByText(/综合评分/)).toBeVisible()
   await expect(page.locator('.simulation-message--assistant')).toContainText('模拟')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.screenshot({
+    path: `../docs/screenshots/simulation-${testInfo.project.name}.png`,
+    fullPage: true,
+  })
 })
 
-test('help center shows official resources and site lawyers', async ({ page }) => {
+test('help center shows official resources and site lawyers', async ({ page }, testInfo) => {
   await login(page, 'demo', 'Demo123!')
   await page.goto('/help')
 
@@ -212,4 +218,8 @@ test('help center shows official resources and site lawyers', async ({ page }) =
   await expect(page.getByText('全国人社政务服务平台')).toBeVisible()
   await expect(page.getByText('李律师')).toBeVisible()
   await expect(page.getByText('申请人工协助')).toBeVisible()
+  await page.screenshot({
+    path: `../docs/screenshots/help-${testInfo.project.name}.png`,
+    fullPage: true,
+  })
 })
