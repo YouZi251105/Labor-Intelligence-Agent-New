@@ -22,6 +22,7 @@ test-results/
 .env
 .env.*
 !.env.example
+!.env.validation.example
 
 # Editor and OS
 .idea/

@@ -63,6 +63,9 @@ services:
       RATE_LIMIT_PER_MINUTE: "300"
       ENABLE_METRICS: "true"
       CORS_ORIGINS: '["http://127.0.0.1:${VALIDATION_PUBLIC_PORT:-18080}"]'
+    env_file:
+      - path: ../../.env.validation
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -102,6 +105,9 @@ services:
       MINIO_BUCKET: labor-validation-evidence
       MINIO_SECURE: "false"
       DEMO_SEED: "false"
+    env_file:
+      - path: ../../.env.validation
+        required: false
     depends_on:
       db:
         condition: service_healthy
