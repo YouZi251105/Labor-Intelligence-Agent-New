@@ -175,3 +175,31 @@ export interface DocumentRevisionCreate {
   content: string
   status?: 'draft'
 }
+
+export interface AssessmentFinding {
+  level: string
+  message: string
+}
+
+export interface AssessmentDimension {
+  status: string
+  findings: AssessmentFinding[]
+}
+
+export interface CompletenessAssessment {
+  status: 'ready' | 'needs_more'
+  required_categories: string[]
+  present_categories: string[]
+  missing_categories: string[]
+  missing_labels: string[]
+}
+
+export interface EvidenceAssessmentResponse {
+  case_id: number
+  dispute_type: string
+  legality: AssessmentDimension
+  relevance: AssessmentDimension
+  sufficiency: AssessmentDimension
+  completeness: CompletenessAssessment
+  disclaimer: string
+}

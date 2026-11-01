@@ -691,6 +691,53 @@
         }
       }
     },
+    "/api/v1/cases/{case_id}/evidence-assessment": {
+      "get": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Get Evidence Assessment",
+        "operationId": "get_evidence_assessment_api_v1_cases__case_id__evidence_assessment_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceAssessmentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cases/{case_id}/documents": {
       "get": {
         "tags": [
@@ -1361,6 +1408,45 @@
   },
   "components": {
     "schemas": {
+      "AssessmentDimension": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "findings"
+        ],
+        "title": "AssessmentDimension"
+      },
+      "AssessmentFinding": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "message"
+        ],
+        "title": "AssessmentFinding"
+      },
       "Body_review_contract_file_api_v1_cases__case_id__contract_review_file_post": {
         "properties": {
           "file": {
@@ -1520,6 +1606,55 @@
           "updated_at"
         ],
         "title": "CaseRead"
+      },
+      "CompletenessAssessment": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "needs_more"
+            ],
+            "title": "Status"
+          },
+          "required_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Categories"
+          },
+          "present_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Present Categories"
+          },
+          "missing_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Categories"
+          },
+          "missing_labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Labels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "required_categories",
+          "present_categories",
+          "missing_categories",
+          "missing_labels"
+        ],
+        "title": "CompletenessAssessment"
       },
       "ConsultationResponse": {
         "properties": {
@@ -1806,6 +1941,45 @@
           "content"
         ],
         "title": "DocumentRevisionCreate"
+      },
+      "EvidenceAssessmentResponse": {
+        "properties": {
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "dispute_type": {
+            "type": "string",
+            "title": "Dispute Type"
+          },
+          "legality": {
+            "$ref": "#/components/schemas/AssessmentDimension"
+          },
+          "relevance": {
+            "$ref": "#/components/schemas/AssessmentDimension"
+          },
+          "sufficiency": {
+            "$ref": "#/components/schemas/AssessmentDimension"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/CompletenessAssessment"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "dispute_type",
+          "legality",
+          "relevance",
+          "sufficiency",
+          "completeness",
+          "disclaimer"
+        ],
+        "title": "EvidenceAssessmentResponse"
       },
       "EvidenceExtractionResponse": {
         "properties": {

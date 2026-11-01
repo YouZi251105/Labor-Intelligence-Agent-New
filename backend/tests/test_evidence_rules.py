@@ -1,4 +1,11 @@
+from fastapi.testclient import TestClient
+
+from app.main import app
 from app.services.evidence_rules import assess_evidence_rules
+
+
+def _auth_headers(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _item(category: str, **kwargs) -> dict:
@@ -76,3 +83,35 @@ def test_unknown_dispute_type_falls_back_to_general() -> None:
 def test_result_contains_disclaimer() -> None:
     result = assess_evidence_rules("wage", [])
     assert "不构成" in result["disclaimer"]
+
+
+def test_evidence_assessment_endpoint() -> None:
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "demo", "password": "Demo123!"},
+        )
+        headers = _auth_headers(login.json()["access_token"])
+        created = client.post(
+            "/api/v1/cases",
+            headers=headers,
+            json={
+                "title": "四性评估测试",
+                "dispute_type": "wage",
+                "facts": "公司拖欠工资。",
+            },
+        )
+        case_id = created.json()["id"]
+        response = client.get(
+            f"/api/v1/cases/{case_id}/evidence-assessment",
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["case_id"] == case_id
+    assert payload["dispute_type"] == "wage"
+    assert payload["completeness"]["status"] == "needs_more"
+    assert payload["legality"]["status"] == "ok"
+    assert payload["sufficiency"]["status"] == "issue"
+    assert "不构成" in payload["disclaimer"]

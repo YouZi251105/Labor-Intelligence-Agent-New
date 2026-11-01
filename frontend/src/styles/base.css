@@ -1716,6 +1716,125 @@ button {
   color: var(--lia-warning);
 }
 
+.rules-assessment {
+  border-top: 1px solid var(--lia-border);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.dimension-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--lia-border);
+  border-left: 3px solid var(--lia-border-strong);
+  border-radius: 7px;
+  background: var(--lia-surface-soft);
+  margin-top: 10px;
+  padding: 12px 14px;
+}
+
+.dimension-card strong {
+  font-size: 13px;
+}
+
+.dimension-card span {
+  color: var(--lia-text-secondary);
+  font-size: 11px;
+}
+
+.dimension-card p {
+  margin: 2px 0 0;
+  color: var(--lia-text-muted);
+  font-size: 10px;
+}
+
+.dimension--ok {
+  border-left-color: var(--lia-success);
+}
+
+.dimension--warning {
+  border-left-color: var(--lia-warning);
+}
+
+.dimension--issue {
+  border-left-color: var(--lia-danger);
+}
+
+.evidence-list__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.evidence-list__side {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.evidence-list__preview {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--lia-text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extract-pending {
+  border-color: var(--lia-border-strong);
+  background: var(--lia-surface-soft);
+  color: var(--lia-text-muted);
+}
+
+.extract-extracted {
+  border-color: #c7e1d4;
+  background: var(--lia-success-soft);
+  color: var(--lia-success);
+}
+
+.extract-ocr_required,
+.extract-failed {
+  border-color: #ead3ad;
+  background: var(--lia-warning-soft);
+  color: var(--lia-warning);
+}
+
+.extract-unsupported {
+  border-color: var(--lia-border);
+  background: var(--lia-surface-soft);
+  color: var(--lia-text-muted);
+}
+
+.manual-review-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--lia-border);
+  border-radius: 7px;
+  background: var(--lia-surface-soft);
+  margin-top: 16px;
+  padding: 12px 14px;
+  color: var(--lia-navy);
+  font-size: 12px;
+}
+
+.manual-review-entry svg {
+  flex: 0 0 auto;
+  color: var(--lia-primary);
+}
+
+.manual-review-entry span {
+  flex: 1;
+}
+
+.manual-review-entry .text-link {
+  flex: 0 0 auto;
+}
+
 .structured-hints {
   margin-top: 12px;
 }

@@ -1,13 +1,14 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import health
-from app.routes import admin, auth, cases, documents, evidence, lawyer, workflow
+from app.routes import admin, auth, cases, documents, evidence, evidence_rules, lawyer, workflow
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(cases.router)
 api_router.include_router(evidence.router)
+api_router.include_router(evidence_rules.router)
 api_router.include_router(documents.router)
 api_router.include_router(workflow.router)
 api_router.include_router(lawyer.router)
