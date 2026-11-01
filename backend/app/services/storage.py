@@ -58,6 +58,7 @@ class S3Storage:
         secure: bool,
     ) -> None:
         self.bucket = bucket
+        self._bucket_ready = False
         self.client = boto3.client(
             "s3",
             endpoint_url=f"{'https' if secure else 'http'}://{endpoint}",
@@ -66,11 +67,22 @@ class S3Storage:
             region_name="us-east-1",
         )
 
+    def _ensure_bucket(self) -> None:
+        if self._bucket_ready:
+            return
+        try:
+            self.client.head_bucket(Bucket=self.bucket)
+        except self.client.exceptions.ClientError:
+            self.client.create_bucket(Bucket=self.bucket)
+        self._bucket_ready = True
+
     def save(self, key: str, content: bytes) -> str:
+        self._ensure_bucket()
         self.client.put_object(Bucket=self.bucket, Key=key, Body=content)
         return key
 
     def read(self, key: str) -> bytes:
+        self._ensure_bucket()
         response = self.client.get_object(Bucket=self.bucket, Key=key)
         return cast(bytes, response["Body"].read())
 
@@ -78,6 +90,7 @@ class S3Storage:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
     def exists(self, key: str) -> bool:
+        self._ensure_bucket()
         try:
             self.client.head_object(Bucket=self.bucket, Key=key)
             return True
