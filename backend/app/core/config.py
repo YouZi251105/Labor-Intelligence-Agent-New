@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     minio_secret_key: str = "labor_minio_password"
     minio_bucket: str = "labor-evidence"
     minio_secure: bool = False
+    trusted_hosts: list[str] = ["*"]
+    rate_limit_per_minute: int = 300
+    enable_metrics: bool = True
 
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
 
