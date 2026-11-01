@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 SimulationRole = Literal["boss", "hr", "arbitrator", "judge", "lawyer"]
 
@@ -24,6 +24,8 @@ class SimulationScore(BaseModel):
 
 
 class SimulationMessageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     role: Literal["user", "assistant"]
     content: str
@@ -32,6 +34,8 @@ class SimulationMessageRead(BaseModel):
 
 
 class SimulationSessionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     case_id: int
     user_id: int
