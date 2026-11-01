@@ -1,0 +1,32 @@
+:root {
+  --lia-bg: #f7f5f2;
+  --lia-surface: #ffffff;
+  --lia-surface-soft: #fbfaf7;
+  --lia-text: #1f2937;
+  --lia-text-secondary: #5b6472;
+  --lia-text-muted: #7b8490;
+  --lia-primary: #a61b1b;
+  --lia-primary-hover: #8c1717;
+  --lia-primary-soft: #faeeee;
+  --lia-navy: #31465f;
+  --lia-success: #2f7d5a;
+  --lia-success-soft: #edf7f1;
+  --lia-warning: #a66a16;
+  --lia-warning-soft: #fbf4e8;
+  --lia-danger: #b42318;
+  --lia-border: #e5e1da;
+  --lia-border-strong: #d8d1c7;
+  --lia-shadow: 0 8px 30px rgba(49, 70, 95, 0.06);
+  --lia-radius: 8px;
+  --lia-sidebar-width: 248px;
+
+  --el-color-primary: var(--lia-primary);
+  --el-color-primary-light-3: #bd5c5c;
+  --el-color-primary-light-5: #d19898;
+  --el-color-primary-light-7: #e6c2c2;
+  --el-color-primary-light-8: #efd7d7;
+  --el-color-primary-light-9: var(--lia-primary-soft);
+  --el-color-primary-dark-2: var(--lia-primary-hover);
+  --el-border-radius-base: var(--lia-radius);
+  --el-font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}

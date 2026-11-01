@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "labor-intelligence-agent-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Labor Intelligence Agent"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic==1.16.4",
+  "aiosqlite==0.21.0",
+  "asyncpg==0.30.0",
+  "boto3==1.39.0",
+  "celery[redis]==5.5.3",
+  "fastapi==0.116.1",
+  "httpx==0.28.1",
+  "orjson==3.10.18",
+  "pydantic==2.11.7",
+  "pydantic-settings==2.10.1",
+  "pwdlib[argon2]==0.2.1",
+  "pyjwt==2.10.1",
+  "python-multipart==0.0.20",
+  "redis==5.2.1",
+  "sqlalchemy[asyncio]==2.0.41",
+  "structlog==25.4.0",
+  "uvicorn[standard]==0.35.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.4.1",
+  "pytest-asyncio==1.1.0",
+]
+quality = [
+  "mypy==1.16.1",
+  "ruff==0.12.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+strict = true
+warn_unused_ignores = true
+exclude = ["alembic/"]

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editor and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Runtime data
+data/
+uploads/
+minio-data/
+postgres-data/
+redis-data/
+*.log
+
+# Build artifacts
+*.tsbuildinfo
+deploy.tar.gz

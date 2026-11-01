@@ -1,0 +1,423 @@
+<template>
+  <section v-if="caseItem" class="content-page case-detail-page">
+    <header class="case-detail-header">
+      <button class="back-button" type="button" @click="router.push('/cases')">
+        <ArrowLeft :size="18" />
+      </button>
+      <div class="case-detail-header__main">
+        <span class="eyebrow">案件 #{{ caseItem.id }}</span>
+        <h1>{{ caseItem.title }}</h1>
+        <div class="tag-row">
+          <span class="status-tag">{{ disputeLabels[caseItem.dispute_type] || '待识别' }}</span>
+          <span class="status-tag">{{ stageLabels[caseItem.stage] || caseItem.stage }}</span>
+          <span class="status-tag">
+            {{ caseItem.legal_relationship === 'service' ? '劳务关系' : '劳动关系' }}
+          </span>
+          <span v-if="caseItem.assigned_lawyer_id" class="status-tag status-tag--success">
+            已分配律师
+          </span>
+        </div>
+      </div>
+      <button class="secondary-action" type="button" @click="router.push('/')">继续 AI 咨询</button>
+    </header>
+
+    <nav class="tab-bar" aria-label="案件功能">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        type="button"
+        :class="{ active: activeTab === tab.key }"
+        @click="activeTab = tab.key"
+      >
+        <component :is="tab.icon" :size="17" />
+        {{ tab.label }}
+      </button>
+    </nav>
+
+    <p v-if="error" class="inline-error">{{ error }}</p>
+
+    <section v-if="activeTab === 'overview'" class="detail-grid">
+      <div class="detail-card">
+        <span class="eyebrow">案件事实</span>
+        <p class="pre-line">{{ caseItem.facts || '暂无案件事实' }}</p>
+      </div>
+      <div class="detail-card">
+        <span class="eyebrow">当前建议</span>
+        <p>{{ suggestedNextStep || '继续补充咨询信息，系统会更新案件建议。' }}</p>
+        <dl class="meta-list">
+          <div><dt>用工地点</dt><dd>{{ caseItem.location || '待补充' }}</dd></div>
+          <div><dt>更新时间</dt><dd>{{ new Date(caseItem.updated_at).toLocaleString('zh-CN') }}</dd></div>
+          <div><dt>承办律师</dt><dd>{{ caseItem.assigned_lawyer_id ? '已分配' : '尚未分配' }}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section v-else-if="activeTab === 'chat'" class="detail-card detail-card--wide">
+      <div class="detail-section-heading">
+        <div>
+          <span class="eyebrow">咨询记录</span>
+          <h2>多轮案件咨询</h2>
+        </div>
+        <span class="status-tag">{{ messages.length }} 条消息</span>
+      </div>
+      <div class="case-chat-list">
+        <article
+          v-for="message in messages"
+          :key="message.id"
+          class="chat-message"
+          :class="`chat-message--${message.role}`"
+        >
+          <span class="chat-message__role">{{ message.role === 'user' ? '你' : '劳务通' }}</span>
+          <p>{{ message.content }}</p>
+        </article>
+        <p v-if="!messages.length" class="muted-text">还没有咨询记录。</p>
+      </div>
+      <form class="chat-compose-inline" @submit.prevent="sendChat">
+        <textarea v-model="chatInput" rows="3" placeholder="继续补充事实，系统会带上当前案件上下文。" />
+        <button class="primary-action primary-action--compact" type="submit" :disabled="chatSending">
+          {{ chatSending ? '发送中...' : '发送' }}
+        </button>
+      </form>
+    </section>
+
+    <section v-else-if="activeTab === 'evidence'" class="detail-grid">
+      <div class="detail-card">
+        <span class="eyebrow">材料上传</span>
+        <h2>证据整理</h2>
+        <p>演示版支持图片、PDF、TXT、DOC 和 DOCX，单文件不超过 20MB。</p>
+        <label class="upload-zone">
+          <Upload :size="24" />
+          <strong>{{ uploading ? '正在上传...' : '选择证据材料' }}</strong>
+          <span>上传后会自动分类并生成材料缺口提示</span>
+          <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.doc,.docx" @change="uploadEvidence" />
+        </label>
+        <div v-if="evidenceAssessment" class="assessment-box">
+          <strong>{{ evidenceAssessment.message }}</strong>
+          <p v-if="evidenceAssessment.missing_labels.length">
+            仍缺少：{{ evidenceAssessment.missing_labels.join('、') }}
+          </p>
+          <small>{{ evidenceAssessment.disclaimer }}</small>
+        </div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">材料列表</span>
+            <h2>{{ evidenceItems.length }} 份材料</h2>
+          </div>
+        </div>
+        <div class="evidence-list">
+          <article v-for="item in evidenceItems" :key="item.id">
+            <FileText :size="19" />
+            <div>
+              <strong>{{ item.filename }}</strong>
+              <span>{{ categoryLabels[item.category] || item.category }} · {{ formatFileSize(item.file_size) }}</span>
+              <small>SHA256 {{ item.sha256.slice(0, 18) }}...</small>
+            </div>
+            <span class="status-tag status-tag--success">{{ item.screening_status }}</span>
+          </article>
+          <p v-if="!evidenceItems.length" class="muted-text">还没有上传材料。</p>
+        </div>
+      </div>
+    </section>
+
+    <section v-else-if="activeTab === 'contract'" class="detail-grid">
+      <div class="detail-card detail-card--wide">
+        <span class="eyebrow">合同审查</span>
+        <h2>粘贴合同内容进行风险提示</h2>
+        <p>演示版基于文本规则识别明显风险，不构成合同真实性或法律效力结论。</p>
+        <textarea
+          v-model="contractText"
+          class="large-textarea"
+          rows="10"
+          placeholder="粘贴合同条款，例如工资、工作时间、解除条件和社会保险约定……"
+        />
+        <button class="primary-action primary-action--compact" type="button" :disabled="reviewing" @click="reviewContract">
+          {{ reviewing ? '审查中...' : '开始审查' }}
+        </button>
+        <div v-if="contractReview" class="review-result">
+          <span class="status-tag" :class="`risk-${contractReview.risk_level}`">
+            风险等级：{{ riskLabels[contractReview.risk_level] }}
+          </span>
+          <article v-for="finding in contractReview.findings" :key="finding.title">
+            <strong>{{ finding.title }}</strong>
+            <p>{{ finding.detail }}</p>
+          </article>
+          <p v-if="contractReview.missing_items.length">
+            建议补充：{{ contractReview.missing_items.join('、') }}
+          </p>
+          <small>{{ contractReview.disclaimer }}</small>
+        </div>
+      </div>
+    </section>
+
+    <section v-else-if="activeTab === 'documents'" class="detail-grid">
+      <div class="detail-card">
+        <span class="eyebrow">文书生成</span>
+        <h2>生成案件草稿</h2>
+        <p>系统会根据已确认的案件事实和证据目录生成文本草稿。</p>
+        <div class="document-actions">
+          <button
+            v-for="option in documentOptions"
+            :key="option.type"
+            class="secondary-action"
+            type="button"
+            :disabled="generatingDocument === option.type"
+            @click="generateDocument(option.type)"
+          >
+            <FilePlus2 :size="17" />
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">草稿列表</span>
+            <h2>{{ documents.length }} 份文书</h2>
+          </div>
+        </div>
+        <div class="document-list">
+          <article v-for="document in documents" :key="document.id">
+            <div>
+              <strong>{{ document.title }}</strong>
+              <span>版本 {{ document.version }} · {{ new Date(document.created_at).toLocaleString('zh-CN') }}</span>
+            </div>
+            <div class="row-actions">
+              <button type="button" @click="selectedDocument = document">预览</button>
+              <button type="button" @click="downloadDocument(document)">下载</button>
+            </div>
+          </article>
+          <p v-if="!documents.length" class="muted-text">还没有生成文书。</p>
+        </div>
+      </div>
+      <div v-if="selectedDocument" class="detail-card detail-card--wide">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">文书预览</span>
+            <h2>{{ selectedDocument.title }}</h2>
+          </div>
+          <button class="secondary-action" type="button" @click="selectedDocument = null">关闭</button>
+        </div>
+        <pre class="document-preview">{{ selectedDocument.content }}</pre>
+      </div>
+    </section>
+  </section>
+
+  <div v-else class="loading-block"><span class="spinner-dot" /> 正在加载案件...</div>
+</template>
+
+<script setup lang="ts">
+import {
+  ArrowLeft,
+  Clock3,
+  FilePlus2,
+  FileText,
+  MessageSquareText,
+  Scale,
+  Upload,
+} from '@lucide/vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+import { API_BASE_URL, apiRequest, TOKEN_KEY } from '../api/http'
+import type {
+  CaseItem,
+  ConsultationResponse,
+  ContractReviewResponse,
+  DocumentItem,
+  EvidenceItem,
+  EvidenceResponse,
+  MessageItem,
+} from '../types/api'
+import { formatFileSize } from '../utils/format'
+
+const route = useRoute()
+const router = useRouter()
+const caseId = Number(route.params.id)
+const caseItem = ref<CaseItem | null>(null)
+const messages = ref<MessageItem[]>([])
+const evidenceItems = ref<EvidenceItem[]>([])
+const evidenceAssessment = ref<EvidenceResponse['assessment'] | null>(null)
+const documents = ref<DocumentItem[]>([])
+const activeTab = ref('overview')
+const error = ref('')
+const suggestedNextStep = ref('')
+const chatInput = ref('')
+const chatSending = ref(false)
+const uploading = ref(false)
+const contractText = ref('')
+const reviewing = ref(false)
+const contractReview = ref<ContractReviewResponse | null>(null)
+const generatingDocument = ref('')
+const selectedDocument = ref<DocumentItem | null>(null)
+
+const tabs = [
+  { key: 'overview', label: '案件概览', icon: Scale },
+  { key: 'chat', label: '咨询记录', icon: MessageSquareText },
+  { key: 'evidence', label: '证据材料', icon: Upload },
+  { key: 'contract', label: '合同审查', icon: FileText },
+  { key: 'documents', label: '法律文书', icon: FilePlus2 },
+]
+const disputeLabels: Record<string, string> = {
+  wage: '欠薪',
+  termination: '违法解除',
+  contract: '劳动合同',
+  overtime: '加班费',
+  injury: '工伤待遇',
+  service_pay: '劳务报酬',
+  general: '待识别',
+}
+const stageLabels: Record<string, string> = {
+  intake: '问题识别',
+  evidence: '证据整理',
+  procedure: '协商或程序',
+  document: '文书准备',
+  lawyer_help: '律师协助',
+}
+const categoryLabels: Record<string, string> = {
+  contract: '合同',
+  chat: '聊天记录',
+  payroll: '工资记录',
+  attendance: '考勤',
+  medical: '医疗材料',
+  social_insurance: '社保材料',
+  settlement: '结算单',
+  other: '其他',
+}
+const documentOptions = [
+  { type: 'settlement', label: '协商和解协议' },
+  { type: 'arbitration', label: '劳动仲裁申请书' },
+  { type: 'complaint', label: '民事起诉状' },
+] as const
+const riskLabels = { low: '低', medium: '中', high: '高' }
+
+const latestClassification = computed(() => caseItem.value?.classification ?? {})
+
+async function loadAll() {
+  try {
+    caseItem.value = await apiRequest<CaseItem>(`/cases/${caseId}`)
+    const [messageData, evidenceData, documentData] = await Promise.all([
+      apiRequest<MessageItem[]>(`/cases/${caseId}/messages`),
+      apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`),
+      apiRequest<DocumentItem[]>(`/cases/${caseId}/documents`),
+    ])
+    messages.value = messageData
+    evidenceItems.value = evidenceData.items
+    evidenceAssessment.value = evidenceData.assessment
+    documents.value = documentData
+    suggestedNextStep.value = String(
+      messageData.at(-1)?.metadata_json?.suggested_next_step ??
+        caseItem.value.classification.suggested_next_step ??
+        '',
+    )
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '案件加载失败'
+  }
+}
+
+async function sendChat() {
+  const text = chatInput.value.trim()
+  if (!text) return
+  chatSending.value = true
+  try {
+    const response = await apiRequest<ConsultationResponse>(`/cases/${caseId}/consultations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    })
+    messages.value.push(response.user_message, response.assistant_message)
+    caseItem.value = response.case
+    suggestedNextStep.value = response.suggested_next_step
+    chatInput.value = ''
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '发送失败'
+  } finally {
+    chatSending.value = false
+  }
+}
+
+async function uploadEvidence(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploading.value = true
+  error.value = ''
+  try {
+    const body = new FormData()
+    body.append('file', file)
+    await apiRequest<EvidenceItem>(`/cases/${caseId}/evidence`, {
+      method: 'POST',
+      body,
+    })
+    const evidenceData = await apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`)
+    evidenceItems.value = evidenceData.items
+    evidenceAssessment.value = evidenceData.assessment
+    input.value = ''
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '上传失败'
+  } finally {
+    uploading.value = false
+  }
+}
+
+async function reviewContract() {
+  if (!contractText.value.trim()) return
+  reviewing.value = true
+  try {
+    contractReview.value = await apiRequest<ContractReviewResponse>(
+      `/cases/${caseId}/contract-review`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: contractText.value }),
+      },
+    )
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '合同审查失败'
+  } finally {
+    reviewing.value = false
+  }
+}
+
+async function generateDocument(type: 'settlement' | 'arbitration' | 'complaint') {
+  generatingDocument.value = type
+  try {
+    const document = await apiRequest<DocumentItem>(`/cases/${caseId}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_type: type }),
+    })
+    documents.value.unshift(document)
+    selectedDocument.value = document
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '文书生成失败'
+  } finally {
+    generatingDocument.value = ''
+  }
+}
+
+async function downloadDocument(documentItem: DocumentItem) {
+  const response = await fetch(
+    `${API_BASE_URL}/cases/${caseId}/documents/${documentItem.id}/download`,
+    {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ''}`,
+      },
+    },
+  )
+  if (!response.ok) {
+    error.value = '文书下载失败'
+    return
+  }
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${documentItem.title}.txt`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+onMounted(loadAll)
+</script>

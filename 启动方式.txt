@@ -1,0 +1,179 @@
+劳务通 Labor Intelligence Agent 启动方式
+========================================
+
+项目目录：
+D:\desktop\劳务通——劳权护航计划智能体 张华\劳务通——劳权护航计划智能体\Labor-Intelligence-Agent
+
+一、最简单的启动方式
+--------------------
+直接双击项目根目录下的：
+
+start.bat
+
+脚本会自动执行以下操作：
+
+1. 检查 Python 和 Node.js 是否已安装。
+2. 首次运行时创建 backend\.venv 虚拟环境。
+3. 检查后端依赖，必要时自动安装。
+4. 检查前端依赖，必要时自动安装。
+5. 启动 FastAPI 后端。
+6. 启动 Vue 前端。
+7. 自动打开浏览器：http://127.0.0.1:5173/
+
+
+二、启动后的地址
+----------------
+前端工作台：
+http://127.0.0.1:5173/
+
+后端 API 文档：
+http://127.0.0.1:8000/docs
+
+健康检查：
+http://127.0.0.1:8000/api/v1/health
+
+
+三、演示账号
+------------
+劳动者：
+用户名：demo
+密码：Demo123!
+
+律师：
+用户名：lawyer
+密码：Lawyer123!
+
+管理员：
+用户名：admin
+密码：Admin123!
+
+演示账号仅用于本地开发，正式环境必须更换。
+
+
+四、启动后的窗口
+----------------
+启动成功后会出现两个命令行窗口：
+
+1. “劳务通后端”
+   运行 Python FastAPI 服务，端口 8000。
+
+2. “劳务通前端”
+   运行 Vue Vite 开发服务，端口 5173。
+
+不要关闭这两个窗口。关闭窗口或按 Ctrl+C 即停止对应服务。
+
+
+五、环境要求
+------------
+1. Python 3.13 或兼容版本。
+2. Node.js 24 或兼容版本。
+3. npm。
+4. Windows PowerShell。
+
+可在命令行中检查：
+
+python --version
+node --version
+npm --version
+
+
+六、首次启动时间
+----------------
+如果 backend\.venv 或 frontend\node_modules 尚未安装，首次启动需要下载依赖，耗时取决于网络情况。
+
+依赖安装完成后，后续启动通常只需要数秒。
+
+
+七、手动启动方式
+----------------
+后端：
+
+cd backend
+.\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+前端：
+
+cd frontend
+npm run dev -- --host 127.0.0.1
+
+
+八、首次手动安装依赖
+--------------------
+后端：
+
+cd backend
+python -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip
+.\.venv\Scripts\python -m pip install -e ".[dev,quality]"
+
+前端：
+
+cd frontend
+npm install --no-audit --no-fund
+
+
+九、更新依赖
+------------
+后端依赖文件发生变化时：
+
+cd backend
+.\.venv\Scripts\python -m pip install -e ".[dev,quality]"
+
+前端依赖文件发生变化时：
+
+cd frontend
+npm install --no-audit --no-fund
+
+
+十、常见问题
+------------
+1. 提示端口 8000 已被占用
+   说明后端可能已经启动。先关闭之前打开的“劳务通后端”窗口，或结束占用 8000 端口的进程。
+
+2. 提示端口 5173 已被占用
+   说明前端可能已经启动。先关闭之前的“劳务通前端”窗口，或结束占用 5173 端口的进程。
+
+3. 页面提示“后端服务未连接”
+   检查“劳务通后端”窗口是否仍在运行，并访问：
+   http://127.0.0.1:8000/api/v1/health
+
+4. 页面空白或前端启动失败
+   在 frontend 目录运行：
+   npm install --no-audit --no-fund
+   npm run dev
+
+5. 后端启动失败
+   在 backend 目录运行：
+   .\.venv\Scripts\python -m pip install -e ".[dev,quality]"
+   .\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+
+十一、测试命令
+------------
+后端测试：
+
+cd backend
+.\.venv\Scripts\python -m pytest
+
+前端单元测试：
+
+cd frontend
+npm run test
+
+前端类型检查：
+npm run typecheck
+
+前端生产构建：
+npm run build
+
+桌面端与移动端端到端测试：
+npm run test:e2e
+
+
+十二、注意事项
+--------------
+1. 不要提交 .env、API Key、数据库密码或用户材料。
+2. 正式部署前必须修改 SECRET_KEY、数据库密码和 MinIO 凭据。
+3. 当前版本为可运行演示，AI 默认使用本地演示规则；配置千问 API Key 后会调用真实模型。
+4. 当前证据处理支持文件筛查、哈希和材料分类，正式 OCR 与电子存证仍在后续阶段。
+5. 如果已经通过其他窗口启动前后端，start.bat 会复用已运行的端口，不会重复打开新服务。
