@@ -12,7 +12,7 @@ from app.schemas.case import (
     MessageCreate,
     MessageRead,
 )
-from app.services.ai import generate_ai_reply
+from app.services.ai import generate_ai_reply, structured_result
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -143,6 +143,7 @@ async def consult_case(
         content=ai_result.reply,
         metadata_json={
             "classification": ai_result.classification,
+            "structured": structured_result(ai_result),
             "suggested_next_step": ai_result.suggested_next_step,
             "demo_mode": ai_result.demo_mode,
         },
@@ -177,6 +178,7 @@ async def consult_case(
         user_message=MessageRead.model_validate(user_message),
         assistant_message=MessageRead.model_validate(assistant_message),
         classification=ai_result.classification,
+        structured=structured_result(ai_result),
         suggested_next_step=ai_result.suggested_next_step,
         demo_mode=ai_result.demo_mode,
     )

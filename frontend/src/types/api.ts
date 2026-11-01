@@ -50,6 +50,18 @@ export interface ConsultationResponse {
     legal_relationship: string
     signals: string[]
   }
+  structured: {
+    intent: string
+    dispute_label: string
+    legal_relationship: string
+    summary: string
+    suggested_next_step: string
+    required_information: string[]
+    evidence_gaps: string[]
+    risk_flags: string[]
+    citations: string[]
+    demo_mode: boolean
+  }
   suggested_next_step: string
   demo_mode: boolean
 }
@@ -71,6 +83,8 @@ export interface EvidenceResponse {
   items: EvidenceItem[]
   assessment: {
     status: string
+    required_categories: string[]
+    present_categories: string[]
     missing_categories: string[]
     missing_labels: string[]
     message: string
@@ -98,4 +112,33 @@ export interface DocumentItem {
   status: string
   version: number
   created_at: string
+}
+
+export type WorkflowStageStatus = 'completed' | 'current' | 'available' | 'locked'
+
+export interface WorkflowStage {
+  stage: string
+  label: string
+  status: WorkflowStageStatus
+  required_actions: string[]
+}
+
+export interface WorkflowOption {
+  target_stage: string
+  label: string
+  description: string
+  enabled: boolean
+  blocked_reasons: string[]
+}
+
+export interface WorkflowResponse {
+  case_id: number
+  current_stage: string
+  stages: WorkflowStage[]
+  options: WorkflowOption[]
+}
+
+export interface TransitionRequest {
+  target_stage: string
+  note?: string
 }

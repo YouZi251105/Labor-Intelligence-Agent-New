@@ -44,10 +44,24 @@ class MessageRead(BaseModel):
     created_at: datetime
 
 
+class StructuredAIResult(BaseModel):
+    intent: str
+    dispute_label: str
+    legal_relationship: str
+    summary: str
+    suggested_next_step: str
+    required_information: list[str]
+    evidence_gaps: list[str]
+    risk_flags: list[str]
+    citations: list[str]
+    demo_mode: bool
+
+
 class ConsultationResponse(BaseModel):
     case: CaseRead
     user_message: MessageRead
     assistant_message: MessageRead
     classification: dict[str, Any]
+    structured: StructuredAIResult
     suggested_next_step: str
     demo_mode: bool
