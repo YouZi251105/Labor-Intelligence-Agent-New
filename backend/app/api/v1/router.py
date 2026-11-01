@@ -5,6 +5,7 @@ from app.routes import (
     admin,
     auth,
     cases,
+    collaboration,
     documents,
     evidence,
     evidence_rules,
@@ -23,4 +24,6 @@ api_router.include_router(simulations.router)
 api_router.include_router(documents.router)
 api_router.include_router(workflow.router)
 api_router.include_router(lawyer.router)
+api_router.include_router(collaboration.router)
+api_router.include_router(collaboration.admin_router)
 api_router.include_router(admin.router)

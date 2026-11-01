@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 ServiceType = Literal["consultation", "evidence", "document", "hearing", "other"]
 ServiceStatus = Literal["pending", "in_progress", "completed"]
@@ -13,6 +13,8 @@ class LawyerOpinionCreate(BaseModel):
 
 
 class LawyerOpinionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     case_id: int
     lawyer_id: int
@@ -29,6 +31,8 @@ class ServiceRecordCreate(BaseModel):
 
 
 class ServiceRecordRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     case_id: int
     lawyer_id: int
@@ -53,6 +57,8 @@ class RevenueLedgerCreate(BaseModel):
 
 
 class RevenueLedgerRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     lawyer_id: int
     case_id: int | None
