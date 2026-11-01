@@ -62,9 +62,14 @@ docs/      需求、架构和实施文档
 - [管理员使用手册](docs/admin/管理员使用手册.md)
 - [演示脚本](docs/demo/演示脚本.md)
 - [当前功能与边界](docs/product/当前功能与边界.md)
+- [两人并行开发约定](docs/development/两人并行开发约定.md)
+- [分阶段分工与验收](docs/development/分阶段分工与验收.md)
+- [法律内容迁移与责任边界](docs/development/法律内容迁移与责任边界.md)
 - [开发与测试指南](docs/development/开发与测试指南.md)
 - [安全与权限说明](docs/security/安全与权限说明.md)
 - [API 概览](docs/api/API概览.md)
+- [接口契约 v1](docs/api/接口契约_v1.md)
+- [OpenAPI v1 JSON](docs/api/openapi.v1.json)
 
 ## 本地开发
 
