@@ -97,6 +97,19 @@ cd frontend
 npm run dev -- --host 127.0.0.1
 
 
+配置千问模型：
+
+1. 打开 backend\.env。
+2. 找到或补充以下两行：
+
+QIANWEN_API_KEY=你的千问API Key
+QIANWEN_MODEL=qwen-plus
+
+3. 保存后重启后端。
+4. 未配置或调用失败时会自动回退本地演示规则。
+5. 不要把真实 Key 提交到 Git。
+
+
 八、首次手动安装依赖
 --------------------
 后端：
@@ -147,6 +160,13 @@ npm install --no-audit --no-fund
    .\.venv\Scripts\python -m pip install -e ".[dev,quality]"
    .\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
+6. AI 一直显示“演示规则”
+   检查：
+   - backend\.env 中 QIANWEN_API_KEY 是否为空。
+   - 修改后是否重启后端。
+   - 服务器是否能访问 dashscope.aliyuncs.com。
+   - Key 是否有效且账户额度正常。
+
 
 十一、测试命令
 ------------
@@ -174,6 +194,6 @@ npm run test:e2e
 --------------
 1. 不要提交 .env、API Key、数据库密码或用户材料。
 2. 正式部署前必须修改 SECRET_KEY、数据库密码和 MinIO 凭据。
-3. 当前版本为可运行演示，AI 默认使用本地演示规则；配置千问 API Key 后会调用真实模型。
-4. 当前证据处理支持文件筛查、哈希和材料分类，正式 OCR 与电子存证仍在后续阶段。
+3. 当前版本为 0.2.0 业务试点基线；配置千问 API Key 后会调用真实模型，失败时回退本地规则。
+4. 当前证据处理支持 PDF/DOCX/TXT 提取、四性评估和 MinIO/S3；扫描版 OCR 与正式电子存证仍在后续阶段。
 5. 如果已经通过其他窗口启动前后端，start.bat 会复用已运行的端口，不会重复打开新服务。

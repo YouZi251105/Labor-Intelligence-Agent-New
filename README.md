@@ -100,6 +100,21 @@ cd backend
 
 项目根目录也提供 `requirements.txt` 和 `requirements-dev.txt` 兼容入口。`pyproject.toml` 仍是主依赖声明。
 
+### 配置千问
+
+本地配置写入：
+
+```text
+backend/.env
+```
+
+```env
+QIANWEN_API_KEY=你的千问API Key
+QIANWEN_MODEL=qwen-plus
+```
+
+保存后重启后端。未配置 Key 或调用失败时会自动回退本地演示规则，不会导致咨询接口不可用。
+
 访问：
 
 - API 文档：<http://localhost:8000/docs>
