@@ -228,7 +228,6 @@
               <strong>{{ item.filename }}</strong>
               <span>{{ categoryLabels[item.category] || item.category }} · {{ formatFileSize(item.file_size) }}</span>
               <small class="evidence-list__time">上传于 {{ new Date(item.created_at).toLocaleString('zh-CN') }}</small>
-              <small v-if="item.text_preview" class="evidence-list__preview">{{ item.text_preview }}</small>
             </div>
             <div class="evidence-list__side">
               <span class="status-tag" :class="`extract-${item.extraction_status}`">
