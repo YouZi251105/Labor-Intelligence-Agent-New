@@ -17,9 +17,16 @@ const parser = new MarkdownIt({
   breaks: true,
 })
 
+parser.renderer.rules.link_open = (tokens, index, options, _env, renderer) => {
+  tokens[index].attrSet('target', '_blank')
+  tokens[index].attrSet('rel', 'noopener noreferrer')
+  return renderer.renderToken(tokens, index, options)
+}
+
 const rendered = computed(() =>
   DOMPurify.sanitize(parser.render(props.content || ''), {
     USE_PROFILES: { html: true },
+    ADD_ATTR: ['target'],
   }),
 )
 </script>

@@ -226,7 +226,7 @@ a {
 
 .account__meta span {
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .account > svg {
@@ -249,6 +249,11 @@ a {
 }
 
 .page--workspace {
+  overflow: hidden;
+  padding: 24px 32px;
+}
+
+.page--console {
   overflow: hidden;
   padding: 24px 32px;
 }
@@ -559,7 +564,7 @@ h2 {
 
 .context-card--meta span {
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
@@ -572,7 +577,7 @@ h2 {
 .context-card--meta small {
   margin-top: 8px;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .stage-list {
@@ -616,7 +621,7 @@ h2 {
   border-radius: 50%;
   background: var(--lia-surface);
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -639,7 +644,7 @@ h2 {
 .stage-list small {
   margin-top: 2px;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .text-link,
@@ -953,7 +958,7 @@ summary:focus-visible {
   background: var(--lia-surface-soft);
   color: var(--lia-text-secondary);
   padding: 3px 9px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -1276,7 +1281,7 @@ summary:focus-visible {
 .case-card__id {
   color: var(--lia-text-muted);
   font-family: var(--font-mono, monospace);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .case-card h2 {
@@ -1298,7 +1303,7 @@ summary:focus-visible {
 .case-card__meta {
   justify-content: flex-start;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .case-card__meta span {
@@ -1312,7 +1317,7 @@ summary:focus-visible {
   margin-top: 16px;
   padding-top: 12px;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .case-card__footer .text-link {
@@ -1521,7 +1526,7 @@ summary:focus-visible {
 
 .upload-zone span {
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .upload-zone input {
@@ -1544,7 +1549,7 @@ summary:focus-visible {
   display: block;
   margin: 5px 0 0;
   color: var(--lia-text-secondary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .evidence-list,
@@ -1602,14 +1607,14 @@ summary:focus-visible {
 .user-admin-list span {
   margin-top: 3px;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .evidence-list small {
   margin-top: 2px;
   color: var(--lia-text-muted);
   font-family: var(--font-mono, monospace);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .large-textarea {
@@ -1641,7 +1646,7 @@ summary:focus-visible {
 .review-result small {
   margin: 4px 0 0;
   color: var(--lia-text-secondary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .risk-low {
@@ -1681,7 +1686,7 @@ summary:focus-visible {
   color: var(--lia-text-secondary);
   cursor: pointer;
   padding: 5px 9px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .row-actions button:hover,
@@ -1813,7 +1818,7 @@ summary:focus-visible {
 .workflow-option__reason {
   margin: 0;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .workflow-option__reason--blocked {
@@ -1850,7 +1855,7 @@ summary:focus-visible {
 .dimension-card p {
   margin: 2px 0 0;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .dimension--ok {
@@ -1883,7 +1888,7 @@ summary:focus-visible {
   overflow: hidden;
   margin-top: 4px;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1978,7 +1983,7 @@ summary:focus-visible {
 
 .metric-chip span {
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .metric-grid {
@@ -1986,6 +1991,52 @@ summary:focus-visible {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.admin-page,
+.simulation-page {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.simulation-page {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.admin-loading-skeleton {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--lia-border);
+  border-radius: var(--lia-radius);
+  background: var(--lia-surface);
+  padding: 24px;
+}
+
+.admin-loading-skeleton span {
+  display: block;
+  height: 56px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #f0ece7 25%, #f8f5f1 50%, #f0ece7 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shift 1.2s ease-in-out infinite;
+}
+
+.admin-loading-skeleton span:nth-child(1) {
+  width: 46%;
+}
+
+.admin-loading-skeleton span:nth-child(2) {
+  width: 78%;
+}
+
+@keyframes skeleton-shift {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 .metric-grid article {
@@ -2002,7 +2053,7 @@ summary:focus-visible {
 
 .metric-grid span {
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .metric-grid strong {
@@ -2032,7 +2083,7 @@ summary:focus-visible {
 .assignment-list select {
   min-width: 130px;
   padding: 7px 9px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .user-admin-list article {
@@ -2076,11 +2127,82 @@ summary:focus-visible {
   font-size: 11px;
 }
 
+.user-management-table__status {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
 .user-management-table__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.user-management-row {
+  flex-wrap: wrap;
+}
+
+.user-management-table .user-management-detail {
+  flex: 1 0 100%;
+  width: 100%;
+  order: 5;
+  border-top: 1px dashed var(--lia-border);
+  margin-top: 6px;
+  padding: 12px 0 2px 46px;
+}
+
+.user-management-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
+  margin: 0;
+}
+
+.user-management-detail dl > div {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.user-management-detail dt {
+  color: var(--lia-text-muted);
+  font-size: 11px;
+}
+
+.user-management-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.verification-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.verification-actions select,
+.pagination-bar button {
+  border: 1px solid var(--lia-border-strong);
+  border-radius: 7px;
+  background: var(--lia-surface);
+  padding: 7px 10px;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--lia-border);
+  margin-top: 12px;
+  padding-top: 14px;
+  color: var(--lia-text-muted);
+  font-size: 12px;
 }
 
 .user-management-table__actions button:disabled {
@@ -2189,6 +2311,11 @@ summary:focus-visible {
     overflow: visible;
   }
 
+  .page--console {
+    height: auto;
+    overflow: visible;
+  }
+
   .workspace {
     height: auto;
     min-height: auto;
@@ -2200,6 +2327,17 @@ summary:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     overflow: visible;
     padding-right: 0;
+  }
+
+  .admin-page,
+  .simulation-page {
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .simulation-page {
+    display: block;
   }
 
   .context-card:first-child {
@@ -2331,7 +2469,7 @@ summary:focus-visible {
 
   .auth-brand__points {
     gap: 10px;
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .auth-card {
@@ -2396,23 +2534,59 @@ summary:focus-visible {
 
 .simulation-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  grid-template-columns: minmax(270px, 320px) minmax(0, 1fr);
+  grid-template-areas:
+    'setup room'
+    'score room';
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
   gap: 18px;
 }
 
-.simulation-layout > .detail-card:first-child {
-  grid-column: 1 / -1;
+.simulation-setup {
+  grid-area: setup;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
 }
 
-.simulation-room,
+.simulation-setup .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.simulation-setup .form-actions {
+  margin-top: 4px;
+}
+
+.simulation-setup .detail-section-heading {
+  margin-bottom: 8px;
+}
+
+.simulation-room {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  grid-area: room;
+  align-self: stretch;
+  overflow: hidden;
+}
+
 .score-panel {
-  align-self: start;
+  grid-area: score;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
 }
 
 .simulation-messages {
   display: flex;
-  min-height: 260px;
-  max-height: 480px;
+  min-height: 180px;
+  max-height: none;
+  flex: 1;
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
@@ -2443,7 +2617,7 @@ summary:focus-visible {
   display: block;
   margin-bottom: 5px;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -2460,7 +2634,7 @@ summary:focus-visible {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin: 16px 0;
+  margin: 10px 0;
 }
 
 .score-grid > div {
@@ -2468,13 +2642,13 @@ summary:focus-visible {
   gap: 4px;
   border: 1px solid var(--lia-border);
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px;
   text-align: center;
 }
 
 .score-grid span {
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .score-grid strong {
@@ -2485,7 +2659,7 @@ summary:focus-visible {
 .coach-list {
   margin: 0;
   padding-left: 18px;
-  line-height: 1.8;
+  line-height: 1.55;
 }
 
 .help-resource-grid,
@@ -2619,7 +2793,7 @@ summary:focus-visible {
 }
 
 .ledger-list__actions button,
-.admin-table button,
+.admin-table button:not(.primary-action):not(.secondary-action),
 .table-action {
   border: 1px solid var(--lia-border);
   border-radius: 6px;
@@ -2758,7 +2932,7 @@ summary:focus-visible {
 .history-list button span {
   flex: 0 0 auto;
   color: var(--lia-text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .topic-cloud {
@@ -2780,10 +2954,14 @@ summary:focus-visible {
   .help-resource-grid,
   .rule-admin-grid {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      'setup'
+      'room'
+      'score';
   }
 
-  .simulation-layout > .detail-card:first-child {
-    grid-column: auto;
+  .simulation-room {
+    min-height: 560px;
   }
 }
 

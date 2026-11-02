@@ -159,6 +159,8 @@ file
 |---|---|---|---|
 | GET | `/admin/stats` | 数据统计 | 管理员 |
 | GET | `/admin/users` | 用户列表 | 管理员 |
+| GET | `/admin/users/manage` | 用户分页、搜索和筛选 | 管理员 |
+| GET | `/admin/users/{user_id}` | 用户脱敏详情 | 管理员 |
 | POST | `/admin/users/{user_id}/reset-password` | 重置密码 | 管理员 |
 | PATCH | `/admin/users/{user_id}/status` | 启用或停用账号 | 管理员 |
 | GET | `/admin/lawyers` | 律师列表 | 管理员 |

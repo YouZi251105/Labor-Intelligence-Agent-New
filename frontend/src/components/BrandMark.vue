@@ -5,7 +5,12 @@
     role="img"
     aria-label="劳务通"
   >
-    <Scale :size="size === 'large' ? 30 : 22" :stroke-width="2.1" aria-hidden="true" />
+    <Scale
+      :size="size === 'large' ? 30 : 22"
+      :stroke-width="2.1"
+      color="#ffffff"
+      aria-hidden="true"
+    />
   </span>
 </template>
 

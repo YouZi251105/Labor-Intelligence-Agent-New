@@ -118,3 +118,55 @@ def test_admin_material_list_omits_material_text() -> None:
     if response.json():
         assert "text_content" not in response.json()[0]
         assert "assessment" not in response.json()[0]
+
+
+def test_admin_user_management_supports_search_pagination_and_masked_detail() -> None:
+    with TestClient(app) as client:
+        worker_token = login(client, "demo", "Demo123!")
+        client.put(
+            "/api/v1/users/me/profile",
+            headers=auth(worker_token),
+            json={
+                "real_name": "测试劳动者",
+                "phone": "13800000000",
+                "id_number": "110101199001011234",
+            },
+        )
+
+        admin_token = login(client, "admin", "Admin123!")
+        page = client.get(
+            "/api/v1/admin/users/manage?q=demo&role=user&status=active&page=1&page_size=1",
+            headers=auth(admin_token),
+        )
+        assert page.status_code == 200
+        payload = page.json()
+        assert payload["total"] >= 1
+        assert len(payload["items"]) == 1
+        item = payload["items"][0]
+        assert item["username"] == "demo"
+        assert item["real_name"] == "测试劳动者"
+        assert item["verification_status"] == "pending"
+        assert item["id_number_masked"] == "110***********1234"
+        assert "id_number" not in item
+        assert "id_number_hash" not in item
+
+        detail = client.get(
+            f"/api/v1/admin/users/{item['id']}",
+            headers=auth(admin_token),
+        )
+        verification = client.patch(
+            f"/api/v1/admin/users/{item['id']}/verification",
+            headers=auth(admin_token),
+            json={"verification_status": "verified"},
+        )
+        worker_forbidden = client.get(
+            "/api/v1/admin/users/manage",
+            headers=auth(worker_token),
+        )
+
+    assert detail.status_code == 200
+    assert detail.json()["verification_status"] == "pending"
+    assert "id_number_hash" not in detail.text
+    assert verification.status_code == 200
+    assert verification.json()["verification_status"] == "verified"
+    assert worker_forbidden.status_code == 403

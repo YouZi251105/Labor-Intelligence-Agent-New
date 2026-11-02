@@ -153,7 +153,7 @@
           <article v-for="opinion in opinions" :key="opinion.id">
             <div>
               <strong>案件 #{{ opinion.case_id }}</strong>
-              <span>{{ opinion.content }}</span>
+              <SafeMarkdown :content="opinion.content" />
               <small>{{ new Date(opinion.created_at).toLocaleString('zh-CN') }}</small>
             </div>
           </article>
@@ -226,6 +226,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
+import SafeMarkdown from '../components/SafeMarkdown.vue'
 import type {
   CaseItem,
   LawyerOpinion,

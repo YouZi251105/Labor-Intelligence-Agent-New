@@ -71,7 +71,13 @@
         <span class="mobile-header__status">法律服务</span>
       </header>
 
-      <main class="page" :class="{ 'page--workspace': route.name === 'workspace' }">
+      <main
+        class="page"
+        :class="{
+          'page--workspace': route.name === 'workspace',
+          'page--console': route.name === 'simulation' || route.name === 'admin',
+        }"
+      >
         <RouterView />
       </main>
     </div>
@@ -134,17 +140,17 @@ const adminNavigation: NavItem[] = [
   {
     name: 'admin',
     label: '管理后台',
-    to: '/admin?section=overview',
+    to: '/admin/overview',
     icon: UsersRound,
     children: [
-      { name: 'admin-overview', label: '管理总览', to: '/admin?section=overview' },
-      { name: 'admin-users', label: '用户管理', to: '/admin?section=users' },
-      { name: 'admin-lawyers', label: '律师管理', to: '/admin?section=lawyers' },
-      { name: 'admin-cases', label: '案件分配', to: '/admin?section=cases' },
-      { name: 'admin-rules', label: '规则复核', to: '/admin?section=rules' },
-      { name: 'admin-materials', label: '材料管理', to: '/admin?section=materials' },
-      { name: 'admin-audit', label: '审计日志', to: '/admin?section=audit' },
-      { name: 'admin-revenue', label: '收益管理', to: '/admin?section=revenue' },
+      { name: 'admin-overview', label: '管理总览', to: '/admin/overview' },
+      { name: 'admin-users', label: '用户管理', to: '/admin/users' },
+      { name: 'admin-lawyers', label: '律师管理', to: '/admin/lawyers' },
+      { name: 'admin-cases', label: '案件分配', to: '/admin/cases' },
+      { name: 'admin-rules', label: '规则复核', to: '/admin/rules' },
+      { name: 'admin-materials', label: '材料管理', to: '/admin/materials' },
+      { name: 'admin-audit', label: '审计日志', to: '/admin/audit' },
+      { name: 'admin-revenue', label: '收益管理', to: '/admin/revenue' },
     ],
   },
   { name: 'admin-help', label: '平台资源', to: '/help', icon: BookOpenText },
@@ -179,9 +185,7 @@ const supportDescription = computed(() =>
 
 function isNavActive(to: string) {
   const target = router.resolve(to)
-  if (route.path !== target.path) return false
-  const section = target.query.section
-  return typeof section !== 'string' || route.query.section === section
+  return route.path === target.path
 }
 
 function logout() {

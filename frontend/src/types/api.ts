@@ -10,6 +10,19 @@ export interface User {
   created_at: string
 }
 
+export interface AdminUserSummary extends User {
+  real_name: string | null
+  verification_status: 'unverified' | 'pending' | 'verified' | 'rejected'
+  id_number_masked: string | null
+}
+
+export interface AdminUserPage {
+  items: AdminUserSummary[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export interface AuthResponse {
   access_token: string
   token_type: string

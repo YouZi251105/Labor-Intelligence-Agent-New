@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
@@ -13,6 +13,8 @@ from app.models.evidence import Evidence
 from app.models.lawyer import LawyerProfile
 from app.models.user import User
 from app.schemas.admin import (
+    AdminUserPage,
+    AdminUserSummary,
     AdminUserUpdate,
     AuditLogRead,
     CaseAssignmentRequest,
@@ -32,17 +34,51 @@ AdminUser = require_roles("admin")
 AdminRequired = Annotated[User, Depends(AdminUser)]
 
 
+def to_admin_user_summary(
+    user: User,
+    profile: UserProfile | None,
+) -> AdminUserSummary:
+    return AdminUserSummary(
+        id=user.id,
+        username=user.username,
+        role=user.role,
+        display_name=user.display_name,
+        phone=user.phone,
+        is_active=user.is_active,
+        real_name=profile.real_name if profile is not None else None,
+        verification_status=(
+            profile.verification_status if profile is not None else "unverified"
+        ),
+        id_number_masked=(
+            profile.id_number_masked if profile is not None else None
+        ),
+        created_at=user.created_at,
+    )
+
+
 @router.get("/stats")
 async def stats(session: DbSession, _: AdminRequired) -> dict[str, int]:
     user_count = await session.scalar(select(func.count()).select_from(User))
     case_count = await session.scalar(select(func.count()).select_from(Case))
     evidence_count = await session.scalar(select(func.count()).select_from(Evidence))
     document_count = await session.scalar(select(func.count()).select_from(Document))
+    pending_lawyers = await session.scalar(
+        select(func.count())
+        .select_from(LawyerProfile)
+        .where(LawyerProfile.status == "pending")
+    )
+    unassigned_cases = await session.scalar(
+        select(func.count())
+        .select_from(Case)
+        .where(Case.assigned_lawyer_id.is_(None))
+    )
     return {
         "users": user_count or 0,
         "cases": case_count or 0,
         "evidence": evidence_count or 0,
         "documents": document_count or 0,
+        "pending_lawyers": pending_lawyers or 0,
+        "unassigned_cases": unassigned_cases or 0,
     }
 
 
@@ -50,6 +86,75 @@ async def stats(session: DbSession, _: AdminRequired) -> dict[str, int]:
 async def users(session: DbSession, _: AdminRequired) -> list[User]:
     results = await session.scalars(select(User).order_by(User.created_at.desc()))
     return list(results)
+
+
+@router.get("/users/manage", response_model=AdminUserPage)
+async def managed_users(
+    session: DbSession,
+    _: AdminRequired,
+    q: str | None = Query(default=None, max_length=80),
+    role: Literal["user", "lawyer", "admin"] | None = Query(default=None),
+    status: Literal["active", "inactive"] | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> AdminUserPage:
+    conditions = []
+    if q:
+        keyword = f"%{q.strip()}%"
+        conditions.append(
+            User.username.ilike(keyword)
+            | User.display_name.ilike(keyword)
+            | User.phone.ilike(keyword)
+        )
+    if role:
+        conditions.append(User.role == role)
+    if status:
+        conditions.append(User.is_active.is_(status == "active"))
+
+    count_query = (
+        select(func.count())
+        .select_from(User)
+        .outerjoin(UserProfile, UserProfile.user_id == User.id)
+    )
+    query = (
+        select(User, UserProfile)
+        .outerjoin(UserProfile, UserProfile.user_id == User.id)
+        .order_by(User.created_at.desc())
+    )
+    if conditions:
+        count_query = count_query.where(*conditions)
+        query = query.where(*conditions)
+
+    total = await session.scalar(count_query)
+    rows = (
+        await session.execute(
+            query.offset((page - 1) * page_size).limit(page_size)
+        )
+    ).all()
+    return AdminUserPage(
+        items=[to_admin_user_summary(user, profile) for user, profile in rows],
+        total=total or 0,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/users/{user_id}", response_model=AdminUserSummary)
+async def managed_user_detail(
+    user_id: int,
+    session: DbSession,
+    _: AdminRequired,
+) -> AdminUserSummary:
+    row = (
+        await session.execute(
+            select(User, UserProfile)
+            .outerjoin(UserProfile, UserProfile.user_id == User.id)
+            .where(User.id == user_id)
+        )
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return to_admin_user_summary(*row)
 
 
 @router.post("/users/{user_id}/reset-password")

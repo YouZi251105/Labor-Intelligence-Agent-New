@@ -15,7 +15,7 @@
     <p v-if="error" class="inline-error">{{ error }}</p>
 
     <div class="simulation-layout">
-      <section class="detail-card">
+      <section class="detail-card simulation-setup">
         <div class="detail-section-heading">
           <div>
             <span class="eyebrow">训练设置</span>
@@ -47,7 +47,7 @@
             <span>训练场景</span>
             <textarea
               v-model="scenario"
-              rows="3"
+              rows="2"
               placeholder="例如：向老板确认拖欠工资的支付时间"
             />
           </label>
@@ -93,7 +93,7 @@
           <span>你的表达</span>
           <textarea
             v-model="messageInput"
-            rows="4"
+            rows="3"
             placeholder="例如：请您确认9月和10月工资的支付时间，并书面确认金额。"
             @keydown.enter.exact.prevent="sendMessage"
           />

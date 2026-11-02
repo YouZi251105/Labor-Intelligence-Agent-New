@@ -102,7 +102,7 @@
       <p v-else class="muted-text">
         你只能查看已分配给自己的案件。案件事实由劳动者维护，律师意见、服务记录和收益记录请在律师工作台提交。
       </p>
-      <RouterLink :to="isAdmin ? '/admin?section=overview' : '/lawyer'" class="text-link">
+      <RouterLink :to="isAdmin ? '/admin/overview' : '/lawyer'" class="text-link">
         返回{{ isAdmin ? '管理总览' : '律师工作台' }}
         <ArrowRight :size="15" />
       </RouterLink>

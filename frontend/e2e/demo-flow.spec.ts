@@ -52,26 +52,50 @@ test('login page is accessible', async ({ page }, testInfo) => {
   })
 })
 
-test('workspace stays usable at a 1366 by 768 viewport', async ({ page }) => {
-  await page.setViewportSize({ width: 1366, height: 768 })
+test('workspace stays usable at 100 percent zoom', async ({ page }) => {
   await login(page, 'demo', 'Demo123!')
 
-  await expect(page.locator('.composer')).toBeInViewport()
-  const layout = await page.evaluate(() => ({
-    horizontalOverflow:
-      document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    pageOverflow: document.querySelector<HTMLElement>('.page')?.scrollHeight
-      ? document.querySelector<HTMLElement>('.page')!.scrollHeight >
-        document.querySelector<HTMLElement>('.page')!.clientHeight
-      : false,
-    chatScrollable:
-      (document.querySelector<HTMLElement>('.chat-message-list')?.scrollHeight ?? 0) >=
-      (document.querySelector<HTMLElement>('.chat-message-list')?.clientHeight ?? 0),
-  }))
+  for (const viewport of [
+    { width: 1366, height: 768 },
+    { width: 1920, height: 1080 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    await expect(page.locator('.composer')).toBeInViewport()
+    const layout = await page.evaluate(() => ({
+      horizontalOverflow:
+        document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      pageOverflow:
+        (document.querySelector<HTMLElement>('.page')?.scrollHeight ?? 0) >
+        (document.querySelector<HTMLElement>('.page')?.clientHeight ?? 0),
+    }))
 
-  expect(layout.horizontalOverflow).toBe(false)
-  expect(layout.pageOverflow).toBe(false)
-  expect(layout.chatScrollable).toBe(true)
+    expect(layout.horizontalOverflow).toBe(false)
+    expect(layout.pageOverflow).toBe(false)
+  }
+})
+
+test('simulation and help pages use one scroll layer at 100 percent zoom', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+
+  for (const viewport of [
+    { width: 1366, height: 768 },
+    { width: 1920, height: 1080 },
+  ]) {
+    await page.setViewportSize(viewport)
+    for (const path of ['/simulation', '/help']) {
+      await page.goto(path)
+      await page.waitForTimeout(150)
+      const layout = await page.evaluate(() => ({
+        documentOverflow:
+          document.documentElement.scrollHeight > document.documentElement.clientHeight,
+        horizontalOverflow:
+          document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      }))
+      expect(layout.documentOverflow).toBe(false)
+      expect(layout.horizontalOverflow).toBe(false)
+    }
+  }
 })
 
 test('worker can consult, review a contract, and generate a document', async ({ page }, testInfo) => {
@@ -176,9 +200,15 @@ test('admin can open the management dashboard', async ({ page }, testInfo) => {
   const openNavigation = page.getByRole('button', { name: '打开导航' })
   if (await openNavigation.isVisible()) await openNavigation.click()
   await page.getByRole('link', { name: '用户管理', exact: true }).click()
-  await expect(page).toHaveURL(/section=users/)
+  await expect(page).toHaveURL(/\/admin\/users$/)
   await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible()
   await expect(page.getByPlaceholder('搜索用户名、姓名或手机号')).toBeVisible()
+  await page.getByPlaceholder('搜索用户名、姓名或手机号').fill('demo')
+  await expect(page.locator('.user-management-row')).toHaveCount(1)
+  await expect(page.locator('.user-management-row').first()).toBeVisible()
+  await page.locator('.user-management-row').first().getByRole('button', { name: '查看详情' }).click()
+  await expect(page.locator('.user-management-detail')).toBeVisible()
+  await expect(page.locator('.user-management-detail')).toContainText('身份证号')
   await expect(page.locator('.sidebar--open')).toHaveCount(0)
   await page.screenshot({
     path: `../docs/screenshots/admin-${testInfo.project.name}.png`,
@@ -194,6 +224,23 @@ test('lawyer can open the assigned-case dashboard', async ({ page }, testInfo) =
     path: `../docs/screenshots/lawyer-${testInfo.project.name}.png`,
     fullPage: true,
   })
+})
+
+test('admin and lawyer help pages do not expose worker-only actions', async ({ page }) => {
+  await login(page, 'admin', 'Admin123!')
+  await page.goto('/help')
+  await expect(page.getByRole('heading', { name: '平台资源维护' })).toBeVisible()
+  await expect(page.getByText('本站律师', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('申请人工协助', { exact: true })).toHaveCount(0)
+
+  await page.goto('/lawyer')
+  await expect(page).toHaveURL('http://127.0.0.1:5173/')
+
+  await page.evaluate(() => localStorage.clear())
+  await login(page, 'lawyer', 'Lawyer123!')
+  await page.goto('/help')
+  await expect(page.getByRole('heading', { name: '律师服务支持' })).toBeVisible()
+  await expect(page.getByText('申请人工协助', { exact: true })).toHaveCount(0)
 })
 
 test('evidence upload shows error for unsupported file type', async ({ page }, testInfo) => {

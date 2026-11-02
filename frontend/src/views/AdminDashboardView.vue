@@ -6,11 +6,18 @@
         <h1>管理后台</h1>
         <p>管理用户、律师、案件、规则、材料和审计记录。</p>
       </div>
-      <button class="secondary-action" type="button" @click="loadAll">刷新数据</button>
+      <button class="secondary-action" type="button" @click="loadCurrentSection">刷新数据</button>
     </header>
 
     <p v-if="error" class="inline-error">{{ error }}</p>
 
+    <div v-if="loading" class="admin-loading-skeleton" aria-label="管理数据加载中">
+      <span />
+      <span />
+      <span />
+    </div>
+
+    <template v-else>
     <div v-if="activeTab === '总览'" class="metric-grid">
       <article><span>用户</span><strong>{{ stats.users }}</strong></article>
       <article><span>案件</span><strong>{{ stats.cases }}</strong></article>
@@ -32,12 +39,12 @@
       </section>
       <section class="detail-card">
         <span class="eyebrow">待办概览</span>
-        <h2>{{ pendingLawyerCount }} 位律师待审核</h2>
+        <h2>{{ stats.pending_lawyers }} 位律师待审核</h2>
         <p class="muted-text">律师审核、规则复核与材料访问都在独立管理页处理。</p>
       </section>
       <section class="detail-card">
         <span class="eyebrow">案件分配</span>
-        <h2>{{ cases.filter((item) => !item.assigned_lawyer_id).length }} 个案件待分配</h2>
+        <h2>{{ stats.unassigned_cases }} 个案件待分配</h2>
         <p class="muted-text">从左侧“案件分配”进入，按案件查看材料和分配律师。</p>
       </section>
     </div>
@@ -45,34 +52,54 @@
     <section v-else-if="activeTab === '用户'" class="detail-card">
       <div class="detail-section-heading">
         <div><span class="eyebrow">账号与权限</span><h2>用户管理</h2></div>
-        <span class="status-tag">{{ filteredUsers.length }} / {{ users.length }}</span>
+        <span class="status-tag">{{ userPage.total }} 个账号</span>
       </div>
       <div class="admin-filter-bar">
-        <input v-model.trim="userSearch" type="search" placeholder="搜索用户名、姓名或手机号" />
-        <select v-model="userRoleFilter">
+        <input
+          v-model.trim="userSearch"
+          type="search"
+          placeholder="搜索用户名、姓名或手机号"
+          @input="queueUserSearch"
+        />
+        <select v-model="userRoleFilter" @change="applyUserFilters">
           <option value="all">全部角色</option>
           <option value="user">劳动者</option>
           <option value="lawyer">律师</option>
           <option value="admin">管理员</option>
         </select>
-        <select v-model="userStatusFilter">
+        <select v-model="userStatusFilter" @change="applyUserFilters">
           <option value="all">全部状态</option>
           <option value="active">正常</option>
           <option value="inactive">已停用</option>
         </select>
       </div>
       <div class="admin-table user-management-table">
-        <article v-for="userItem in filteredUsers" :key="userItem.id">
+        <article v-for="userItem in users" :key="userItem.id" class="user-management-row">
           <div class="user-admin-list__avatar">{{ userItem.username.slice(0, 1).toUpperCase() }}</div>
           <div class="user-management-table__identity">
             <strong>{{ userItem.display_name || userItem.username }}</strong>
             <span>{{ userItem.username }} · {{ roleLabels[userItem.role] }}</span>
-            <small>{{ userItem.phone || '未填写手机号' }} · {{ new Date(userItem.created_at).toLocaleDateString('zh-CN') }}</small>
+            <small>
+              {{ userItem.phone || '未填写手机号' }} ·
+              {{ verificationLabels[userItem.verification_status] }} ·
+              {{ new Date(userItem.created_at).toLocaleDateString('zh-CN') }}
+            </small>
           </div>
-          <span class="status-tag" :class="{ 'status-tag--warning': !userItem.is_active }">
-            {{ userItem.is_active ? '正常' : '已停用' }}
-          </span>
+          <div class="user-management-table__status">
+            <span class="status-tag" :class="{ 'status-tag--warning': !userItem.is_active }">
+              {{ userItem.is_active ? '正常' : '已停用' }}
+            </span>
+            <span
+              class="status-tag"
+              :class="{ 'status-tag--success': userItem.verification_status === 'verified' }"
+            >
+              {{ verificationLabels[userItem.verification_status] }}
+            </span>
+          </div>
           <div class="user-management-table__actions">
+            <button type="button" class="table-action" @click="toggleUserDetail(userItem)">
+              {{ selectedUser?.id === userItem.id ? '收起' : '查看详情' }}
+            </button>
             <button type="button" class="table-action" @click="resetPassword(userItem)">重置密码</button>
             <button
               type="button"
@@ -83,8 +110,46 @@
               {{ userItem.is_active ? '停用账号' : '恢复账号' }}
             </button>
           </div>
+          <div v-if="selectedUser?.id === userItem.id" class="user-management-detail">
+            <dl>
+              <div><dt>用户编号</dt><dd>#{{ userItem.id }}</dd></div>
+              <div><dt>实名姓名</dt><dd>{{ userItem.real_name || '未填写' }}</dd></div>
+              <div><dt>手机号</dt><dd>{{ userItem.phone || '未填写' }}</dd></div>
+              <div><dt>身份证号</dt><dd>{{ userItem.id_number_masked || '未提交' }}</dd></div>
+            </dl>
+            <div v-if="userItem.role === 'user'" class="verification-actions">
+              <select v-model="verificationSelections[userItem.id]">
+                <option value="unverified">未提交</option>
+                <option value="pending">待核验</option>
+                <option value="verified">已核验</option>
+                <option value="rejected">需重新提交</option>
+              </select>
+              <button type="button" class="primary-action primary-action--compact" @click="updateVerification(userItem)">
+                保存核验状态
+              </button>
+            </div>
+          </div>
         </article>
-        <p v-if="!filteredUsers.length" class="muted-text">没有符合筛选条件的账号。</p>
+        <p v-if="!users.length" class="muted-text">没有符合筛选条件的账号。</p>
+      </div>
+      <div class="pagination-bar">
+        <button
+          type="button"
+          class="secondary-action primary-action--compact"
+          :disabled="userPage.page <= 1 || usersLoading"
+          @click="changeUserPage(userPage.page - 1)"
+        >
+          上一页
+        </button>
+        <span>第 {{ userPage.page }} 页 · 共 {{ userPage.total }} 个账号</span>
+        <button
+          type="button"
+          class="secondary-action primary-action--compact"
+          :disabled="!hasNextUserPage || usersLoading"
+          @click="changeUserPage(userPage.page + 1)"
+        >
+          下一页
+        </button>
       </div>
     </section>
 
@@ -223,15 +288,18 @@
         </div>
       </div>
     </section>
+    </template>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
 import type {
+  AdminUserPage,
+  AdminUserSummary,
   AuditLogItem,
   CaseItem,
   MaterialSummary,
@@ -265,9 +333,13 @@ const sectionTabs: Record<string, string> = {
   revenue: '收益',
 }
 const activeTab = computed(
-  () => sectionTabs[String(route.query.section ?? 'overview')] ?? '总览',
+  () => sectionTabs[activeSection.value] ?? '总览',
 )
-const users = ref<User[]>([])
+const activeSection = computed(() => {
+  const value = String(route.params.section ?? 'overview')
+  return value in sectionTabs ? value : 'overview'
+})
+const users = ref<AdminUserSummary[]>([])
 const lawyers = ref<LawyerSummary[]>([])
 const cases = ref<CaseItem[]>([])
 const rules = ref<RuleConfigItem[]>([])
@@ -276,17 +348,41 @@ const auditLogs = ref<AuditLogItem[]>([])
 const serviceRecords = ref<ServiceRecord[]>([])
 const revenueEntries = ref<RevenueLedger[]>([])
 const topics = reactive<TopicsResponse>({ topics: [], total: 0 })
-const stats = reactive({ users: 0, cases: 0, evidence: 0, documents: 0 })
+const stats = reactive({
+  users: 0,
+  cases: 0,
+  evidence: 0,
+  documents: 0,
+  pending_lawyers: 0,
+  unassigned_cases: 0,
+})
+const userPage = reactive<AdminUserPage>({
+  items: [],
+  total: 0,
+  page: 1,
+  page_size: 20,
+})
 const assignmentSelections = reactive<Record<number, number | null>>({})
 const lawyerStatuses = reactive<Record<number, string>>({})
 const ruleReviews = reactive<Record<number, { status: string; note: string }>>({})
 const assigningId = ref<number | null>(null)
 const error = ref('')
+const loading = ref(false)
+const usersLoading = ref(false)
 const userSearch = ref('')
 const userRoleFilter = ref('all')
 const userStatusFilter = ref('all')
+const selectedUser = ref<AdminUserSummary | null>(null)
+const verificationSelections = reactive<Record<number, string>>({})
+let userSearchTimer: ReturnType<typeof setTimeout> | null = null
 
 const roleLabels: Record<string, string> = { user: '劳动者', lawyer: '律师', admin: '管理员' }
+const verificationLabels: Record<string, string> = {
+  unverified: '未提交',
+  pending: '待核验',
+  verified: '已核验',
+  rejected: '需重新提交',
+}
 const disputeLabels: Record<string, string> = {
   wage: '欠薪',
   termination: '违法解除',
@@ -314,26 +410,9 @@ const auditLabels: Record<string, string> = {
   'user.password_reset': '密码重置',
 }
 
-const pendingLawyerCount = computed(
-  () => lawyers.value.filter((lawyer) => lawyer.status === 'pending').length,
+const hasNextUserPage = computed(
+  () => userPage.page * userPage.page_size < userPage.total,
 )
-
-const filteredUsers = computed(() => {
-  const keyword = userSearch.value.toLowerCase()
-  return users.value.filter((userItem) => {
-    const matchesKeyword =
-      !keyword ||
-      userItem.username.toLowerCase().includes(keyword) ||
-      userItem.display_name.toLowerCase().includes(keyword) ||
-      userItem.phone.includes(keyword)
-    const matchesRole =
-      userRoleFilter.value === 'all' || userItem.role === userRoleFilter.value
-    const matchesStatus =
-      userStatusFilter.value === 'all' ||
-      (userStatusFilter.value === 'active' ? userItem.is_active : !userItem.is_active)
-    return matchesKeyword && matchesRole && matchesStatus
-  })
-})
 
 function nextRevenueStatus(status: string) {
   if (status === 'pending') return 'confirmed'
@@ -341,57 +420,156 @@ function nextRevenueStatus(status: string) {
   return ''
 }
 
-async function loadAll() {
+async function loadLawyers() {
+  lawyers.value = await apiRequest<LawyerSummary[]>('/admin/lawyers')
+  for (const lawyer of lawyers.value) {
+    lawyerStatuses[lawyer.id] = lawyer.status
+  }
+}
+
+async function loadCases() {
+  const [caseData] = await Promise.all([
+    apiRequest<CaseItem[]>('/admin/cases'),
+    loadLawyers(),
+  ])
+  cases.value = caseData
+  for (const item of caseData) {
+    assignmentSelections[item.id] = item.assigned_lawyer_id
+  }
+}
+
+async function loadRules() {
+  rules.value = await apiRequest<RuleConfigItem[]>('/admin/rules')
+  for (const rule of rules.value) {
+    ruleReviews[rule.id] = {
+      status: rule.review_status,
+      note: rule.source_note,
+    }
+  }
+}
+
+async function loadRevenue() {
+  const [serviceData, revenueData] = await Promise.all([
+    apiRequest<ServiceRecord[]>('/admin/service-records'),
+    apiRequest<RevenueLedger[]>('/admin/revenue'),
+  ])
+  serviceRecords.value = serviceData
+  revenueEntries.value = revenueData
+}
+
+async function loadSection(section: string) {
   error.value = ''
   try {
-    const [
-      statsData,
-      userData,
-      lawyerData,
-      caseData,
-      ruleData,
-      materialData,
-      auditData,
-      serviceData,
-      revenueData,
-      topicData,
-    ] = await Promise.all([
-      apiRequest<typeof stats>('/admin/stats'),
-      apiRequest<User[]>('/admin/users'),
-      apiRequest<LawyerSummary[]>('/admin/lawyers'),
-      apiRequest<CaseItem[]>('/admin/cases'),
-      apiRequest<RuleConfigItem[]>('/admin/rules'),
-      apiRequest<MaterialSummary[]>('/admin/materials'),
-      apiRequest<AuditLogItem[]>('/admin/audit-logs?limit=30'),
-      apiRequest<ServiceRecord[]>('/admin/service-records'),
-      apiRequest<RevenueLedger[]>('/admin/revenue'),
-      apiRequest<TopicsResponse>('/analytics/topics'),
-    ])
-    Object.assign(stats, statsData)
-    users.value = userData
-    lawyers.value = lawyerData
-    cases.value = caseData
-    rules.value = ruleData
-    materials.value = materialData
-    auditLogs.value = auditData
-    serviceRecords.value = serviceData
-    revenueEntries.value = revenueData
-    Object.assign(topics, topicData)
-    for (const item of caseData) {
-      assignmentSelections[item.id] = item.assigned_lawyer_id
+    if (section === 'overview') {
+      const [statsData, topicData] = await Promise.all([
+        apiRequest<typeof stats>('/admin/stats'),
+        apiRequest<TopicsResponse>('/analytics/topics'),
+      ])
+      Object.assign(stats, statsData)
+      Object.assign(topics, topicData)
+      return
     }
-    for (const lawyer of lawyerData) {
-      lawyerStatuses[lawyer.id] = lawyer.status
+    if (section === 'users') {
+      await fetchUsers()
+      return
     }
-    for (const rule of ruleData) {
-      ruleReviews[rule.id] = {
-        status: rule.review_status,
-        note: rule.source_note,
-      }
+    if (section === 'lawyers') {
+      await loadLawyers()
+      return
+    }
+    if (section === 'cases') {
+      await loadCases()
+      return
+    }
+    if (section === 'rules') {
+      await loadRules()
+      return
+    }
+    if (section === 'materials') {
+      materials.value = await apiRequest<MaterialSummary[]>('/admin/materials')
+      return
+    }
+    if (section === 'audit') {
+      auditLogs.value = await apiRequest<AuditLogItem[]>(
+        '/admin/audit-logs?limit=30',
+      )
+      return
+    }
+    if (section === 'revenue') {
+      await loadRevenue()
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : '管理数据加载失败'
   }
+}
+
+async function loadCurrentSection() {
+  loading.value = true
+  try {
+    await loadSection(activeSection.value)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchUsers() {
+  usersLoading.value = true
+  try {
+    const params = new URLSearchParams({
+      page: String(userPage.page),
+      page_size: String(userPage.page_size),
+    })
+    if (userSearch.value) params.set('q', userSearch.value)
+    if (userRoleFilter.value !== 'all') params.set('role', userRoleFilter.value)
+    if (userStatusFilter.value !== 'all') {
+      params.set('status', userStatusFilter.value)
+    }
+    const response = await apiRequest<AdminUserPage>(
+      `/admin/users/manage?${params.toString()}`,
+    )
+    users.value = response.items
+    Object.assign(userPage, response)
+    for (const userItem of response.items) {
+      verificationSelections[userItem.id] = userItem.verification_status
+    }
+    if (
+      selectedUser.value &&
+      !response.items.some((item) => item.id === selectedUser.value?.id)
+    ) {
+      selectedUser.value = null
+    }
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+function queueUserSearch() {
+  if (userSearchTimer) clearTimeout(userSearchTimer)
+  userSearchTimer = setTimeout(() => {
+    userPage.page = 1
+    void fetchUsers().catch((err: unknown) => {
+      error.value = err instanceof Error ? err.message : '用户搜索失败'
+    })
+  }, 300)
+}
+
+function applyUserFilters() {
+  userPage.page = 1
+  void fetchUsers().catch((err: unknown) => {
+    error.value = err instanceof Error ? err.message : '用户筛选失败'
+  })
+}
+
+function changeUserPage(page: number) {
+  userPage.page = page
+  void fetchUsers().catch((err: unknown) => {
+    error.value = err instanceof Error ? err.message : '用户分页加载失败'
+  })
+}
+
+function toggleUserDetail(userItem: AdminUserSummary) {
+  selectedUser.value = selectedUser.value?.id === userItem.id ? null : userItem
+  verificationSelections[userItem.id] = userItem.verification_status
 }
 
 async function assignCase(caseId: number) {
@@ -413,7 +591,7 @@ async function assignCase(caseId: number) {
   }
 }
 
-async function resetPassword(userItem: User) {
+async function resetPassword(userItem: AdminUserSummary) {
   const newPassword = window.prompt(`为 ${userItem.username} 设置新密码（至少 8 位）`)
   if (!newPassword) return
   try {
@@ -428,7 +606,7 @@ async function resetPassword(userItem: User) {
   }
 }
 
-async function updateUserStatus(userItem: User) {
+async function updateUserStatus(userItem: AdminUserSummary) {
   const nextStatus = !userItem.is_active
   const actionLabel = nextStatus ? '恢复' : '停用'
   if (!window.confirm(`确认${actionLabel}账号 ${userItem.username} 吗？`)) return
@@ -438,10 +616,30 @@ async function updateUserStatus(userItem: User) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_active: nextStatus }),
     })
-    const index = users.value.findIndex((item) => item.id === userItem.id)
-    if (index >= 0) users.value[index] = updated
+    userItem.is_active = updated.is_active
   } catch (err) {
     error.value = err instanceof Error ? err.message : '账号状态更新失败'
+  }
+}
+
+async function updateVerification(userItem: AdminUserSummary) {
+  try {
+    const status = verificationSelections[userItem.id]
+    const updated = await apiRequest<{ verification_status: AdminUserSummary['verification_status'] }>(
+      `/admin/users/${userItem.id}/verification`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verification_status: status }),
+      },
+    )
+    userItem.verification_status = updated.verification_status
+    verificationSelections[userItem.id] = updated.verification_status
+    if (selectedUser.value?.id === userItem.id) {
+      selectedUser.value = userItem
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '实名核验状态更新失败'
   }
 }
 
@@ -492,5 +690,15 @@ async function advanceRevenue(entry: RevenueLedger) {
   }
 }
 
-onMounted(loadAll)
+watch(
+  activeSection,
+  () => {
+    void loadCurrentSection()
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  if (userSearchTimer) clearTimeout(userSearchTimer)
+})
 </script>

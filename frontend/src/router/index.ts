@@ -12,6 +12,16 @@ const HelpCenterView = () => import('../views/HelpCenterView.vue')
 const ProfileView = () => import('../views/ProfileView.vue')
 const LawyerDashboardView = () => import('../views/LawyerDashboardView.vue')
 const AdminDashboardView = () => import('../views/AdminDashboardView.vue')
+const adminSections = new Set([
+  'overview',
+  'users',
+  'lawyers',
+  'cases',
+  'rules',
+  'materials',
+  'audit',
+  'revenue',
+])
 
 const router = createRouter({
   history: createWebHistory(),
@@ -76,6 +86,10 @@ const router = createRouter({
         },
         {
           path: 'admin',
+          redirect: '/admin/overview',
+        },
+        {
+          path: 'admin/:section',
           name: 'admin',
           component: AdminDashboardView,
           meta: { title: '管理后台', roles: ['admin'] },
@@ -100,6 +114,9 @@ router.beforeEach((to) => {
   const roles = to.meta.roles
   if (Array.isArray(roles) && auth.user && !roles.includes(auth.user.role)) {
     return { name: 'workspace' }
+  }
+  if (to.name === 'admin' && !adminSections.has(String(to.params.section))) {
+    return '/admin/overview'
   }
   return true
 })

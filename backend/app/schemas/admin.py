@@ -26,6 +26,26 @@ class AdminUserUpdate(BaseModel):
     role: Literal["user", "lawyer", "admin"] | None = None
 
 
+class AdminUserSummary(BaseModel):
+    id: int
+    username: str
+    role: Literal["user", "lawyer", "admin"]
+    display_name: str
+    phone: str
+    is_active: bool
+    real_name: str | None = None
+    verification_status: Literal["unverified", "pending", "verified", "rejected"]
+    id_number_masked: str | None = None
+    created_at: datetime
+
+
+class AdminUserPage(BaseModel):
+    items: list[AdminUserSummary]
+    total: int
+    page: int
+    page_size: int
+
+
 class MaterialSummary(BaseModel):
     id: int
     case_id: int
