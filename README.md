@@ -50,6 +50,8 @@
 
 ![管理后台](docs/screenshots/admin-desktop.png)
 
+![规则包 Excel 与可视化配置](docs/screenshots/admin-rule-packages-desktop.png)
+
 ![完善个人资料](docs/screenshots/profile-required-desktop.png)
 
 ![模拟对话](docs/screenshots/simulation-desktop.png)
@@ -64,6 +66,7 @@
 - [完善个人资料](docs/screenshots/profile-required-mobile.png)
 - [运营数据大屏](docs/screenshots/admin-dashboard-mobile.png)
 - [管理后台](docs/screenshots/admin-mobile.png)
+- [规则包 Excel 与可视化配置](docs/screenshots/admin-rule-packages-mobile.png)
 - [律师工作台](docs/screenshots/lawyer-mobile.png)
 - [模拟对话](docs/screenshots/simulation-mobile.png)
 - [维权帮助](docs/screenshots/help-mobile.png)

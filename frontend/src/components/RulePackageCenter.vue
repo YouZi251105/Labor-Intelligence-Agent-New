@@ -9,13 +9,13 @@
       <div class="rule-package-toolbar__actions">
         <button
           type="button"
-          class="primary-action primary-action--compact"
+          class="secondary-action"
           @click="downloadExcelTemplate"
         >
           <FileSpreadsheet :size="16" />
           下载 Excel 模板
         </button>
-        <label class="secondary-action rule-package-upload">
+        <label class="primary-action primary-action--compact rule-package-upload">
           <Upload :size="16" />
           导入 Excel
           <input
@@ -41,7 +41,7 @@
           <Download :size="16" />
           下载 JSON 模板
         </button>
-        <label class="primary-action primary-action--compact rule-package-upload">
+        <label class="secondary-action rule-package-upload">
           <Upload :size="16" />
           导入 JSON
           <input type="file" accept=".json,application/json" @change="importFile" />

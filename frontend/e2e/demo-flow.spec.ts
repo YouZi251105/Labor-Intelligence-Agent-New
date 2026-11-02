@@ -311,6 +311,19 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
     page.getByRole('heading', { level: 1, name: '规则包中心' }),
   ).toBeVisible()
   await expect(page.locator('.rule-package-list__item').first()).toBeVisible()
+  await expect(page.getByText('导入 Excel', { exact: true })).toBeVisible()
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: '下载 Excel 模板' }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toBe(
+    'workflow-rule-package-template.xlsx',
+  )
+  const downloadedTemplate = testInfo.outputPath('workflow-template.xlsx')
+  await download.saveAs(downloadedTemplate)
+  await page
+    .locator('input[accept*=".xlsx"]')
+    .setInputFiles(downloadedTemplate)
+  await expect(page.locator('.inline-error')).toContainText('规则包版本已存在')
   await page.getByRole('button', { name: '载入模板' }).click()
   await expect(page.locator('.workflow-designer')).toBeVisible()
   await expect(page.locator('.workflow-block')).toHaveCount(6)
@@ -321,15 +334,18 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
     'cn-labor-workflow',
   )
   await page.screenshot({
-    path: testInfo.outputPath(`admin-rule-packages-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/admin-rule-packages-${testInfo.project.name}.png`,
     fullPage: true,
   })
 })
 
-test('admin navigation group collapses and remembers its state', async ({ page }) => {
+test('admin navigation group collapses and remembers its state', async ({ page }, testInfo) => {
   await login(page, 'admin', 'Admin123!')
   const openNavigation = page.getByRole('button', { name: '打开导航' })
-  if (await openNavigation.isVisible()) await openNavigation.click()
+  if (testInfo.project.name === 'mobile') {
+    await expect(openNavigation).toBeVisible()
+    await openNavigation.click()
+  }
 
   const adminToggle = page.getByRole('button', { name: '管理后台', exact: true })
   await expect(adminToggle).toHaveAttribute('aria-expanded', 'true')
@@ -340,7 +356,10 @@ test('admin navigation group collapses and remembers its state', async ({ page }
   await expect(page.getByRole('link', { name: '用户管理', exact: true })).toBeHidden()
 
   await page.reload()
-  if (await openNavigation.isVisible()) await openNavigation.click()
+  if (testInfo.project.name === 'mobile') {
+    await expect(openNavigation).toBeVisible()
+    await openNavigation.click()
+  }
   await expect(adminToggle).toHaveAttribute('aria-expanded', 'false')
 
   await adminToggle.click()
