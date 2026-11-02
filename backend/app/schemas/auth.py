@@ -24,6 +24,7 @@ class UserRead(BaseModel):
     role: Literal["user", "lawyer", "admin"]
     display_name: str
     phone: str
+    is_active: bool
     created_at: datetime
 
 

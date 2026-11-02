@@ -1,20 +1,24 @@
 import hashlib
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import DbSession, require_roles
 from app.core.config import get_settings
 from app.models.audit import AuditLog
 from app.models.collaboration import UserProfile
+from app.models.user import User
 from app.schemas.profile import UserProfileRead, UserProfileUpdate
 from app.services.profile import mask_identity_number
 
 router = APIRouter(prefix="/users/me", tags=["profile"])
+WorkerUser = require_roles("user")
+WorkerRequired = Annotated[User, Depends(WorkerUser)]
 
 
 @router.get("/profile", response_model=UserProfileRead)
-async def get_profile(session: DbSession, user: CurrentUser) -> UserProfile:
+async def get_profile(session: DbSession, user: WorkerRequired) -> UserProfile:
     profile = await session.scalar(
         select(UserProfile).where(UserProfile.user_id == user.id)
     )
@@ -27,7 +31,7 @@ async def get_profile(session: DbSession, user: CurrentUser) -> UserProfile:
 async def update_profile(
     payload: UserProfileUpdate,
     session: DbSession,
-    user: CurrentUser,
+    user: WorkerRequired,
 ) -> UserProfile:
     masked = mask_identity_number(payload.id_number)
     if not masked:

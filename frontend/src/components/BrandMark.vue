@@ -5,11 +5,13 @@
     role="img"
     aria-label="劳务通"
   >
-    <span aria-hidden="true">⚖️</span>
+    <Scale :size="size === 'large' ? 30 : 22" :stroke-width="2.1" aria-hidden="true" />
   </span>
 </template>
 
 <script setup lang="ts">
+import { Scale } from '@lucide/vue'
+
 withDefaults(
   defineProps<{
     size?: 'small' | 'large'

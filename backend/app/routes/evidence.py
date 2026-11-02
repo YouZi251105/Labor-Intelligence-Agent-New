@@ -10,7 +10,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.core.config import get_settings
 from app.models.audit import AuditLog
 from app.models.evidence import Evidence
-from app.routes.cases import get_accessible_case
+from app.routes.cases import get_accessible_case, get_worker_owned_case
 from app.schemas.evidence import (
     ContractFileReviewResponse,
     ContractReviewRequest,
@@ -74,7 +74,7 @@ async def upload_case_evidence(
     user: CurrentUser,
     file: Annotated[UploadFile, File()],
 ) -> Evidence:
-    case = await get_accessible_case(case_id, session, user)
+    case = await get_worker_owned_case(case_id, session, user)
     filename = Path(file.filename or "未命名材料").name
     content = await file.read()
     digest = hashlib.sha256(content).hexdigest()
@@ -156,7 +156,7 @@ async def retry_evidence_extraction(
     session: DbSession,
     user: CurrentUser,
 ) -> EvidenceExtractionResponse:
-    await get_accessible_case(case_id, session, user)
+    await get_worker_owned_case(case_id, session, user)
     evidence = await session.get(Evidence, evidence_id)
     if evidence is None or evidence.case_id != case_id:
         raise HTTPException(status_code=404, detail="材料不存在")
@@ -239,7 +239,7 @@ async def review_case_contract(
     session: DbSession,
     user: CurrentUser,
 ) -> dict[str, Any]:
-    case = await get_accessible_case(case_id, session, user)
+    case = await get_worker_owned_case(case_id, session, user)
     result = review_contract(payload.text)
     session.add(
         AuditLog(
@@ -264,7 +264,7 @@ async def review_contract_file(
     user: CurrentUser,
     file: Annotated[UploadFile, File()],
 ) -> ContractFileReviewResponse:
-    case = await get_accessible_case(case_id, session, user)
+    case = await get_worker_owned_case(case_id, session, user)
     filename = Path(file.filename or "未命名合同").name
     extension = Path(filename).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:

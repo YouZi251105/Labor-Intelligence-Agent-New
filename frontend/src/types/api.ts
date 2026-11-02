@@ -6,6 +6,7 @@ export interface User {
   role: UserRole
   display_name: string
   phone: string
+  is_active: boolean
   created_at: string
 }
 

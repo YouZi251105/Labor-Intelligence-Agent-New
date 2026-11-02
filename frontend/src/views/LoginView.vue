@@ -56,18 +56,6 @@
           {{ isRegister ? '已有账号，直接登录' : '没有账号，立即注册' }}
         </button>
 
-        <div v-if="!isRegister" class="demo-accounts">
-          <span>演示账号</span>
-          <button
-            v-for="account in demoAccounts"
-            :key="account.username"
-            type="button"
-            @click="fillDemo(account.username, account.password)"
-          >
-            <strong>{{ account.label }}</strong>
-            <small>{{ account.username }}</small>
-          </button>
-        </div>
       </div>
     </section>
   </div>
@@ -94,21 +82,9 @@ const form = reactive({
   displayName: '',
 })
 
-const demoAccounts = [
-  { label: '劳动者', username: 'demo', password: 'Demo123!' },
-  { label: '律师', username: 'lawyer', password: 'Lawyer123!' },
-  { label: '管理员', username: 'admin', password: 'Admin123!' },
-]
-
 function toggleMode() {
   isRegister.value = !isRegister.value
   error.value = ''
-}
-
-function fillDemo(username: string, password: string) {
-  form.username = username
-  form.password = password
-  isRegister.value = false
 }
 
 async function submit() {
