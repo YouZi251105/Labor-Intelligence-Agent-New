@@ -2,7 +2,15 @@
   <div class="auth-page">
     <section class="auth-brand">
       <div class="auth-brand__content">
-        <BrandMark size="large" />
+        <picture class="auth-brand__logo">
+          <source srcset="/brand/labor-logo.webp" type="image/webp" />
+          <img
+            src="/brand/labor-logo.png"
+            alt="劳务通"
+            width="176"
+            height="176"
+          />
+        </picture>
         <span class="eyebrow">Labor Intelligence Agent</span>
         <h1>让劳动维权<br />从第一步就清楚</h1>
         <p>
@@ -68,7 +76,6 @@ import { ArrowRight, Scale, ShieldCheck, UserRoundCheck } from '@lucide/vue'
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import BrandMark from '../components/BrandMark.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
