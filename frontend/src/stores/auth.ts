@@ -2,12 +2,19 @@ import { defineStore } from 'pinia'
 
 import { apiRequest, TOKEN_KEY } from '../api/http'
 import type { AuthResponse, User } from '../types/api'
+import {
+  clearActivity,
+  isIdleExpired,
+  markActivity,
+  readLastActivity,
+} from '../utils/idle'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: localStorage.getItem(TOKEN_KEY) as string | null,
     user: null as User | null,
     initialized: false,
+    logoutReason: null as 'idle' | null,
   }),
   getters: {
     isAuthenticated: (state) => Boolean(state.token && state.user),
@@ -44,6 +51,11 @@ export const useAuthStore = defineStore('auth', {
         this.initialized = true
         return
       }
+      if (isIdleExpired(readLastActivity())) {
+        this.logout('idle')
+        this.initialized = true
+        return
+      }
       try {
         this.user = await apiRequest<User>('/auth/me')
       } catch {
@@ -55,15 +67,19 @@ export const useAuthStore = defineStore('auth', {
     setSession(response: AuthResponse) {
       this.token = response.access_token
       this.user = response.user
+      this.logoutReason = null
       localStorage.setItem(TOKEN_KEY, response.access_token)
+      markActivity()
     },
     markProfileCompleted() {
       if (this.user) this.user.profile_completed = true
     },
-    logout() {
+    logout(reason: 'idle' | null = null) {
       this.token = null
       this.user = null
+      this.logoutReason = reason
       localStorage.removeItem(TOKEN_KEY)
+      clearActivity()
     },
   },
 })

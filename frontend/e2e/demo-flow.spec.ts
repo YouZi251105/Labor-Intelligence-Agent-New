@@ -82,6 +82,18 @@ test('new worker must complete profile before entering core workspace', async ({
   await expect(page.locator('.workspace-header')).toBeVisible()
 })
 
+test('session expires after twenty minutes without activity', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+  await page.evaluate(() => {
+    localStorage.setItem('lia_last_activity', String(Date.now() - 20 * 60 * 1000 - 1000))
+  })
+  await page.reload()
+
+  await expect(page).toHaveURL(/\/login\?.*reason=idle/)
+  await expect(page.getByText('因连续 20 分钟未操作，已自动退出登录。')).toBeVisible()
+  await expect(page.locator('.app-shell')).toHaveCount(0)
+})
+
 test('workspace stays usable at 100 percent zoom', async ({ page }) => {
   await login(page, 'demo', 'Demo123!')
 

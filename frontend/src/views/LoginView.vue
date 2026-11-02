@@ -23,6 +23,7 @@
         <p class="auth-card__intro">
           {{ isRegister ? '注册后即可创建案件和保存咨询上下文。' : '登录后继续处理你的案件和材料。' }}
         </p>
+        <p v-if="sessionNotice" class="form-notice">{{ sessionNotice }}</p>
 
         <form class="auth-form" @submit.prevent="submit">
           <label>
@@ -64,7 +65,7 @@
 <script setup lang="ts">
 import { ElInput } from 'element-plus'
 import { ArrowRight, Scale, ShieldCheck, UserRoundCheck } from '@lucide/vue'
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BrandMark from '../components/BrandMark.vue'
@@ -81,6 +82,11 @@ const form = reactive({
   password: '',
   displayName: '',
 })
+const sessionNotice = computed(() =>
+  auth.logoutReason === 'idle' || route.query.reason === 'idle'
+    ? '因连续 20 分钟未操作，已自动退出登录。'
+    : '',
+)
 
 function toggleMode() {
   isRegister.value = !isRegister.value

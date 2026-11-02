@@ -106,7 +106,9 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.requiresAuth && !auth.token) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+    const query: Record<string, string> = { redirect: to.fullPath }
+    if (auth.logoutReason === 'idle') query.reason = 'idle'
+    return { name: 'login', query }
   }
   if (to.name === 'login' && auth.token) {
     return { name: 'workspace' }

@@ -119,6 +119,7 @@ import { computed, reactive, ref, type Component } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import BrandMark from '../components/BrandMark.vue'
+import { useIdleLogout } from '../composables/useIdleLogout'
 import { useAuthStore } from '../stores/auth'
 import { getInitial } from '../utils/format'
 
@@ -127,6 +128,16 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const navGroups = reactive<Record<string, boolean>>(readNavGroups())
+
+useIdleLogout(() => {
+  if (!auth.token) return
+  const redirect = route.fullPath
+  auth.logout('idle')
+  void router.replace({
+    name: 'login',
+    query: { reason: 'idle', redirect },
+  })
+})
 
 interface NavChild {
   name: string
