@@ -10,6 +10,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Protection, Si
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.worksheet.properties import PageSetupProperties
 from openpyxl.worksheet.worksheet import Worksheet
 
 SHEET_GUIDE = "填写说明"
@@ -102,6 +103,7 @@ REVIEW_STATUS_OPTIONS = {
 
 MAX_DATA_ROWS = 2_000
 MAX_SHEETS = 12
+PREFORMATTED_ROWS = 100
 
 HEADER_FILL = PatternFill("solid", fgColor="9E1B32")
 HEADER_FONT = Font(name="Arial", size=11, bold=True, color="FFFFFF")
@@ -364,7 +366,7 @@ def import_rule_package_excel(data: bytes) -> dict[str, Any]:
 def _write_guide(sheet: Worksheet) -> None:
     sheet.sheet_view.showGridLines = False
     sheet.column_dimensions["A"].width = 24
-    sheet.column_dimensions["B"].width = 96
+    sheet.column_dimensions["B"].width = 72
     sheet["A1"] = "劳务通规则包 Excel 填写说明"
     sheet["A1"].font = Font(name="Arial", size=18, bold=True, color="9E1B32")
     sheet.merge_cells("A1:B1")
@@ -412,6 +414,7 @@ def _write_guide(sheet: Worksheet) -> None:
     sheet["A21"].fill = NOTE_FILL
     sheet.merge_cells("A21:B21")
     sheet.protection.sheet = True
+    _configure_print_layout(sheet, "A1:B21")
 
 
 def _write_base(sheet: Worksheet, content: dict[str, Any]) -> None:
@@ -453,7 +456,8 @@ def _style_table(
     sheet.row_dimensions[1].height = 26
 
     populated_rows = sheet.max_row
-    for row in sheet.iter_rows(min_row=2, max_row=MAX_DATA_ROWS, max_col=column_count):
+    style_rows = min(MAX_DATA_ROWS, max(populated_rows, PREFORMATTED_ROWS))
+    for row in sheet.iter_rows(min_row=2, max_row=style_rows, max_col=column_count):
         for cell in row:
             cell.font = BODY_FONT
             cell.border = THIN_BORDER
@@ -464,6 +468,10 @@ def _style_table(
     if populated_rows > 1:
         sheet.auto_filter.ref = f"A1:{get_column_letter(column_count)}{populated_rows}"
     sheet.protection.sheet = True
+    _configure_print_layout(
+        sheet,
+        f"A1:{get_column_letter(column_count)}{max(populated_rows, 1)}",
+    )
 
 
 def _add_list_validation(
@@ -775,3 +783,19 @@ def _base_field_row(records: list[dict[str, Any]], field: str) -> str:
 def _column_width(column: int) -> float:
     widths = [22, 22, 24, 24, 32, 30, 28, 34, 34]
     return widths[column - 1] if column <= len(widths) else 20
+
+
+def _configure_print_layout(sheet: Worksheet, print_area: str) -> None:
+    sheet.print_area = print_area
+    sheet.print_title_rows = "1:1"
+    if sheet.sheet_properties.pageSetUpPr is None:
+        sheet.sheet_properties.pageSetUpPr = PageSetupProperties()
+    sheet.sheet_properties.pageSetUpPr.fitToPage = True
+    sheet.page_setup.orientation = "landscape"
+    sheet.page_setup.paperSize = sheet.PAPERSIZE_A4
+    sheet.page_setup.fitToWidth = 1
+    sheet.page_setup.fitToHeight = 0
+    sheet.page_margins.left = 0.3
+    sheet.page_margins.right = 0.3
+    sheet.page_margins.top = 0.5
+    sheet.page_margins.bottom = 0.5
