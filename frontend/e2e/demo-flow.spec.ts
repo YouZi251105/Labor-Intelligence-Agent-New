@@ -312,6 +312,8 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
   ).toBeVisible()
   await expect(page.locator('.rule-package-list__item').first()).toBeVisible()
   await page.getByRole('button', { name: '载入模板' }).click()
+  await expect(page.locator('.workflow-designer')).toBeVisible()
+  await expect(page.locator('.workflow-block')).toHaveCount(6)
   await page.getByRole('button', { name: '校验内容' }).click()
 
   await expect(page.getByText('结构校验通过')).toBeVisible()

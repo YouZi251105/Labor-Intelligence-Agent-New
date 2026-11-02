@@ -473,6 +473,8 @@ export interface RulePackageValidationSummary {
   stage_count: number
   node_count: number
   option_count: number
+  block_count: number
+  block_types: Record<string, number>
   review_status: string
 }
 

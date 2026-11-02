@@ -5275,6 +5275,18 @@
             "type": "integer",
             "title": "Option Count"
           },
+          "block_count": {
+            "type": "integer",
+            "title": "Block Count",
+            "default": 0
+          },
+          "block_types": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Block Types"
+          },
           "review_status": {
             "type": "string",
             "title": "Review Status"

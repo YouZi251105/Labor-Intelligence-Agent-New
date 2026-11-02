@@ -45,6 +45,8 @@ class RulePackageValidationSummary(BaseModel):
     stage_count: int
     node_count: int
     option_count: int
+    block_count: int = 0
+    block_types: dict[str, int] = Field(default_factory=dict)
     review_status: str
 
 

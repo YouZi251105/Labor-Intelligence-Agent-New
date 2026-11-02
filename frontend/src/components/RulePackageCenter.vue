@@ -75,7 +75,30 @@
           </div>
         </div>
 
+        <div class="rule-package-view-switch" role="group" aria-label="编辑模式">
+          <button
+            type="button"
+            :class="{ active: viewMode === 'visual' }"
+            @click="setViewMode('visual')"
+          >
+            可视化
+          </button>
+          <button
+            type="button"
+            :class="{ active: viewMode === 'json' }"
+            @click="setViewMode('json')"
+          >
+            JSON
+          </button>
+        </div>
+
+        <WorkflowBlockDesigner
+          v-if="viewMode === 'visual' && visualContent"
+          :model-value="visualContent"
+          @update:model-value="updateFromDesigner"
+        />
         <textarea
+          v-else
           v-model="editorContent"
           class="rule-package-editor__textarea"
           spellcheck="false"
@@ -179,6 +202,7 @@
             <span>阶段 <strong>{{ validation.summary.stage_count }}</strong></span>
             <span>节点 <strong>{{ validation.summary.node_count }}</strong></span>
             <span>路径 <strong>{{ validation.summary.option_count }}</strong></span>
+            <span>积木 <strong>{{ validation.summary.block_count }}</strong></span>
             <span>复核状态 <strong>{{ statusLabel(validation.summary.review_status) }}</strong></span>
           </div>
         </div>
@@ -205,6 +229,7 @@ import {
 import { computed, onMounted, ref } from 'vue'
 
 import { apiRequest } from '../api/http'
+import WorkflowBlockDesigner from './WorkflowBlockDesigner.vue'
 import type {
   RulePackageDetail,
   RulePackageStatus,
@@ -220,6 +245,8 @@ const loading = ref(false)
 const busy = ref(false)
 const error = ref('')
 const success = ref('')
+const viewMode = ref<'visual' | 'json'>('visual')
+const visualContent = ref<Record<string, unknown> | null>(null)
 
 const isEditable = computed(
   () =>
@@ -260,6 +287,8 @@ async function selectPackage(item: RulePackageSummary) {
       `/admin/rule-packages/${item.id}`,
     )
     editorContent.value = JSON.stringify(selectedPackage.value.content, null, 2)
+    visualContent.value = cloneContent(selectedPackage.value.content)
+    viewMode.value = isEditable.value ? 'visual' : 'json'
     validation.value = null
   } catch (err) {
     error.value = err instanceof Error ? err.message : '规则包详情加载失败'
@@ -274,7 +303,9 @@ async function loadTemplate() {
       '/admin/rule-packages/template',
     )
     editorContent.value = JSON.stringify(template, null, 2)
+    visualContent.value = cloneContent(template)
     selectedPackage.value = null
+    viewMode.value = 'visual'
     validation.value = null
     success.value = '模板已载入编辑器，修改版本号后可导入为新草稿。'
   } catch (err) {
@@ -458,6 +489,29 @@ function parseEditor(): Record<string, unknown> | null {
     validation.value = null
     return null
   }
+}
+
+function setViewMode(mode: 'visual' | 'json') {
+  if (mode === 'visual') {
+    if (selectedPackage.value && !isEditable.value) {
+      error.value = '当前版本不可编辑，只能查看 JSON。'
+      return
+    }
+    const parsed = parseEditor()
+    if (!parsed) return
+    visualContent.value = cloneContent(parsed)
+  }
+  viewMode.value = mode
+}
+
+function updateFromDesigner(value: Record<string, unknown>) {
+  visualContent.value = cloneContent(value)
+  editorContent.value = JSON.stringify(value, null, 2)
+  validation.value = null
+}
+
+function cloneContent(value: Record<string, unknown>) {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>
 }
 
 function parseJsonObject(value: string): Record<string, unknown> {

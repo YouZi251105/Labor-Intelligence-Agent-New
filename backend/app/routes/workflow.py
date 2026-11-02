@@ -102,6 +102,7 @@ async def transition_case(
         }
     )
     classification["workflow_choices"] = choices
+    classification["workflow_node_id"] = option.target_node
     case.classification = classification
     case.stage = option.target_stage
     session.add(

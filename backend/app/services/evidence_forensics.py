@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import io
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 from PIL import Image, UnidentifiedImageError
@@ -68,7 +69,7 @@ def analyze_image(filename: str, content: bytes) -> ForensicsResult:
     解码失败时返回 image_type="unknown"、suspicious=False（不因无法分析而拦截）。
     """
     try:
-        img = Image.open(io.BytesIO(content))
+        img: Image.Image = Image.open(io.BytesIO(content))
         img.load()
     except (UnidentifiedImageError, OSError, ValueError):
         return ForensicsResult(
@@ -126,10 +127,13 @@ def _resize_for_analysis(img: Image.Image) -> Image.Image:
     if max(w, h) <= _MAX_DIMENSION:
         return img
     ratio = _MAX_DIMENSION / max(w, h)
-    return img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+    return img.resize(
+        (int(w * ratio), int(h * ratio)),
+        Image.Resampling.LANCZOS,
+    )
 
 
-def _classify_image(img: Image.Image, exif) -> str:
+def _classify_image(img: Image.Image, exif: Any) -> str:
     """识别图片类型：camera_photo / document / screenshot。"""
     if _has_camera_exif(exif):
         return "camera_photo"
@@ -139,7 +143,7 @@ def _classify_image(img: Image.Image, exif) -> str:
     return "screenshot"
 
 
-def _has_camera_exif(exif) -> bool:
+def _has_camera_exif(exif: Any) -> bool:
     if not exif:
         return False
     try:
@@ -149,7 +153,7 @@ def _has_camera_exif(exif) -> bool:
     return bool(_CAMERA_TAG_IDS.intersection(tag_ids))
 
 
-def _is_grayscale(arr: np.ndarray) -> bool:
+def _is_grayscale(arr: Any) -> bool:
     """RGB 三通道几乎一致判定为灰度（文档 / 扫描件）。"""
     r = arr[:, :, 0].astype(np.int16)
     g = arr[:, :, 1].astype(np.int16)
@@ -157,7 +161,7 @@ def _is_grayscale(arr: np.ndarray) -> bool:
     return bool(int(np.abs(r - g).max()) + int(np.abs(g - b).max()) < 24)
 
 
-def _exif_check(exif) -> tuple[bool, str]:
+def _exif_check(exif: Any) -> tuple[bool, str]:
     """检查 EXIF Software 字段是否留有编辑软件痕迹。"""
     if not exif:
         return True, ""
@@ -193,7 +197,7 @@ def _ela_check(img: Image.Image) -> tuple[bool, str]:
     return True, ""
 
 
-def _splice_check(arr: np.ndarray) -> tuple[bool, str]:
+def _splice_check(arr: Any) -> tuple[bool, str]:
     """拼接边界检测：寻找贯穿的强边界线，且两侧内容差异明显。"""
     gray = arr.mean(axis=2)
     h, w = gray.shape
@@ -223,7 +227,7 @@ def _splice_check(arr: np.ndarray) -> tuple[bool, str]:
     return True, ""
 
 
-def _mosaic_check(arr: np.ndarray) -> tuple[bool, str]:
+def _mosaic_check(arr: Any) -> tuple[bool, str]:
     """马赛克 / 涂抹检测：滑动窗口查找规则色块网格区域。"""
     gray = arr.mean(axis=2).astype(np.float32)
     h, w = gray.shape
@@ -239,7 +243,7 @@ def _mosaic_check(arr: np.ndarray) -> tuple[bool, str]:
     return True, ""
 
 
-def _is_mosaic_patch(patch: np.ndarray) -> bool:
+def _is_mosaic_patch(patch: Any) -> bool:
     """判断窗口是否呈现马赛克特征（多条等间距的贯穿跳变线）。
 
     马赛克块边界是贯穿整行 / 整列的强跳变且等间距；纯色背景无跳变，文字跳变局部。
@@ -256,7 +260,7 @@ def _is_mosaic_patch(patch: np.ndarray) -> bool:
     return _is_regular_grid(strong_cols) or _is_regular_grid(strong_rows)
 
 
-def _is_regular_grid(positions: np.ndarray) -> bool:
+def _is_regular_grid(positions: Any) -> bool:
     """至少 3 条且间距一致的贯穿线，判定为规则网格。"""
     if positions.size < 3:
         return False

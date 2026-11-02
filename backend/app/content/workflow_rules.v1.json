@@ -213,6 +213,21 @@
             }
           ],
           "deadlines": []
+        },
+        {
+          "id": "document-request-assignment",
+          "label": "申请人工分配律师",
+          "description": "案件尚未分配律师时，先提交人工协助申请。",
+          "target_stage": "lawyer_help",
+          "target_node": "lawyer_help",
+          "outcome": "案件进入律师协助阶段，等待管理员分配律师。",
+          "next_step": "补充联系方式和需要律师重点核对的问题。",
+          "requirements": [
+            {
+              "type": "always"
+            }
+          ],
+          "deadlines": []
         }
       ]
     },

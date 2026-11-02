@@ -22,8 +22,16 @@ def build_workflow(
     package: WorkflowRulePackage | None = None,
 ) -> WorkflowResponse:
     rule_package = package or load_default_workflow_package()
-    current_node = case.stage if case.stage in rule_package.nodes else rule_package.start_node
+    stored_node = case.classification.get("workflow_node_id")
+    current_node = (
+        stored_node
+        if isinstance(stored_node, str) and stored_node in rule_package.nodes
+        else case.stage
+        if case.stage in rule_package.nodes
+        else rule_package.start_node
+    )
     node = rule_package.nodes[current_node]
+    current_stage = node.stage
     evidence_assessment = assess_case_evidence(case, evidence_items)
     options = [
         _build_option(option, case, evidence_assessment)
@@ -34,11 +42,12 @@ def build_workflow(
         option.target_stage for option in options if option.enabled
     }
     visited_stages = {
-        value
+        rule_package.nodes[node_id].stage
         for decision in decisions
-        for value in (decision.from_node, decision.to_node)
+        for node_id in (decision.from_node, decision.to_node)
+        if node_id in rule_package.nodes
     }
-    visited_stages.add(current_node)
+    visited_stages.add(current_stage)
 
     stages = [
         WorkflowStage(
@@ -46,13 +55,14 @@ def build_workflow(
             label=stage.label,
             status=_stage_status(
                 stage.key,
-                current_node,
+                current_stage,
                 visited_stages,
                 available_targets,
             ),
             required_actions=_required_actions(
                 stage.key,
                 case,
+                current_stage,
                 evidence_assessment,
             ),
         )
@@ -61,7 +71,7 @@ def build_workflow(
     return WorkflowResponse(
         case_id=case.id,
         current_node=current_node,
-        current_stage=current_node,
+        current_stage=current_stage,
         decision_path=decisions,
         stages=stages,
         options=options,
@@ -153,17 +163,18 @@ def _stage_status(
 def _required_actions(
     stage: str,
     case: Case,
+    current_stage: str,
     evidence_assessment: dict[str, Any],
 ) -> list[str]:
-    if stage == "evidence" and case.stage == "evidence":
+    if stage == "evidence" and current_stage == "evidence":
         return [
             str(item) for item in evidence_assessment["missing_labels"]
         ]
-    if stage == "procedure" and case.stage == "procedure":
+    if stage == "procedure" and current_stage == "procedure":
         return ["比较协商、监察、仲裁、诉讼和律师协助的适用条件"]
-    if stage == "document" and case.stage == "document":
+    if stage == "document" and current_stage == "document":
         return ["生成并核对文书主体、金额、请求事项和事实理由"]
-    if stage == "lawyer_help" and case.stage == "lawyer_help":
+    if stage == "lawyer_help" and current_stage == "lawyer_help":
         if case.assigned_lawyer_id is None:
             return ["等待管理员分配律师"]
         return ["等待律师复核并记录处理结果"]

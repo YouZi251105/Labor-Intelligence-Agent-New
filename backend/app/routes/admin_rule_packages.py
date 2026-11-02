@@ -57,6 +57,10 @@ async def validate_rule_package(
     package, errors = validate_workflow_package(payload.content)
     if package is None:
         return RulePackageValidationResponse(valid=False, errors=errors)
+    block_types: dict[str, int] = {}
+    if package.designer is not None:
+        for block in package.designer.blocks.values():
+            block_types[block.block_type] = block_types.get(block.block_type, 0) + 1
     return RulePackageValidationResponse(
         valid=True,
         summary=RulePackageValidationSummary(
@@ -67,6 +71,8 @@ async def validate_rule_package(
             stage_count=len(package.stages),
             node_count=len(package.nodes),
             option_count=sum(len(node.options) for node in package.nodes.values()),
+            block_count=len(package.designer.blocks) if package.designer else 0,
+            block_types=block_types,
             review_status=package.review_status,
         ),
     )
