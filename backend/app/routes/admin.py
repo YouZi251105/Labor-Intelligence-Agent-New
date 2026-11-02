@@ -2,7 +2,7 @@ from datetime import UTC, datetime, time, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 
 from app.api.deps import DbSession, require_roles
 from app.core.security import hash_password
@@ -261,7 +261,7 @@ async def managed_users(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> AdminUserPage:
-    conditions = []
+    conditions: list[ColumnElement[bool]] = []
     if q:
         keyword = f"%{q.strip()}%"
         conditions.append(
