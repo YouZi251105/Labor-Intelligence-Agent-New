@@ -30,20 +30,22 @@
           </div>
           <h3>{{ resource.name }}</h3>
           <p>{{ resource.description }}</p>
-          <dl class="help-resource-contact">
-            <div v-if="resource.phone"><dt>电话</dt><dd class="help-resource-contact__phone">{{ resource.phone }}</dd></div>
-            <div v-if="resource.address"><dt>地址</dt><dd>{{ resource.address }}</dd></div>
+          <dl v-if="resource.address" class="help-resource-contact">
+            <div><dt>地址</dt><dd>{{ resource.address }}</dd></div>
           </dl>
-          <a
-            v-if="resource.website"
-            :href="resource.website"
-            class="text-link"
-            target="_blank"
-            rel="noreferrer"
-          >
-            打开官方入口
-            <ExternalLink :size="15" />
-          </a>
+          <div class="help-resource-card__footer">
+            <a
+              v-if="resource.website"
+              :href="resource.website"
+              class="text-link"
+              target="_blank"
+              rel="noreferrer"
+            >
+              打开官方入口
+              <ExternalLink :size="15" />
+            </a>
+            <span v-if="resource.phone" class="help-resource-card__phone"><span class="help-resource-card__phone-label">电话</span>{{ resource.phone }}</span>
+          </div>
         </article>
         <p v-if="!resources.length" class="muted-text">暂时没有可展示的帮助入口。</p>
       </div>

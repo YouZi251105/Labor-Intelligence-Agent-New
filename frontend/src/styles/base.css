@@ -3178,13 +3178,32 @@ summary:focus-visible {
   font-size: 11px;
 }
 
-.help-resource-contact dd.help-resource-contact__phone {
+.help-resource-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--lia-border);
+}
+
+.help-resource-card__phone {
+  margin-left: auto;
   color: var(--lia-text);
   font-size: 18px;
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0.03em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.help-resource-card__phone-label {
+  margin-right: 6px;
+  color: var(--lia-text-muted);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 .site-lawyer-list,
