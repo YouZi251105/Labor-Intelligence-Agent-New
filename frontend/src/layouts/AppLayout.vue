@@ -18,16 +18,33 @@
 
       <nav class="nav" aria-label="主导航">
         <template v-for="item in navigation" :key="item.name">
+          <button
+            v-if="item.children"
+            type="button"
+            class="nav__item"
+            :class="{ 'nav__item--active': isGroupActive(item.to) }"
+            :aria-expanded="isGroupOpen(item.name)"
+            @click="toggleGroup(item.name)"
+          >
+            <component :is="item.icon" :size="19" :stroke-width="1.8" />
+            <span class="nav__label">{{ item.label }}</span>
+            <ChevronDown
+              :size="16"
+              class="nav__chevron"
+              :class="{ 'nav__chevron--open': isGroupOpen(item.name) }"
+            />
+          </button>
           <RouterLink
+            v-else
             :to="item.to"
             class="nav__item"
             :class="{ 'nav__item--active': isNavActive(item.to) }"
             @click="sidebarOpen = false"
           >
             <component :is="item.icon" :size="19" :stroke-width="1.8" />
-            <span>{{ item.label }}</span>
+            <span class="nav__label">{{ item.label }}</span>
           </RouterLink>
-          <div v-if="item.children" class="nav__children">
+          <div v-if="item.children" v-show="isGroupOpen(item.name)" class="nav__children">
             <RouterLink
               v-for="child in item.children"
               :key="child.name"
@@ -87,6 +104,7 @@
 <script setup lang="ts">
 import {
   BookOpenText,
+  ChevronDown,
   Drama,
   FolderKanban,
   LogOut,
@@ -97,7 +115,7 @@ import {
   UserRound,
   UsersRound,
 } from '@lucide/vue'
-import { computed, ref, type Component } from 'vue'
+import { computed, reactive, ref, type Component } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import BrandMark from '../components/BrandMark.vue'
@@ -108,6 +126,7 @@ const sidebarOpen = ref(false)
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const navGroups = reactive<Record<string, boolean>>(readNavGroups())
 
 interface NavChild {
   name: string
@@ -186,6 +205,30 @@ const supportDescription = computed(() =>
 function isNavActive(to: string) {
   const target = router.resolve(to)
   return route.path === target.path
+}
+
+function isGroupActive(to: string) {
+  const target = router.resolve(to)
+  const parentPath = target.path.replace(/\/[^/]+$/, '')
+  return route.path === target.path || route.path.startsWith(`${parentPath}/`)
+}
+
+function isGroupOpen(name: string) {
+  return navGroups[name] !== false
+}
+
+function toggleGroup(name: string) {
+  navGroups[name] = !isGroupOpen(name)
+  localStorage.setItem('lia_nav_groups', JSON.stringify(navGroups))
+}
+
+function readNavGroups(): Record<string, boolean> {
+  try {
+    const saved = localStorage.getItem('lia_nav_groups')
+    return saved ? (JSON.parse(saved) as Record<string, boolean>) : { admin: true }
+  } catch {
+    return { admin: true }
+  }
 }
 
 function logout() {

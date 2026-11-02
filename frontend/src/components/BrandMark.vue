@@ -7,7 +7,7 @@
   >
     <Scale
       :size="size === 'large' ? 30 : 22"
-      :stroke-width="2.1"
+      :stroke-width="size === 'large' ? 2.5 : 2.3"
       color="#ffffff"
       aria-hidden="true"
     />

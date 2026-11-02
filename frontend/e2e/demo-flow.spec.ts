@@ -46,6 +46,8 @@ test('login page is accessible', async ({ page }, testInfo) => {
   await page.goto('/login')
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
   await expect(page.getByText('演示账号')).toHaveCount(0)
+  await expect(page.locator('.auth-brand .brand-mark svg')).toBeVisible()
+  await expect(page.locator('.auth-brand .brand-mark')).not.toContainText('⚖')
   await page.screenshot({
     path: `../docs/screenshots/login-${testInfo.project.name}.png`,
     fullPage: true,
@@ -214,6 +216,27 @@ test('admin can open the management dashboard', async ({ page }, testInfo) => {
     path: `../docs/screenshots/admin-${testInfo.project.name}.png`,
     fullPage: testInfo.project.name === 'desktop',
   })
+})
+
+test('admin navigation group collapses and remembers its state', async ({ page }) => {
+  await login(page, 'admin', 'Admin123!')
+  const openNavigation = page.getByRole('button', { name: '打开导航' })
+  if (await openNavigation.isVisible()) await openNavigation.click()
+
+  const adminToggle = page.getByRole('button', { name: '管理后台', exact: true })
+  await expect(adminToggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('link', { name: '用户管理', exact: true })).toBeVisible()
+
+  await adminToggle.click()
+  await expect(adminToggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('link', { name: '用户管理', exact: true })).toBeHidden()
+
+  await page.reload()
+  if (await openNavigation.isVisible()) await openNavigation.click()
+  await expect(adminToggle).toHaveAttribute('aria-expanded', 'false')
+
+  await adminToggle.click()
+  await expect(page.getByRole('link', { name: '用户管理', exact: true })).toBeVisible()
 })
 
 test('lawyer can open the assigned-case dashboard', async ({ page }, testInfo) => {

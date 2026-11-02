@@ -64,12 +64,22 @@ a {
 
 .brand__mark,
 .brand-mark {
+  position: relative;
   display: grid;
   place-items: center;
   border-radius: 8px;
   background: var(--lia-primary);
   box-shadow: 0 8px 20px rgba(166, 27, 27, 0.18);
   color: #fff;
+}
+
+.brand-mark svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  transform: translate(calc(-50% + 1px), calc(-50% + 1px));
+  stroke: currentColor;
 }
 
 .brand-mark--small {
@@ -114,16 +124,35 @@ a {
 
 .nav__item {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 11px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
   color: var(--lia-text-secondary);
+  cursor: pointer;
   padding: 11px 12px;
+  text-align: left;
   text-decoration: none;
   transition:
     background 0.18s ease,
     color 0.18s ease,
     transform 0.18s ease;
+}
+
+.nav__label {
+  min-width: 0;
+  flex: 1;
+}
+
+.nav__chevron {
+  flex: 0 0 auto;
+  transition: transform 0.18s ease;
+}
+
+.nav__chevron--open {
+  transform: rotate(180deg);
 }
 
 .nav__item:hover {
