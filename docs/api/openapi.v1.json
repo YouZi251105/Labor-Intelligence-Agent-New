@@ -2072,6 +2072,25 @@
         ]
       }
     },
+    "/api/v1/admin/rule-packages/template.xlsx": {
+      "get": {
+        "tags": [
+          "admin-rule-packages"
+        ],
+        "summary": "Rule Package Excel Template",
+        "operationId": "rule_package_excel_template_api_v1_admin_rule_packages_template_xlsx_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/rule-packages/validate": {
       "post": {
         "tags": [
@@ -2106,6 +2125,55 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/rule-packages/import-excel": {
+      "post": {
+        "tags": [
+          "admin-rule-packages"
+        ],
+        "summary": "Import Rule Package From Excel",
+        "operationId": "import_rule_package_from_excel_api_v1_admin_rule_packages_import_excel_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_rule_package_from_excel_api_v1_admin_rule_packages_import_excel_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulePackageDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "文件类型、大小或工作簿结构无效"
+          },
+          "422": {
+            "description": "Excel 字段、引用或规则结构无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulePackageExcelErrorResponse"
                 }
               }
             }
@@ -2162,6 +2230,46 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/admin/rule-packages/{package_id}/export.xlsx": {
+      "get": {
+        "tags": [
+          "admin-rule-packages"
+        ],
+        "summary": "Export Rule Package",
+        "operationId": "export_rule_package_api_v1_admin_rule_packages__package_id__export_xlsx_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "package_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Package Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/admin/rule-packages/{package_id}": {
@@ -3582,6 +3690,21 @@
           "created_at"
         ],
         "title": "AuditLogRead"
+      },
+      "Body_import_rule_package_from_excel_api_v1_admin_rule_packages_import_excel_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File",
+            "description": "规则包 Excel 工作簿"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_rule_package_from_excel_api_v1_admin_rule_packages_import_excel_post"
       },
       "Body_review_contract_file_api_v1_cases__case_id__contract_review_file_post": {
         "properties": {
@@ -5089,6 +5212,35 @@
           "content"
         ],
         "title": "RulePackageDetail"
+      },
+      "RulePackageExcelErrorDetail": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "errors"
+        ],
+        "title": "RulePackageExcelErrorDetail"
+      },
+      "RulePackageExcelErrorResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/RulePackageExcelErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "RulePackageExcelErrorResponse"
       },
       "RulePackageReviewRequest": {
         "properties": {
