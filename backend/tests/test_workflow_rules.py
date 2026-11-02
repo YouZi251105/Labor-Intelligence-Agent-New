@@ -27,3 +27,11 @@ def test_package_rejects_option_targeting_unknown_node() -> None:
 
     with pytest.raises(ValidationError, match="unknown target node"):
         WorkflowRulePackage.model_validate(raw)
+
+
+def test_package_rejects_invalid_workflow_identifier() -> None:
+    raw = json.loads(DEFAULT_WORKFLOW_PACKAGE_PATH.read_text(encoding="utf-8"))
+    raw["nodes"][raw["start_node"]]["options"][0]["id"] = "invalid path id"
+
+    with pytest.raises(ValidationError, match="String should match pattern"):
+        WorkflowRulePackage.model_validate(raw)

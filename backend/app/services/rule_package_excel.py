@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from io import BytesIO
 from typing import Any
 from zipfile import BadZipFile
@@ -12,6 +13,8 @@ from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.properties import PageSetupProperties
 from openpyxl.worksheet.worksheet import Worksheet
+
+from app.schemas.workflow_rules import WORKFLOW_ID_PATTERN
 
 SHEET_GUIDE = "填写说明"
 SHEET_BASE = "基础信息"
@@ -269,20 +272,36 @@ def import_rule_package_excel(data: bytes) -> dict[str, Any]:
     errors: list[str] = []
     if len(workbook.sheetnames) > MAX_SHEETS:
         raise RulePackageExcelError([f"工作簿包含过多工作表（最多 {MAX_SHEETS} 个）"])
+    unexpected_sheets = [
+        name for name in workbook.sheetnames if name not in SHEET_ORDER
+    ]
+    errors.extend(
+        f"未允许的工作表：{name}" for name in unexpected_sheets
+    )
     missing_sheets = [name for name in SHEET_ORDER if name not in workbook.sheetnames]
     if missing_sheets:
         raise RulePackageExcelError(
             [f"缺少工作表：{name}" for name in missing_sheets]
         )
 
-    for sheet_name in [
+    data_sheet_names = [
         SHEET_BASE,
         SHEET_STAGES,
         SHEET_NODES,
         SHEET_PATHS,
         SHEET_REQUIREMENTS,
         SHEET_DEADLINES,
-    ]:
+    ]
+    for sheet_name in data_sheet_names:
+        sheet = workbook[sheet_name]
+        if sheet.max_row - 1 > MAX_DATA_ROWS:
+            errors.append(
+                f"{sheet_name}：有效数据不能超过 {MAX_DATA_ROWS} 行"
+            )
+        errors.extend(
+            f"{sheet_name}!{merged_range}：不允许使用合并单元格"
+            for merged_range in sheet.merged_cells.ranges
+        )
         _validate_headers(workbook[sheet_name], HEADERS[sheet_name], errors)
     if errors:
         raise RulePackageExcelError(errors)
@@ -297,6 +316,23 @@ def import_rule_package_excel(data: bytes) -> dict[str, Any]:
     required_base = {field for field, _ in BASE_FIELDS}
     missing_base = sorted(required_base - set(base))
     errors.extend(f"基础信息!A{record['row']}：缺少字段 {field}" for field in missing_base)
+    errors.extend(
+        f"基础信息!B{_base_field_row(base_records, field)}：{field}不能为空"
+        for field in required_base
+        if field in base and not base[field]
+    )
+    _check_identifier(
+        base.get("package_id", ""),
+        f"基础信息!B{_base_field_row(base_records, 'package_id')}",
+        "包标识",
+        errors,
+    )
+    _check_identifier(
+        base.get("start_node", ""),
+        f"基础信息!B{_base_field_row(base_records, 'start_node')}",
+        "起始节点",
+        errors,
+    )
 
     stage_records = _read_records(workbook[SHEET_STAGES], errors)
     node_records = _read_records(workbook[SHEET_NODES], errors)
@@ -559,6 +595,9 @@ def _build_stages(
         if not key:
             errors.append(f"阶段!A{record['row']}：阶段ID不能为空")
             continue
+        _check_identifier(key, f"阶段!A{record['row']}", "阶段", errors)
+        if not value["显示名称"]:
+            errors.append(f"阶段!B{record['row']}：显示名称不能为空")
         if key in seen:
             errors.append(f"阶段!A{record['row']}：阶段ID {key} 重复")
         seen.add(key)
@@ -587,9 +626,12 @@ def _build_nodes(
         if not node_id:
             errors.append(f"节点!A{record['row']}：节点ID不能为空")
             continue
+        _check_identifier(node_id, f"节点!A{record['row']}", "节点", errors)
         if node_id in nodes:
             errors.append(f"节点!A{record['row']}：节点ID {node_id} 重复")
             continue
+        if not value["所属阶段"]:
+            errors.append(f"节点!B{record['row']}：所属阶段不能为空")
         node: dict[str, Any] = {
             "stage": value["所属阶段"],
             "options": [],
@@ -656,6 +698,21 @@ def _build_paths(
         if not option_id:
             errors.append(f"路径!A{row}：路径ID不能为空")
             continue
+        _check_identifier(option_id, f"路径!A{row}", "路径", errors)
+        required_path_fields = {
+            "来源节点ID": ("B", "来源节点ID"),
+            "选项名称": ("D", "选项名称"),
+            "选项说明": ("E", "选项说明"),
+            "目标节点ID": ("F", "目标节点ID"),
+            "目标阶段": ("G", "目标阶段"),
+            "结果说明": ("H", "结果说明"),
+            "下一步": ("I", "下一步"),
+        }
+        for field, (column, label) in required_path_fields.items():
+            if not value[field]:
+                errors.append(f"路径!{column}{row}：{label}不能为空")
+        _check_identifier(source_node, f"路径!B{row}", "来源节点", errors)
+        _check_identifier(target_node, f"路径!F{row}", "目标节点", errors)
         if option_id in option_ids:
             errors.append(f"路径!A{row}：路径ID {option_id} 重复")
         option_ids.add(option_id)
@@ -728,6 +785,24 @@ def _build_deadlines(
     grouped: dict[str, list[dict[str, str]]] = {}
     for record in records:
         value = record["value"]
+        required_fields = {
+            "期限ID": "B",
+            "标题": "C",
+            "说明": "D",
+            "计算方式": "G",
+            "复核状态": "H",
+        }
+        for field, column in required_fields.items():
+            if not value[field]:
+                errors.append(
+                    f"期限规则!{column}{record['row']}：{field}不能为空"
+                )
+        _check_identifier(
+            value["期限ID"],
+            f"期限规则!B{record['row']}",
+            "期限",
+            errors,
+        )
         grouped.setdefault(value["路径ID"], []).append(
             {
                 "id": value["期限ID"],
@@ -771,6 +846,18 @@ def _display_enum(value: Any, options: dict[str, str]) -> str:
         if value == internal:
             return label
     return str(value or "")
+
+
+def _check_identifier(
+    value: str,
+    location: str,
+    label: str,
+    errors: list[str],
+) -> None:
+    if value and re.fullmatch(WORKFLOW_ID_PATTERN, value) is None:
+        errors.append(
+            f"{location}：{label} ID 只能使用字母、数字、下划线、点和短横线"
+        )
 
 
 def _base_field_row(records: list[dict[str, Any]], field: str) -> str:
