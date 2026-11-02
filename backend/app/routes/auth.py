@@ -4,13 +4,20 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.security import create_access_token, hash_password, verify_password
+from app.models.collaboration import UserProfile
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def token_response(user: User) -> TokenResponse:
+def user_read(user: User, profile_completed: bool) -> UserRead:
+    return UserRead.model_validate(user).model_copy(
+        update={"profile_completed": profile_completed}
+    )
+
+
+def token_response(user: User, profile_completed: bool = False) -> TokenResponse:
     token = create_access_token(
         user_id=user.id,
         username=user.username,
@@ -18,7 +25,7 @@ def token_response(user: User) -> TokenResponse:
     )
     return TokenResponse(
         access_token=token,
-        user=UserRead.model_validate(user),
+        user=user_read(user, profile_completed),
     )
 
 
@@ -38,7 +45,7 @@ async def register(payload: RegisterRequest, session: DbSession) -> TokenRespons
         await session.rollback()
         raise HTTPException(status_code=409, detail="用户名已存在") from None
     await session.refresh(user)
-    return token_response(user)
+    return token_response(user, profile_completed=False)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -48,9 +55,21 @@ async def login(payload: LoginRequest, session: DbSession) -> TokenResponse:
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="账号已停用")
-    return token_response(user)
+    profile_completed = (
+        await session.scalar(
+            select(UserProfile.id).where(UserProfile.user_id == user.id)
+        )
+        is not None
+    )
+    return token_response(user, profile_completed=profile_completed)
 
 
 @router.get("/me", response_model=UserRead)
-async def me(user: CurrentUser) -> User:
-    return user
+async def me(user: CurrentUser, session: DbSession) -> UserRead:
+    profile_completed = (
+        await session.scalar(
+            select(UserProfile.id).where(UserProfile.user_id == user.id)
+        )
+        is not None
+    )
+    return user_read(user, profile_completed)

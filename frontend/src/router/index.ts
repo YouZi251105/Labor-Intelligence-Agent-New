@@ -42,19 +42,19 @@ const router = createRouter({
           path: '',
           name: 'workspace',
           component: WorkspaceView,
-          meta: { title: 'AI 法律咨询' },
+          meta: { title: 'AI 法律咨询', requiresProfile: true },
         },
         {
           path: 'cases',
           name: 'cases',
           component: CasesView,
-          meta: { title: '我的案件' },
+          meta: { title: '我的案件', requiresProfile: true },
         },
         {
           path: 'cases/:id',
           name: 'case-detail',
           component: CaseDetailView,
-          meta: { title: '案件工作台' },
+          meta: { title: '案件工作台', requiresProfile: true },
         },
         {
           path: 'evidence',
@@ -64,7 +64,7 @@ const router = createRouter({
           path: 'simulation',
           name: 'simulation',
           component: SimulationView,
-          meta: { title: '模拟对话' },
+          meta: { title: '模拟对话', requiresProfile: true },
         },
         {
           path: 'help',
@@ -110,6 +110,16 @@ router.beforeEach((to) => {
   }
   if (to.name === 'login' && auth.token) {
     return { name: 'workspace' }
+  }
+  if (
+    to.meta.requiresProfile &&
+    auth.user?.role === 'user' &&
+    !auth.user.profile_completed
+  ) {
+    return {
+      name: 'profile',
+      query: { required: '1', redirect: to.fullPath },
+    }
   }
   const roles = to.meta.roles
   if (Array.isArray(roles) && auth.user && !roles.includes(auth.user.role)) {

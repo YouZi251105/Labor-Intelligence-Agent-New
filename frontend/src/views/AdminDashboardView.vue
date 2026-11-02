@@ -3,8 +3,8 @@
     <header class="page-heading">
       <div>
         <span class="eyebrow">平台管理</span>
-        <h1>管理后台</h1>
-        <p>管理用户、律师、案件、规则、材料和审计记录。</p>
+        <h1>{{ pageTitle }}</h1>
+        <p>{{ pageDescription }}</p>
       </div>
       <button class="secondary-action" type="button" @click="loadCurrentSection">刷新数据</button>
     </header>
@@ -18,35 +18,87 @@
     </div>
 
     <template v-else>
-    <div v-if="activeTab === '总览'" class="metric-grid">
-      <article><span>用户</span><strong>{{ stats.users }}</strong></article>
-      <article><span>案件</span><strong>{{ stats.cases }}</strong></article>
-      <article><span>证据</span><strong>{{ stats.evidence }}</strong></article>
-      <article><span>文书</span><strong>{{ stats.documents }}</strong></article>
-    </div>
+    <div v-if="activeTab === '总览'" class="dashboard-screen">
+      <div class="metric-grid dashboard-metrics">
+        <article>
+          <span>平台用户</span>
+          <strong>{{ stats.users }}</strong>
+          <small>{{ stats.profile_completed_users }} 人已完善资料</small>
+        </article>
+        <article>
+          <span>案件总量</span>
+          <strong>{{ stats.cases }}</strong>
+          <small>{{ stats.unassigned_cases }} 个待分配</small>
+        </article>
+        <article>
+          <span>证据材料</span>
+          <strong>{{ stats.evidence }}</strong>
+          <small>材料访问全程留痕</small>
+        </article>
+        <article>
+          <span>法律文书</span>
+          <strong>{{ stats.documents }}</strong>
+          <small>草稿与版本独立保存</small>
+        </article>
+        <article>
+          <span>实名待核验</span>
+          <strong>{{ stats.pending_verifications }}</strong>
+          <small>进入用户管理处理</small>
+        </article>
+        <article>
+          <span>律师待审核</span>
+          <strong>{{ stats.pending_lawyers }}</strong>
+          <small>{{ stats.lawyers }} 位律师已入驻</small>
+        </article>
+      </div>
 
-    <div v-if="activeTab === '总览'" class="admin-grid">
-      <section class="detail-card detail-card--wide">
-        <span class="eyebrow">匿名话题</span>
-        <h2>{{ topics.total }} 个案件主题</h2>
-        <div class="topic-stats">
-          <article v-for="topic in topics.topics" :key="topic.dispute_type">
-            <span>{{ topic.label }}</span>
-            <strong>{{ topic.count }}</strong>
-          </article>
-        </div>
-        <small>仅展示聚合纠纷类型，不展示用户原始咨询。</small>
-      </section>
-      <section class="detail-card">
-        <span class="eyebrow">待办概览</span>
-        <h2>{{ stats.pending_lawyers }} 位律师待审核</h2>
-        <p class="muted-text">律师审核、规则复核与材料访问都在独立管理页处理。</p>
-      </section>
-      <section class="detail-card">
-        <span class="eyebrow">案件分配</span>
-        <h2>{{ stats.unassigned_cases }} 个案件待分配</h2>
-        <p class="muted-text">从左侧“案件分配”进入，按案件查看材料和分配律师。</p>
-      </section>
+      <AdminDashboardCharts v-if="dashboardData" :data="dashboardData" />
+
+      <div class="dashboard-bottom-grid">
+        <section class="detail-card">
+          <div class="dashboard-card-heading">
+            <div>
+              <span class="eyebrow">运行提醒</span>
+              <h2>待处理事项</h2>
+            </div>
+          </div>
+          <div class="dashboard-alert-list">
+            <article>
+              <strong>{{ stats.pending_verifications }}</strong>
+              <span>位劳动者的实名资料待核验</span>
+              <RouterLink to="/admin/users">前往用户管理</RouterLink>
+            </article>
+            <article>
+              <strong>{{ stats.pending_lawyers }}</strong>
+              <span>位律师账号待审核</span>
+              <RouterLink to="/admin/lawyers">前往律师管理</RouterLink>
+            </article>
+            <article>
+              <strong>{{ stats.unassigned_cases }}</strong>
+              <span>个案件尚未分配承办律师</span>
+              <RouterLink to="/admin/cases">前往案件分配</RouterLink>
+            </article>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <div class="dashboard-card-heading">
+            <div>
+              <span class="eyebrow">实时审计</span>
+              <h2>最近操作</h2>
+            </div>
+            <RouterLink to="/admin/audit" class="text-link">查看全部</RouterLink>
+          </div>
+          <div class="audit-list dashboard-audit-list">
+            <article v-for="item in dashboardData?.recent_actions ?? []" :key="item.id">
+              <strong>{{ auditLabels[item.action] || item.action }}</strong>
+              <span>{{ item.object_type }} #{{ item.object_id }}</span>
+              <small>{{ new Date(item.created_at).toLocaleString('zh-CN') }}</small>
+            </article>
+            <p v-if="!dashboardData?.recent_actions?.length" class="muted-text">暂无操作记录。</p>
+          </div>
+        </section>
+      </div>
     </div>
 
     <section v-else-if="activeTab === '用户'" class="detail-card">
@@ -293,11 +345,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  onBeforeUnmount,
+  reactive,
+  ref,
+  watch,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
 import type {
+  AdminDashboardData,
   AdminUserPage,
   AdminUserSummary,
   AuditLogItem,
@@ -306,10 +366,13 @@ import type {
   RevenueLedger,
   RuleConfigItem,
   ServiceRecord,
-  TopicsResponse,
   User,
 } from '../types/api'
 import { formatFileSize } from '../utils/format'
+
+const AdminDashboardCharts = defineAsyncComponent(
+  () => import('../components/AdminDashboardCharts.vue'),
+)
 
 interface LawyerSummary {
   id: number
@@ -332,8 +395,32 @@ const sectionTabs: Record<string, string> = {
   audit: '审计',
   revenue: '收益',
 }
+const sectionTitles: Record<string, string> = {
+  overview: '运营数据大屏',
+  users: '用户管理',
+  lawyers: '律师管理',
+  cases: '案件分配',
+  rules: '规则复核',
+  materials: '材料管理',
+  audit: '审计日志',
+  revenue: '收益管理',
+}
+const sectionDescriptions: Record<string, string> = {
+  overview: '实时查看用户、案件、材料、文书和待办事项的整体运行情况。',
+  users: '检索账号、核验实名资料并管理账号状态。',
+  lawyers: '审核律师状态和平台服务能力。',
+  cases: '查看待分配案件并指定承办律师。',
+  rules: '复核证据规则和法律内容版本。',
+  materials: '查看材料元数据和提取状态，不展示材料正文。',
+  audit: '追踪平台关键操作和敏感数据访问。',
+  revenue: '核对律师服务记录和收益流转。',
+}
 const activeTab = computed(
   () => sectionTabs[activeSection.value] ?? '总览',
+)
+const pageTitle = computed(() => sectionTitles[activeSection.value] ?? '运营数据大屏')
+const pageDescription = computed(
+  () => sectionDescriptions[activeSection.value] ?? sectionDescriptions.overview,
 )
 const activeSection = computed(() => {
   const value = String(route.params.section ?? 'overview')
@@ -347,14 +434,17 @@ const materials = ref<MaterialSummary[]>([])
 const auditLogs = ref<AuditLogItem[]>([])
 const serviceRecords = ref<ServiceRecord[]>([])
 const revenueEntries = ref<RevenueLedger[]>([])
-const topics = reactive<TopicsResponse>({ topics: [], total: 0 })
+const dashboardData = ref<AdminDashboardData | null>(null)
 const stats = reactive({
   users: 0,
   cases: 0,
   evidence: 0,
   documents: 0,
+  lawyers: 0,
   pending_lawyers: 0,
   unassigned_cases: 0,
+  pending_verifications: 0,
+  profile_completed_users: 0,
 })
 const userPage = reactive<AdminUserPage>({
   items: [],
@@ -461,12 +551,9 @@ async function loadSection(section: string) {
   error.value = ''
   try {
     if (section === 'overview') {
-      const [statsData, topicData] = await Promise.all([
-        apiRequest<typeof stats>('/admin/stats'),
-        apiRequest<TopicsResponse>('/analytics/topics'),
-      ])
-      Object.assign(stats, statsData)
-      Object.assign(topics, topicData)
+      const data = await apiRequest<AdminDashboardData>('/admin/dashboard')
+      dashboardData.value = data
+      Object.assign(stats, data.totals)
       return
     }
     if (section === 'users') {

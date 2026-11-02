@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.evidence import Evidence
 from app.routes.cases import get_accessible_case, get_worker_owned_case
@@ -37,7 +37,7 @@ async def transition_case(
     case_id: int,
     payload: TransitionRequest,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> WorkflowResponse:
     case = await get_worker_owned_case(case_id, session, user)
     evidence_items = list(

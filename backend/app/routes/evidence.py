@@ -6,7 +6,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
 from app.core.config import get_settings
 from app.models.audit import AuditLog
 from app.models.evidence import Evidence
@@ -71,7 +71,7 @@ async def list_case_evidence(
 async def upload_case_evidence(
     case_id: int,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
     file: Annotated[UploadFile, File()],
 ) -> Evidence:
     case = await get_worker_owned_case(case_id, session, user)
@@ -154,7 +154,7 @@ async def retry_evidence_extraction(
     case_id: int,
     evidence_id: int,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> EvidenceExtractionResponse:
     await get_worker_owned_case(case_id, session, user)
     evidence = await session.get(Evidence, evidence_id)
@@ -237,7 +237,7 @@ async def review_case_contract(
     case_id: int,
     payload: ContractReviewRequest,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> dict[str, Any]:
     case = await get_worker_owned_case(case_id, session, user)
     result = review_contract(payload.text)
@@ -261,7 +261,7 @@ async def review_case_contract(
 async def review_contract_file(
     case_id: int,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
     file: Annotated[UploadFile, File()],
 ) -> ContractFileReviewResponse:
     case = await get_worker_owned_case(case_id, session, user)

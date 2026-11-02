@@ -170,3 +170,64 @@ def test_admin_user_management_supports_search_pagination_and_masked_detail() ->
     assert verification.status_code == 200
     assert verification.json()["verification_status"] == "verified"
     assert worker_forbidden.status_code == 403
+
+
+def test_incomplete_profile_is_blocked_from_core_worker_features() -> None:
+    with TestClient(app) as client:
+        registered = client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "profile_gate_user",
+                "password": "ProfileGate123!",
+                "display_name": "资料门槛用户",
+            },
+        )
+        assert registered.status_code == 201
+        token = registered.json()["access_token"]
+        assert registered.json()["user"]["profile_completed"] is False
+
+        blocked = client.post(
+            "/api/v1/cases",
+            headers=auth(token),
+            json={"title": "未完善资料时不能创建"},
+        )
+        assert blocked.status_code == 403
+
+        profile = client.put(
+            "/api/v1/users/me/profile",
+            headers=auth(token),
+            json={
+                "real_name": "资料门槛用户",
+                "phone": "13900000000",
+                "id_number": "110101199001011234",
+            },
+        )
+        assert profile.status_code == 200
+
+        me = client.get("/api/v1/auth/me", headers=auth(token))
+        created = client.post(
+            "/api/v1/cases",
+            headers=auth(token),
+            json={"title": "完善资料后可创建"},
+        )
+
+    assert me.json()["profile_completed"] is True
+    assert created.status_code == 201
+
+
+def test_admin_dashboard_returns_chart_ready_aggregates() -> None:
+    with TestClient(app) as client:
+        admin_token = login(client, "admin", "Admin123!")
+        response = client.get("/api/v1/admin/dashboard", headers=auth(admin_token))
+        worker_token = login(client, "demo", "Demo123!")
+        forbidden = client.get("/api/v1/admin/dashboard", headers=auth(worker_token))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["totals"]["users"] >= 3
+    assert len(payload["trends"]) == 7
+    assert payload["disputes"]
+    assert payload["stages"]
+    assert payload["roles"]
+    assert payload["verification"]
+    assert forbidden.status_code == 403

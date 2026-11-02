@@ -15,6 +15,8 @@
 - 协商和解协议、仲裁申请书和民事起诉状草稿，支持 TXT/DOCX/PDF 导出。
 - 律师意见、服务记录、收益台账和管理员分配。
 - AI 角色模拟、评分、帮助目录、本站律师和匿名话题。
+- 劳动者注册后先完善个人资料，再进入案件、咨询、材料、文书和模拟训练。
+- 管理后台运营数据大屏，展示近 7 天趋势、纠纷构成、案件阶段和待办审计。
 - 自动化测试、类型检查、静态检查和构建流程。
 
 当前 AI 默认为本地演示规则；配置千问 API Key 后会调用真实模型。扫描版 OCR、在线支付、正式电子存证和公开律师市场仍属于后续或首期外范围。
@@ -37,7 +39,11 @@
 
 ![案件工作台](docs/screenshots/case-workspace-desktop.png)
 
+![运营数据大屏](docs/screenshots/admin-dashboard-desktop.png)
+
 ![管理后台](docs/screenshots/admin-desktop.png)
+
+![完善个人资料](docs/screenshots/profile-required-desktop.png)
 
 ![模拟对话](docs/screenshots/simulation-desktop.png)
 

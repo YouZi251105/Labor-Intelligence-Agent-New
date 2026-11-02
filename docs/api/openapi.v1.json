@@ -2044,6 +2044,32 @@
         ]
       }
     },
+    "/api/v1/admin/dashboard": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Dashboard",
+        "operationId": "dashboard_api_v1_admin_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDashboardRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/users": {
       "get": {
         "tags": [
@@ -2810,6 +2836,66 @@
   },
   "components": {
     "schemas": {
+      "AdminDashboardRead": {
+        "properties": {
+          "totals": {
+            "$ref": "#/components/schemas/DashboardTotals"
+          },
+          "trends": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardTrendPoint"
+            },
+            "type": "array",
+            "title": "Trends"
+          },
+          "disputes": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdown"
+            },
+            "type": "array",
+            "title": "Disputes"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdown"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdown"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "verification": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdown"
+            },
+            "type": "array",
+            "title": "Verification"
+          },
+          "recent_actions": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogRead"
+            },
+            "type": "array",
+            "title": "Recent Actions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "totals",
+          "trends",
+          "disputes",
+          "stages",
+          "roles",
+          "verification",
+          "recent_actions"
+        ],
+        "title": "AdminDashboardRead"
+      },
       "AdminUserPage": {
         "properties": {
           "items": {
@@ -3411,6 +3497,105 @@
           "disclaimer"
         ],
         "title": "ContractReviewResponse"
+      },
+      "DashboardBreakdown": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "count"
+        ],
+        "title": "DashboardBreakdown"
+      },
+      "DashboardTotals": {
+        "properties": {
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          },
+          "evidence": {
+            "type": "integer",
+            "title": "Evidence"
+          },
+          "documents": {
+            "type": "integer",
+            "title": "Documents"
+          },
+          "lawyers": {
+            "type": "integer",
+            "title": "Lawyers"
+          },
+          "pending_lawyers": {
+            "type": "integer",
+            "title": "Pending Lawyers"
+          },
+          "unassigned_cases": {
+            "type": "integer",
+            "title": "Unassigned Cases"
+          },
+          "pending_verifications": {
+            "type": "integer",
+            "title": "Pending Verifications"
+          },
+          "profile_completed_users": {
+            "type": "integer",
+            "title": "Profile Completed Users"
+          }
+        },
+        "type": "object",
+        "required": [
+          "users",
+          "cases",
+          "evidence",
+          "documents",
+          "lawyers",
+          "pending_lawyers",
+          "unassigned_cases",
+          "pending_verifications",
+          "profile_completed_users"
+        ],
+        "title": "DashboardTotals"
+      },
+      "DashboardTrendPoint": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "users",
+          "cases"
+        ],
+        "title": "DashboardTrendPoint"
       },
       "DocumentCreate": {
         "properties": {
@@ -5049,6 +5234,11 @@
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
+          },
+          "profile_completed": {
+            "type": "boolean",
+            "title": "Profile Completed",
+            "default": false
           },
           "created_at": {
             "type": "string",

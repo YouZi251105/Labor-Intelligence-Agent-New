@@ -7,6 +7,7 @@ export interface User {
   display_name: string
   phone: string
   is_active: boolean
+  profile_completed: boolean
   created_at: string
 }
 
@@ -21,6 +22,36 @@ export interface AdminUserPage {
   total: number
   page: number
   page_size: number
+}
+
+export interface DashboardBreakdown {
+  key: string
+  label: string
+  count: number
+}
+
+export interface AdminDashboardData {
+  totals: {
+    users: number
+    cases: number
+    evidence: number
+    documents: number
+    lawyers: number
+    pending_lawyers: number
+    unassigned_cases: number
+    pending_verifications: number
+    profile_completed_users: number
+  }
+  trends: Array<{
+    date: string
+    users: number
+    cases: number
+  }>
+  disputes: DashboardBreakdown[]
+  stages: DashboardBreakdown[]
+  roles: DashboardBreakdown[]
+  verification: DashboardBreakdown[]
+  recent_actions: AuditLogItem[]
 }
 
 export interface AuthResponse {

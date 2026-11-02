@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.document import Document, DocumentEvidence
 from app.models.evidence import Evidence
@@ -121,7 +121,7 @@ async def create_document(
     case_id: int,
     payload: DocumentCreate,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> DocumentRead:
     case = await get_worker_owned_case(case_id, session, user)
     evidence_items = list(
@@ -175,7 +175,7 @@ async def create_document_revision(
     document_id: int,
     payload: DocumentRevisionCreate,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> DocumentRead:
     await get_worker_owned_case(case_id, session, user)
     original = await get_case_document(case_id, document_id, session, user)

@@ -54,6 +54,34 @@ test('login page is accessible', async ({ page }, testInfo) => {
   })
 })
 
+test('new worker must complete profile before entering core workspace', async ({ page }, testInfo) => {
+  const username = `profile_gate_${testInfo.project.name}_${Date.now()}`
+  await page.goto('/login')
+  await page.getByRole('button', { name: '没有账号，立即注册' }).click()
+  await page.locator('input[autocomplete="username"]').fill(username)
+  await page.locator('.auth-form input:not([type="password"])').nth(1).fill('资料门槛用户')
+  await page.locator('input[type="password"]').fill('ProfileGate123!')
+  await page.locator('.auth-form button[type="submit"]').click()
+
+  await expect(page).toHaveURL(/\/profile\?required=1/)
+  await expect(page.getByRole('heading', { name: '请先完善个人资料' })).toBeVisible()
+  await page.screenshot({
+    path: `../docs/screenshots/profile-required-${testInfo.project.name}.png`,
+    fullPage: false,
+  })
+
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/profile\?required=1/)
+
+  await page.locator('input[autocomplete="name"]').fill('资料门槛用户')
+  await page.locator('input[autocomplete="tel"]').fill('13900000000')
+  await page.locator('input[autocomplete="off"][maxlength="18"]').fill('110101199001011234')
+  await page.getByRole('button', { name: '保存并继续使用' }).click()
+
+  await expect(page).toHaveURL('http://127.0.0.1:5173/')
+  await expect(page.locator('.workspace-header')).toBeVisible()
+})
+
 test('workspace stays usable at 100 percent zoom', async ({ page }) => {
   await login(page, 'demo', 'Demo123!')
 
@@ -197,13 +225,19 @@ test('workflow transitions are persisted by the backend', async ({ page }, testI
 
 test('admin can open the management dashboard', async ({ page }, testInfo) => {
   await login(page, 'admin', 'Admin123!')
-  await expect(page.getByRole('heading', { name: '管理后台' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '运营数据大屏' })).toBeVisible()
   await expect(page.locator('.metric-grid article').first().locator('strong')).not.toHaveText('0')
+  await expect(page.getByRole('heading', { name: '新增用户与案件' })).toBeVisible()
+  await expect(page.locator('.dashboard-chart-grid canvas')).toHaveCount(3)
+  await page.screenshot({
+    path: `../docs/screenshots/admin-dashboard-${testInfo.project.name}.png`,
+    fullPage: false,
+  })
   const openNavigation = page.getByRole('button', { name: '打开导航' })
   if (await openNavigation.isVisible()) await openNavigation.click()
   await page.getByRole('link', { name: '用户管理', exact: true }).click()
   await expect(page).toHaveURL(/\/admin\/users$/)
-  await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '用户管理' })).toBeVisible()
   await expect(page.getByPlaceholder('搜索用户名、姓名或手机号')).toBeVisible()
   await page.getByPlaceholder('搜索用户名、姓名或手机号').fill('demo')
   await expect(page.locator('.user-management-row')).toHaveCount(1)

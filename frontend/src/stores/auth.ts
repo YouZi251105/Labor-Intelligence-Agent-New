@@ -57,6 +57,9 @@ export const useAuthStore = defineStore('auth', {
       this.user = response.user
       localStorage.setItem(TOKEN_KEY, response.access_token)
     },
+    markProfileCompleted() {
+      if (this.user) this.user.profile_completed = true
+    },
     logout() {
       this.token = null
       this.user = null

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CompleteWorkerProfile, DbSession
 from app.models.audit import AuditLog
 from app.models.case import Case
 from app.models.collaboration import SimulationMessage, SimulationSession
@@ -74,7 +74,7 @@ async def create_simulation(
     case_id: int,
     payload: SimulationCreate,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> SimulationSession:
     case = await get_owned_case(case_id, session, user)
     simulation = SimulationSession(
@@ -106,7 +106,7 @@ async def create_simulation(
 async def list_simulations(
     case_id: int,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> list[SimulationSession]:
     await get_owned_case(case_id, session, user)
     results = await session.scalars(
@@ -128,7 +128,7 @@ async def get_simulation(
     case_id: int,
     session_id: int,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> SimulationSessionDetail:
     simulation = await get_owned_simulation(case_id, session_id, session, user)
     messages = list(
@@ -153,7 +153,7 @@ async def send_simulation_message(
     session_id: int,
     payload: SimulationMessageCreate,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> SimulationReply:
     simulation = await get_owned_simulation(case_id, session_id, session, user)
     previous_count = len(

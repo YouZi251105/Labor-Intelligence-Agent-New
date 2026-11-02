@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, time, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,11 +14,15 @@ from app.models.evidence import Evidence
 from app.models.lawyer import LawyerProfile
 from app.models.user import User
 from app.schemas.admin import (
+    AdminDashboardRead,
     AdminUserPage,
     AdminUserSummary,
     AdminUserUpdate,
     AuditLogRead,
     CaseAssignmentRequest,
+    DashboardBreakdown,
+    DashboardTotals,
+    DashboardTrendPoint,
     LawyerStatusUpdate,
     LawyerSummary,
     MaterialSummary,
@@ -28,6 +33,7 @@ from app.schemas.admin import (
 )
 from app.schemas.auth import UserRead
 from app.schemas.case import CaseRead
+from app.services.ai import DISPUTE_LABELS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 AdminUser = require_roles("admin")
@@ -80,6 +86,163 @@ async def stats(session: DbSession, _: AdminRequired) -> dict[str, int]:
         "pending_lawyers": pending_lawyers or 0,
         "unassigned_cases": unassigned_cases or 0,
     }
+
+
+@router.get("/dashboard", response_model=AdminDashboardRead)
+async def dashboard(
+    session: DbSession,
+    _: AdminRequired,
+) -> AdminDashboardRead:
+    user_count = await session.scalar(select(func.count()).select_from(User))
+    case_count = await session.scalar(select(func.count()).select_from(Case))
+    evidence_count = await session.scalar(select(func.count()).select_from(Evidence))
+    document_count = await session.scalar(select(func.count()).select_from(Document))
+    lawyer_count = await session.scalar(
+        select(func.count()).select_from(User).where(User.role == "lawyer")
+    )
+    pending_lawyers = await session.scalar(
+        select(func.count())
+        .select_from(LawyerProfile)
+        .where(LawyerProfile.status == "pending")
+    )
+    unassigned_cases = await session.scalar(
+        select(func.count())
+        .select_from(Case)
+        .where(Case.assigned_lawyer_id.is_(None))
+    )
+    pending_verifications = await session.scalar(
+        select(func.count())
+        .select_from(UserProfile)
+        .where(UserProfile.verification_status == "pending")
+    )
+    profile_completed_users = await session.scalar(
+        select(func.count()).select_from(UserProfile)
+    )
+
+    end_date = datetime.now(UTC).date()
+    start_date = end_date - timedelta(days=6)
+    start_at = datetime.combine(start_date, time.min)
+
+    user_trend_rows = (
+        await session.execute(
+            select(func.date(User.created_at), func.count(User.id))
+            .where(User.created_at >= start_at)
+            .group_by(func.date(User.created_at))
+        )
+    ).all()
+    case_trend_rows = (
+        await session.execute(
+            select(func.date(Case.created_at), func.count(Case.id))
+            .where(Case.created_at >= start_at)
+            .group_by(func.date(Case.created_at))
+        )
+    ).all()
+    user_trend = {str(day): count for day, count in user_trend_rows}
+    case_trend = {str(day): count for day, count in case_trend_rows}
+    trends = []
+    for offset in range(7):
+        day = start_date + timedelta(days=offset)
+        key = day.isoformat()
+        trends.append(
+            DashboardTrendPoint(
+                date=key,
+                users=user_trend.get(key, 0),
+                cases=case_trend.get(key, 0),
+            )
+        )
+
+    dispute_rows = (
+        await session.execute(
+            select(Case.dispute_type, func.count(Case.id))
+            .group_by(Case.dispute_type)
+            .order_by(func.count(Case.id).desc())
+        )
+    ).all()
+    stage_rows = (
+        await session.execute(
+            select(Case.stage, func.count(Case.id)).group_by(Case.stage)
+        )
+    ).all()
+    role_rows = (
+        await session.execute(
+            select(User.role, func.count(User.id)).group_by(User.role)
+        )
+    ).all()
+    verification_rows = (
+        await session.execute(
+            select(
+                UserProfile.verification_status,
+                func.count(UserProfile.id),
+            ).group_by(UserProfile.verification_status)
+        )
+    ).all()
+
+    stage_labels = {
+        "intake": "识别问题",
+        "evidence": "整理证据",
+        "procedure": "协商或程序",
+        "document": "文书准备",
+        "lawyer_help": "律师协助",
+    }
+    role_labels = {"user": "劳动者", "lawyer": "律师", "admin": "管理员"}
+    verification_labels = {
+        "unverified": "未提交",
+        "pending": "待核验",
+        "verified": "已核验",
+        "rejected": "需重提",
+    }
+    recent_actions = list(
+        await session.scalars(
+            select(AuditLog).order_by(AuditLog.created_at.desc()).limit(8)
+        )
+    )
+    return AdminDashboardRead(
+        totals=DashboardTotals(
+            users=user_count or 0,
+            cases=case_count or 0,
+            evidence=evidence_count or 0,
+            documents=document_count or 0,
+            lawyers=lawyer_count or 0,
+            pending_lawyers=pending_lawyers or 0,
+            unassigned_cases=unassigned_cases or 0,
+            pending_verifications=pending_verifications or 0,
+            profile_completed_users=profile_completed_users or 0,
+        ),
+        trends=trends,
+        disputes=[
+            DashboardBreakdown(
+                key=key,
+                label=DISPUTE_LABELS.get(key, key),
+                count=count,
+            )
+            for key, count in dispute_rows
+        ],
+        stages=[
+            DashboardBreakdown(
+                key=key,
+                label=stage_labels.get(key, key),
+                count=count,
+            )
+            for key, count in stage_rows
+        ],
+        roles=[
+            DashboardBreakdown(
+                key=key,
+                label=role_labels.get(key, key),
+                count=count,
+            )
+            for key, count in role_rows
+        ],
+        verification=[
+            DashboardBreakdown(
+                key=key,
+                label=verification_labels.get(key, key),
+                count=count,
+            )
+            for key, count in verification_rows
+        ],
+        recent_actions=[AuditLogRead.model_validate(item) for item in recent_actions],
+    )
 
 
 @router.get("/users", response_model=list[UserRead])

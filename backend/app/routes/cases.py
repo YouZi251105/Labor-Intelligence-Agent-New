@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.case import Case, Conversation, Message
 from app.schemas.case import (
@@ -51,10 +51,8 @@ async def get_worker_owned_case(
 async def create_case(
     payload: CaseCreate,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> Case:
-    if user.role != "user":
-        raise HTTPException(status_code=403, detail="仅劳动者可创建案件")
     case = Case(
         owner_id=user.id,
         title=payload.title,
@@ -123,7 +121,7 @@ async def consult_case(
     case_id: int,
     payload: MessageCreate,
     session: DbSession,
-    user: CurrentUser,
+    user: CompleteWorkerProfile,
 ) -> ConsultationResponse:
     case = await get_worker_owned_case(case_id, session, user)
     conversation = await session.scalar(

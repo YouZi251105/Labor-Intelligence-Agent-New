@@ -86,6 +86,16 @@ def test_simulation_is_scoped_to_case_owner() -> None:
             },
         )
         other_token = registered.json()["access_token"]
+        profile = client.put(
+            "/api/v1/users/me/profile",
+            headers=auth_headers(other_token),
+            json={
+                "real_name": "其他用户",
+                "phone": "13900000000",
+                "id_number": "110101199001011234",
+            },
+        )
+        assert profile.status_code == 200
         forbidden = client.get(
             f"/api/v1/cases/{case_id}/simulations/{session_id}",
             headers=auth_headers(other_token),

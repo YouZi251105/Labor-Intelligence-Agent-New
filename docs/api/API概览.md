@@ -158,6 +158,7 @@ file
 | 方法 | 路径 | 说明 | 权限 |
 |---|---|---|---|
 | GET | `/admin/stats` | 数据统计 | 管理员 |
+| GET | `/admin/dashboard` | 运营数据大屏聚合数据 | 管理员 |
 | GET | `/admin/users` | 用户列表 | 管理员 |
 | GET | `/admin/users/manage` | 用户分页、搜索和筛选 | 管理员 |
 | GET | `/admin/users/{user_id}` | 用户脱敏详情 | 管理员 |

@@ -103,6 +103,12 @@ async function submit() {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     if (user.role === 'admin') await router.push('/admin')
     else if (user.role === 'lawyer') await router.push('/lawyer')
+    else if (!user.profile_completed) {
+      await router.push({
+        name: 'profile',
+        query: { required: '1', redirect },
+      })
+    }
     else await router.push(redirect)
   } catch (err) {
     error.value = err instanceof Error ? err.message : '操作失败'

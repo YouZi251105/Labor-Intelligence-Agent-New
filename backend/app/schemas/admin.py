@@ -46,6 +46,30 @@ class AdminUserPage(BaseModel):
     page_size: int
 
 
+class DashboardTotals(BaseModel):
+    users: int
+    cases: int
+    evidence: int
+    documents: int
+    lawyers: int
+    pending_lawyers: int
+    unassigned_cases: int
+    pending_verifications: int
+    profile_completed_users: int
+
+
+class DashboardTrendPoint(BaseModel):
+    date: str
+    users: int
+    cases: int
+
+
+class DashboardBreakdown(BaseModel):
+    key: str
+    label: str
+    count: int
+
+
 class MaterialSummary(BaseModel):
     id: int
     case_id: int
@@ -68,6 +92,16 @@ class AuditLogRead(BaseModel):
     object_id: int
     metadata_json: dict[str, Any]
     created_at: datetime
+
+
+class AdminDashboardRead(BaseModel):
+    totals: DashboardTotals
+    trends: list[DashboardTrendPoint]
+    disputes: list[DashboardBreakdown]
+    stages: list[DashboardBreakdown]
+    roles: list[DashboardBreakdown]
+    verification: list[DashboardBreakdown]
+    recent_actions: list[AuditLogRead]
 
 
 class RuleConfigRead(BaseModel):

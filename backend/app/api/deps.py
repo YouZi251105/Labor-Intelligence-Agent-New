@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_access_token
 from app.db.session import get_db_session
+from app.models.collaboration import UserProfile
 from app.models.user import User
 
 bearer = HTTPBearer(auto_error=False)
@@ -40,6 +41,29 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def require_complete_worker_profile(
+    session: DbSession,
+    user: CurrentUser,
+) -> User:
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="该操作仅限劳动者本人",
+        )
+    profile_id = await session.scalar(
+        select(UserProfile.id).where(UserProfile.user_id == user.id)
+    )
+    if profile_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="请先完善个人资料后使用此功能",
+        )
+    return user
+
+
+CompleteWorkerProfile = Annotated[User, Depends(require_complete_worker_profile)]
 
 
 def require_roles(*roles: str) -> Callable[[User], Awaitable[User]]:

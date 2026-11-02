@@ -13,6 +13,15 @@
 
     <p v-if="error" class="inline-error">{{ error }}</p>
 
+    <section v-if="required" class="detail-card profile-required-card">
+      <div class="profile-required-icon"><ShieldCheck :size="24" /></div>
+      <div>
+        <span class="eyebrow">使用前确认</span>
+        <h2>请先完善个人资料</h2>
+        <p>完成以下信息后，才能创建案件、使用 AI 咨询、提交证据、生成文书或进入模拟训练。帮助中心仍可正常浏览。</p>
+      </div>
+    </section>
+
     <div class="detail-grid profile-page-grid">
       <section class="detail-card">
         <span class="eyebrow">登录账号</span>
@@ -54,7 +63,7 @@
           </label>
           <div class="form-grid__wide form-actions">
             <button class="primary-action primary-action--compact" type="submit" :disabled="saving">
-              {{ saving ? '提交中...' : '保存并提交核验' }}
+              {{ saving ? '提交中...' : required ? '保存并继续使用' : '保存并提交核验' }}
             </button>
             <small>身份证号仅保存脱敏值、不可逆哈希和审核状态。</small>
           </div>
@@ -67,12 +76,15 @@
 <script setup lang="ts">
 import { ShieldCheck } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError, apiRequest } from '../api/http'
 import { useAuthStore } from '../stores/auth'
 import type { UserProfileItem } from '../types/api'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const profile = ref<UserProfileItem | null>(null)
 const saving = ref(false)
 const error = ref('')
@@ -93,6 +105,7 @@ const verificationClass = computed(() => {
   if (profile.value?.verification_status === 'pending') return 'status-tag--warning'
   return ''
 })
+const required = computed(() => route.query.required === '1')
 
 async function saveProfile() {
   saving.value = true
@@ -104,6 +117,12 @@ async function saveProfile() {
       body: JSON.stringify(profileForm.value),
     })
     profileForm.value.id_number = ''
+    auth.markProfileCompleted()
+    const redirect =
+      typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+        ? route.query.redirect
+        : '/'
+    await router.push(redirect)
   } catch (err) {
     error.value = err instanceof Error ? err.message : '个人资料提交失败'
   } finally {

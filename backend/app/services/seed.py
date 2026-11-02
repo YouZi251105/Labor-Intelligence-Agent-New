@@ -1,9 +1,11 @@
+import hashlib
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
 from app.models.case import Case
-from app.models.collaboration import HelpResource, RuleConfig
+from app.models.collaboration import HelpResource, RuleConfig, UserProfile
 from app.models.lawyer import LawyerProfile
 from app.models.user import User
 
@@ -53,6 +55,23 @@ async def seed_demo_data(session: AsyncSession) -> None:
                 classification={"dispute_type": "wage", "source": "demo_seed"},
             )
         )
+
+    demo_user = await session.scalar(select(User).where(User.username == "demo"))
+    if demo_user is not None:
+        demo_profile = await session.scalar(
+            select(UserProfile).where(UserProfile.user_id == demo_user.id)
+        )
+        if demo_profile is None:
+            session.add(
+                UserProfile(
+                    user_id=demo_user.id,
+                    real_name="演示用户",
+                    phone="13800000000",
+                    id_number_masked="110***********1234",
+                    id_number_hash=hashlib.sha256(b"demo-profile").hexdigest(),
+                    verification_status="verified",
+                )
+            )
 
     await seed_reference_data(session)
     await session.commit()

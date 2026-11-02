@@ -25,6 +25,7 @@ class UserRead(BaseModel):
     display_name: str
     phone: str
     is_active: bool
+    profile_completed: bool = False
     created_at: datetime
 
 
