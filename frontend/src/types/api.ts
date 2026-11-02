@@ -181,23 +181,60 @@ export interface WorkflowStage {
   required_actions: string[]
 }
 
+export interface WorkflowDeadline {
+  id: string
+  title: string
+  description: string
+  basis: string
+  start_event: string
+  review_status: string
+  due_at: string | null
+}
+
 export interface WorkflowOption {
+  id: string
   target_stage: string
+  target_node: string
   label: string
   description: string
+  outcome: string
+  next_step: string
   enabled: boolean
   blocked_reasons: string[]
+  deadlines: WorkflowDeadline[]
+}
+
+export interface WorkflowDecision {
+  option_id: string
+  label: string
+  from_node: string
+  to_node: string
+  rule_package_version: string
+  selected_at: string
+  note: string
+}
+
+export interface WorkflowRulePackageInfo {
+  package_id: string
+  version: string
+  jurisdiction: string
+  review_status: string
+  disclaimer: string
 }
 
 export interface WorkflowResponse {
   case_id: number
+  current_node: string
   current_stage: string
+  decision_path: WorkflowDecision[]
   stages: WorkflowStage[]
   options: WorkflowOption[]
+  rule_package: WorkflowRulePackageInfo
 }
 
 export interface TransitionRequest {
-  target_stage: string
+  target_stage?: string
+  option_id?: string
   note?: string
 }
 

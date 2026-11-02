@@ -201,7 +201,9 @@ test('worker can consult, review a contract, and generate a document', async ({ 
   await expect(page.getByText('案件流程')).toBeVisible()
   expect(workflowResponse.ok()).toBeTruthy()
   await expect(page.locator('.workflow-step--current strong')).toHaveText('整理证据')
-  await expect(page.getByRole('button', { name: '进入协商或仲裁' })).toBeDisabled()
+  await expect(page.getByText('规则待复核', { exact: true })).toBeVisible()
+  await expect(page.getByText('含待复核期限').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: '进入办理路径选择' })).toBeDisabled()
 
   await page.getByRole('button', { name: '咨询记录' }).click()
   await page.locator('.chat-compose-inline textarea').fill('老板说这周还是不能发工资，我还需要准备什么？')
@@ -263,7 +265,7 @@ test('workflow transitions are persisted by the backend', async ({ page }, testI
       response.request().method() === 'POST' &&
       response.url().endsWith(`/api/v1/cases/${caseId}/transitions`),
   )
-  await page.getByRole('button', { name: '开始整理证据' }).click()
+  await page.getByRole('button', { name: '先整理证据' }).click()
   const transitionResponse = await transitionResponsePromise
   expect(transitionResponse.ok()).toBeTruthy()
   await expect(page.locator('.workflow-step--current strong')).toHaveText('整理证据')

@@ -1859,8 +1859,8 @@ summary:focus-visible {
 }
 
 .workflow-options {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
   border-top: 1px solid var(--lia-border);
   margin-top: 18px;
@@ -1871,7 +1871,109 @@ summary:focus-visible {
   display: flex;
   align-items: flex-start;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
+  border: 1px solid var(--lia-border);
+  border-radius: 7px;
+  background: var(--lia-surface-soft);
+  padding: 14px;
+}
+
+.workflow-option--blocked {
+  border-style: dashed;
+  background: var(--lia-surface);
+}
+
+.workflow-option__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.workflow-option__heading strong {
+  font-size: 14px;
+}
+
+.workflow-option__heading span {
+  flex: 0 0 auto;
+  border: 1px solid #ead3ad;
+  border-radius: 999px;
+  background: #fff8e9;
+  color: #8a5a0a;
+  font-size: 10px;
+  padding: 2px 7px;
+}
+
+.workflow-option > p {
+  margin: 0;
+  color: var(--lia-text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.workflow-option__details {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  width: 100%;
+}
+
+.workflow-option__details div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.workflow-option__details dt {
+  color: var(--lia-text-muted);
+  font-size: 11px;
+}
+
+.workflow-option__details dd {
+  margin: 0;
+  color: var(--lia-text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.workflow-deadlines {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.workflow-deadlines article {
+  border-left: 2px solid var(--lia-warning);
+  padding-left: 9px;
+}
+
+.workflow-deadlines strong {
+  display: block;
+  font-size: 11px;
+}
+
+.workflow-deadlines p,
+.workflow-deadlines small {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--lia-text-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.workflow-option__action {
+  margin-top: auto;
+}
+
+.workflow-disclaimer {
+  display: block;
+  border-top: 1px dashed var(--lia-border);
+  margin-top: 14px;
+  padding-top: 10px;
+  color: var(--lia-text-muted);
+  font-size: 10px;
+  line-height: 1.6;
 }
 
 .workflow-option__reason {

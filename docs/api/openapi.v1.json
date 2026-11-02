@@ -5108,10 +5108,30 @@
       "TransitionRequest": {
         "properties": {
           "target_stage": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Target Stage"
+          },
+          "option_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Option Id"
           },
           "note": {
             "type": "string",
@@ -5121,9 +5141,6 @@
           }
         },
         "type": "object",
-        "required": [
-          "target_stage"
-        ],
         "title": "TransitionRequest"
       },
       "UserProfileRead": {
@@ -5310,11 +5327,113 @@
         ],
         "title": "VerificationStatusUpdate"
       },
+      "WorkflowDeadline": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis"
+          },
+          "start_event": {
+            "type": "string",
+            "title": "Start Event"
+          },
+          "review_status": {
+            "type": "string",
+            "title": "Review Status"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "basis",
+          "start_event",
+          "review_status"
+        ],
+        "title": "WorkflowDeadline"
+      },
+      "WorkflowDecision": {
+        "properties": {
+          "option_id": {
+            "type": "string",
+            "title": "Option Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "from_node": {
+            "type": "string",
+            "title": "From Node"
+          },
+          "to_node": {
+            "type": "string",
+            "title": "To Node"
+          },
+          "rule_package_version": {
+            "type": "string",
+            "title": "Rule Package Version"
+          },
+          "selected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Selected At"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "option_id",
+          "label",
+          "from_node",
+          "to_node",
+          "rule_package_version",
+          "selected_at"
+        ],
+        "title": "WorkflowDecision"
+      },
       "WorkflowOption": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
           "target_stage": {
             "type": "string",
             "title": "Target Stage"
+          },
+          "target_node": {
+            "type": "string",
+            "title": "Target Node"
           },
           "label": {
             "type": "string",
@@ -5323,6 +5442,14 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "next_step": {
+            "type": "string",
+            "title": "Next Step"
           },
           "enabled": {
             "type": "boolean",
@@ -5333,15 +5460,25 @@
               "type": "string"
             },
             "type": "array",
-            "title": "Blocked Reasons",
-            "default": []
+            "title": "Blocked Reasons"
+          },
+          "deadlines": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDeadline"
+            },
+            "type": "array",
+            "title": "Deadlines"
           }
         },
         "type": "object",
         "required": [
+          "id",
           "target_stage",
+          "target_node",
           "label",
           "description",
+          "outcome",
+          "next_step",
           "enabled"
         ],
         "title": "WorkflowOption"
@@ -5352,9 +5489,20 @@
             "type": "integer",
             "title": "Case Id"
           },
+          "current_node": {
+            "type": "string",
+            "title": "Current Node"
+          },
           "current_stage": {
             "type": "string",
             "title": "Current Stage"
+          },
+          "decision_path": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDecision"
+            },
+            "type": "array",
+            "title": "Decision Path"
           },
           "stages": {
             "items": {
@@ -5369,16 +5517,54 @@
             },
             "type": "array",
             "title": "Options"
+          },
+          "rule_package": {
+            "$ref": "#/components/schemas/WorkflowRulePackageInfo"
           }
         },
         "type": "object",
         "required": [
           "case_id",
+          "current_node",
           "current_stage",
           "stages",
-          "options"
+          "options",
+          "rule_package"
         ],
         "title": "WorkflowResponse"
+      },
+      "WorkflowRulePackageInfo": {
+        "properties": {
+          "package_id": {
+            "type": "string",
+            "title": "Package Id"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "jurisdiction": {
+            "type": "string",
+            "title": "Jurisdiction"
+          },
+          "review_status": {
+            "type": "string",
+            "title": "Review Status"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "package_id",
+          "version",
+          "jurisdiction",
+          "review_status",
+          "disclaimer"
+        ],
+        "title": "WorkflowRulePackageInfo"
       },
       "WorkflowStage": {
         "properties": {
@@ -5405,8 +5591,7 @@
               "type": "string"
             },
             "type": "array",
-            "title": "Required Actions",
-            "default": []
+            "title": "Required Actions"
           }
         },
         "type": "object",

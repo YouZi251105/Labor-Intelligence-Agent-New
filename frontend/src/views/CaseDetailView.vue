@@ -43,6 +43,12 @@
             <span class="eyebrow">案件流程</span>
             <h2>{{ workflowLabel }}</h2>
           </div>
+          <span
+            class="status-tag"
+            :class="{ 'status-tag--warning': workflow.rule_package.review_status === 'pending_review' }"
+          >
+            {{ workflowReviewLabel }}
+          </span>
         </div>
         <ol class="workflow-steps">
           <li
@@ -60,23 +66,56 @@
           </li>
         </ol>
         <div v-if="workflow.options.length" class="workflow-options">
-          <div v-for="option in workflow.options" :key="option.target_stage" class="workflow-option">
-            <button
-              class="secondary-action"
-              type="button"
-              :disabled="!option.enabled || transitioningTarget === option.target_stage"
-              @click="transitionTo(option.target_stage)"
-            >
-              {{ transitioningTarget === option.target_stage ? '处理中...' : option.label }}
-            </button>
+          <article
+            v-for="option in workflow.options"
+            :key="option.id"
+            class="workflow-option"
+            :class="{ 'workflow-option--blocked': !option.enabled }"
+          >
+            <div class="workflow-option__heading">
+              <strong>{{ option.label }}</strong>
+              <span v-if="option.deadlines.some((item) => item.review_status === 'pending_review')">
+                含待复核期限
+              </span>
+            </div>
+            <p>{{ option.description }}</p>
+            <dl class="workflow-option__details">
+              <div>
+                <dt>选择后</dt>
+                <dd>{{ option.outcome }}</dd>
+              </div>
+              <div>
+                <dt>下一步</dt>
+                <dd>{{ option.next_step }}</dd>
+              </div>
+            </dl>
+            <div v-if="option.deadlines.length" class="workflow-deadlines">
+              <article v-for="deadline in option.deadlines" :key="deadline.id">
+                <strong>{{ deadline.title }}</strong>
+                <p>{{ deadline.description }}</p>
+                <small v-if="deadline.due_at">
+                  建议截止：{{ new Date(deadline.due_at).toLocaleDateString('zh-CN') }}
+                </small>
+                <small v-else>期限规则{{ reviewStatusLabel(deadline.review_status) }}</small>
+              </article>
+            </div>
             <p
-              class="workflow-option__reason"
-              :class="{ 'workflow-option__reason--blocked': !option.enabled }"
+              v-if="!option.enabled"
+              class="workflow-option__reason workflow-option__reason--blocked"
             >
-              {{ option.enabled ? option.description : option.blocked_reasons.join('、') }}
+              {{ option.blocked_reasons.join('；') }}
             </p>
-          </div>
+            <button
+              class="secondary-action workflow-option__action"
+              type="button"
+              :disabled="!option.enabled || transitioningTarget === option.id"
+              @click="transitionTo(option)"
+            >
+              {{ transitioningTarget === option.id ? '处理中...' : option.label }}
+            </button>
+          </article>
         </div>
+        <small class="workflow-disclaimer">{{ workflow.rule_package.disclaimer }}</small>
       </div>
 
       <div class="detail-grid">
@@ -384,6 +423,7 @@ import type {
   EvidenceItem,
   EvidenceResponse,
   MessageItem,
+  WorkflowOption,
   WorkflowResponse,
 } from '../types/api'
 import { formatFileSize } from '../utils/format'
@@ -509,6 +549,23 @@ const workflowLabel = computed(() => {
   return current?.label ?? '案件流程'
 })
 
+const workflowReviewLabel = computed(() => {
+  const status = workflow.value?.rule_package.review_status
+  return status === 'pending_review' ? '规则待复核' : reviewStatusLabel(status ?? '')
+})
+
+function reviewStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    draft: '草稿',
+    pending_review: '待复核',
+    approved: '已批准',
+    published: '已发布',
+    retired: '已停用',
+    rejected: '已驳回',
+  }
+  return labels[status] ?? status
+}
+
 async function loadAll() {
   try {
     const [caseData, messageData, evidenceData, documentData, workflowData, rulesAssessment] =
@@ -537,15 +594,15 @@ async function loadAll() {
   }
 }
 
-async function transitionTo(targetStage: string) {
+async function transitionTo(option: WorkflowOption) {
   if (!caseItem.value) return
-  transitioningTarget.value = targetStage
+  transitioningTarget.value = option.id
   error.value = ''
   try {
     workflow.value = await apiRequest<WorkflowResponse>(`/cases/${caseId}/transitions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target_stage: targetStage }),
+      body: JSON.stringify({ option_id: option.id }),
     })
     caseItem.value = {
       ...caseItem.value,

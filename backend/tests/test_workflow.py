@@ -116,3 +116,99 @@ def test_consultation_returns_structured_ai_result() -> None:
     assert structured["demo_mode"] is True
     assert structured["suggested_next_step"]
     assert structured["required_information"]
+
+
+def test_workflow_exposes_reviewed_rule_package_and_multiple_paths() -> None:
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "demo", "password": "Demo123!"},
+        )
+        headers = auth_headers(login.json()["access_token"])
+        created = client.post(
+            "/api/v1/cases",
+            headers=headers,
+            json={
+                "title": "决策树多路径测试",
+                "dispute_type": "wage",
+                "facts": "公司拖欠工资。",
+            },
+        )
+        case_id = created.json()["id"]
+
+        workflow = client.get(
+            f"/api/v1/cases/{case_id}/workflow",
+            headers=headers,
+        )
+
+    assert workflow.status_code == 200
+    payload = workflow.json()
+    assert payload["current_node"] == "intake"
+    assert payload["rule_package"]["package_id"] == "cn-labor-workflow"
+    assert payload["rule_package"]["review_status"] == "pending_review"
+    assert payload["decision_path"] == []
+
+    options = {item["id"]: item for item in payload["options"]}
+    assert {"start-evidence", "request-lawyer-first"} <= options.keys()
+    assert options["start-evidence"]["outcome"]
+    assert options["start-evidence"]["next_step"]
+    assert options["start-evidence"]["deadlines"][0]["review_status"] == (
+        "pending_review"
+    )
+
+
+def test_option_id_transition_persists_decision_path() -> None:
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "demo", "password": "Demo123!"},
+        )
+        headers = auth_headers(login.json()["access_token"])
+        created = client.post(
+            "/api/v1/cases",
+            headers=headers,
+            json={
+                "title": "决策路径持久化测试",
+                "dispute_type": "wage",
+                "facts": "需要先咨询律师。",
+            },
+        )
+        case_id = created.json()["id"]
+
+        transitioned = client.post(
+            f"/api/v1/cases/{case_id}/transitions",
+            headers=headers,
+            json={
+                "option_id": "request-lawyer-first",
+                "note": "期限可能比较紧急",
+            },
+        )
+        refreshed = client.get(
+            f"/api/v1/cases/{case_id}",
+            headers=headers,
+        )
+        workflow = client.get(
+            f"/api/v1/cases/{case_id}/workflow",
+            headers=headers,
+        )
+        invalid = client.post(
+            f"/api/v1/cases/{case_id}/transitions",
+            headers=headers,
+            json={"option_id": "missing-option"},
+        )
+
+    assert transitioned.status_code == 200
+    transitioned_payload = transitioned.json()
+    assert transitioned_payload["current_stage"] == "lawyer_help"
+    assert transitioned_payload["decision_path"][0]["option_id"] == (
+        "request-lawyer-first"
+    )
+    assert transitioned_payload["decision_path"][0]["rule_package_version"]
+    assert refreshed.status_code == 200
+    choices = refreshed.json()["classification"]["workflow_choices"]
+    assert choices[0]["to_node"] == "lawyer_help"
+    assert choices[0]["note"] == "期限可能比较紧急"
+    assert workflow.json()["decision_path"][0]["option_id"] == (
+        "request-lawyer-first"
+    )
+    assert invalid.status_code == 400

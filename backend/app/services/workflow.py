@@ -1,120 +1,170 @@
+from typing import Any
+
 from app.models.case import Case
 from app.models.evidence import Evidence
-from app.schemas.workflow import WorkflowOption, WorkflowResponse, WorkflowStage
+from app.schemas.workflow import (
+    StageStatus,
+    WorkflowDeadline,
+    WorkflowDecision,
+    WorkflowOption,
+    WorkflowResponse,
+    WorkflowRulePackageInfo,
+    WorkflowStage,
+)
+from app.schemas.workflow_rules import WorkflowOptionRule, WorkflowRulePackage
 from app.services.evidence import assess_case_evidence
-
-STAGE_DEFINITIONS = [
-    ("intake", "识别问题"),
-    ("evidence", "整理证据"),
-    ("procedure", "协商或仲裁"),
-    ("document", "文书准备"),
-    ("lawyer_help", "律师协助"),
-    ("closed", "案件结束"),
-]
-NEXT_STAGE = {
-    "intake": "evidence",
-    "evidence": "procedure",
-    "procedure": "document",
-    "document": "lawyer_help",
-    "lawyer_help": "closed",
-}
-STAGE_LABELS = dict(STAGE_DEFINITIONS)
+from app.services.rule_packages import load_default_workflow_package
 
 
-def build_workflow(case: Case, evidence_items: list[Evidence]) -> WorkflowResponse:
-    current_stage = case.stage if case.stage in STAGE_LABELS else "intake"
-    current_index = next(
-        index
-        for index, (stage, _) in enumerate(STAGE_DEFINITIONS)
-        if stage == current_stage
-    )
-    next_stage = NEXT_STAGE.get(current_stage)
-    options: list[WorkflowOption] = []
+def build_workflow(
+    case: Case,
+    evidence_items: list[Evidence],
+    package: WorkflowRulePackage | None = None,
+) -> WorkflowResponse:
+    rule_package = package or load_default_workflow_package()
+    current_node = case.stage if case.stage in rule_package.nodes else rule_package.start_node
+    node = rule_package.nodes[current_node]
+    evidence_assessment = assess_case_evidence(case, evidence_items)
+    options = [
+        _build_option(option, case, evidence_assessment)
+        for option in node.options
+    ]
+    decisions = _decision_path(case)
+    available_targets = {
+        option.target_stage for option in options if option.enabled
+    }
+    visited_stages = {
+        value
+        for decision in decisions
+        for value in (decision.from_node, decision.to_node)
+    }
+    visited_stages.add(current_node)
 
-    if next_stage:
-        enabled = True
-        blocked_reasons: list[str] = []
-        if current_stage == "evidence":
-            assessment = assess_case_evidence(case, evidence_items)
-            enabled = assessment["status"] == "ready"
-            blocked_reasons = assessment["missing_labels"]
-        elif current_stage == "document" and case.assigned_lawyer_id is None:
-            enabled = False
-            blocked_reasons = ["尚未分配律师"]
-
-        options.append(
-            WorkflowOption(
-                target_stage=next_stage,
-                label=_option_label(current_stage, next_stage),
-                description=_option_description(current_stage, next_stage),
-                enabled=enabled,
-                blocked_reasons=blocked_reasons,
-            )
+    stages = [
+        WorkflowStage(
+            stage=stage.key,
+            label=stage.label,
+            status=_stage_status(
+                stage.key,
+                current_node,
+                visited_stages,
+                available_targets,
+            ),
+            required_actions=_required_actions(
+                stage.key,
+                case,
+                evidence_assessment,
+            ),
         )
-
-    stages: list[WorkflowStage] = []
-    for index, (stage, label) in enumerate(STAGE_DEFINITIONS):
-        if index < current_index:
-            status = "completed"
-        elif index == current_index:
-            status = "current"
-        elif index == current_index + 1 and options and options[0].enabled:
-            status = "available"
-        else:
-            status = "locked"
-        stages.append(
-            WorkflowStage(
-                stage=stage,
-                label=label,
-                status=status,
-                required_actions=_required_actions(case, stage, evidence_items),
-            )
-        )
-
+        for stage in rule_package.stages
+    ]
     return WorkflowResponse(
         case_id=case.id,
-        current_stage=current_stage,
+        current_node=current_node,
+        current_stage=current_node,
+        decision_path=decisions,
         stages=stages,
         options=options,
+        rule_package=WorkflowRulePackageInfo(
+            package_id=rule_package.package_id,
+            version=rule_package.version,
+            jurisdiction=rule_package.jurisdiction,
+            review_status=rule_package.review_status,
+            disclaimer=rule_package.disclaimer,
+        ),
     )
+
+
+def _build_option(
+    option: WorkflowOptionRule,
+    case: Case,
+    evidence_assessment: dict[str, Any],
+) -> WorkflowOption:
+    blocked_reasons: list[str] = []
+    for requirement in option.requirements:
+        if requirement.type == "evidence_ready":
+            if evidence_assessment["status"] != "ready":
+                missing_labels = [
+                    str(item) for item in evidence_assessment["missing_labels"]
+                ]
+                if missing_labels:
+                    blocked_reasons.append(
+                        f"{requirement.message}缺少：{'、'.join(missing_labels)}"
+                    )
+                else:
+                    blocked_reasons.append(requirement.message or "证据尚未准备完成")
+        elif requirement.type == "lawyer_assigned" and case.assigned_lawyer_id is None:
+            blocked_reasons.append(requirement.message or "尚未分配律师")
+
+    return WorkflowOption(
+        id=option.id,
+        target_stage=option.target_stage,
+        target_node=option.target_node,
+        label=option.label,
+        description=option.description,
+        outcome=option.outcome,
+        next_step=option.next_step,
+        enabled=not blocked_reasons,
+        blocked_reasons=blocked_reasons,
+        deadlines=[
+            WorkflowDeadline(
+                id=deadline.id,
+                title=deadline.title,
+                description=deadline.description,
+                basis=deadline.basis,
+                start_event=deadline.start_event,
+                review_status=deadline.review_status,
+            )
+            for deadline in option.deadlines
+        ],
+    )
+
+
+def _decision_path(case: Case) -> list[WorkflowDecision]:
+    raw_choices = case.classification.get("workflow_choices", [])
+    if not isinstance(raw_choices, list):
+        return []
+    decisions: list[WorkflowDecision] = []
+    for item in raw_choices:
+        if not isinstance(item, dict):
+            continue
+        try:
+            decisions.append(WorkflowDecision.model_validate(item))
+        except ValueError:
+            continue
+    return decisions
+
+
+def _stage_status(
+    stage: str,
+    current_node: str,
+    visited_stages: set[str],
+    available_targets: set[str],
+) -> StageStatus:
+    if stage == current_node:
+        return "current"
+    if stage in visited_stages:
+        return "completed"
+    if stage in available_targets:
+        return "available"
+    return "locked"
 
 
 def _required_actions(
-    case: Case,
     stage: str,
-    evidence_items: list[Evidence],
+    case: Case,
+    evidence_assessment: dict[str, Any],
 ) -> list[str]:
-    if stage == "intake":
-        return []
-    if stage == "evidence":
-        if case.stage != "evidence":
-            return []
-        assessment = assess_case_evidence(case, evidence_items)
-        return [str(item) for item in assessment["missing_labels"]]
-    if stage == "procedure":
-        return ["确认协商或仲裁路径"]
-    if stage == "document":
-        return ["生成并核对文书草稿"]
-    if stage == "lawyer_help":
-        return ["等待律师处理并记录结果"]
+    if stage == "evidence" and case.stage == "evidence":
+        return [
+            str(item) for item in evidence_assessment["missing_labels"]
+        ]
+    if stage == "procedure" and case.stage == "procedure":
+        return ["比较协商、监察、仲裁、诉讼和律师协助的适用条件"]
+    if stage == "document" and case.stage == "document":
+        return ["生成并核对文书主体、金额、请求事项和事实理由"]
+    if stage == "lawyer_help" and case.stage == "lawyer_help":
+        if case.assigned_lawyer_id is None:
+            return ["等待管理员分配律师"]
+        return ["等待律师复核并记录处理结果"]
     return []
-
-
-def _option_label(current_stage: str, next_stage: str) -> str:
-    return {
-        ("intake", "evidence"): "开始整理证据",
-        ("evidence", "procedure"): "进入协商或仲裁",
-        ("procedure", "document"): "准备法律文书",
-        ("document", "lawyer_help"): "申请律师协助",
-        ("lawyer_help", "closed"): "结束案件",
-    }.get((current_stage, next_stage), f"进入{STAGE_LABELS[next_stage]}")
-
-
-def _option_description(current_stage: str, next_stage: str) -> str:
-    return {
-        ("intake", "evidence"): "根据纠纷类型整理材料并检查缺口。",
-        ("evidence", "procedure"): "材料满足当前规则后选择协商或仲裁路径。",
-        ("procedure", "document"): "生成协商方案、仲裁申请或起诉状草稿。",
-        ("document", "lawyer_help"): "需要专业判断时转人工律师。",
-        ("lawyer_help", "closed"): "记录处理结果并结束当前案件。",
-    }.get((current_stage, next_stage), STAGE_LABELS[next_stage])

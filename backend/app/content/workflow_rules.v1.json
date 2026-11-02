@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "package_id": "cn-labor-workflow",
+  "version": "2026.11.0-draft.1",
+  "jurisdiction": "CN",
+  "review_status": "pending_review",
+  "disclaimer": "当前流程和期限提示为待法学复核的演示规则，仅用于帮助理解办理路径，不构成正式法律意见。",
+  "start_node": "intake",
+  "stages": [
+    {
+      "key": "intake",
+      "label": "识别问题",
+      "description": "确认纠纷类型、劳动关系和当前诉求。"
+    },
+    {
+      "key": "evidence",
+      "label": "整理证据",
+      "description": "核对现有材料、证据缺口和形式风险。"
+    },
+    {
+      "key": "procedure",
+      "label": "选择办理路径",
+      "description": "比较协商、监察、仲裁或律师协助等路径。"
+    },
+    {
+      "key": "document",
+      "label": "准备文书",
+      "description": "生成并核对和解协议、仲裁申请或起诉材料。"
+    },
+    {
+      "key": "lawyer_help",
+      "label": "律师协助",
+      "description": "由平台律师复核材料、路径和文书。"
+    },
+    {
+      "key": "closed",
+      "label": "结束处理",
+      "description": "记录当前处理结果并结束本次案件流程。"
+    }
+  ],
+  "nodes": {
+    "intake": {
+      "stage": "intake",
+      "options": [
+        {
+          "id": "start-evidence",
+          "label": "先整理证据",
+          "description": "先按纠纷类型检查已有材料和缺口。",
+          "target_stage": "evidence",
+          "target_node": "evidence",
+          "outcome": "案件进入证据整理阶段，系统会列出建议材料和缺口。",
+          "next_step": "上传聊天记录、工资记录、合同或其他与争议有关的材料。",
+          "requirements": [
+            {
+              "type": "always"
+            }
+          ],
+          "deadlines": [
+            {
+              "id": "intake-procedure-period",
+              "title": "程序期限规则待复核",
+              "description": "系统会结合纠纷类型、发生地和关键日期提示仲裁、工伤或起诉期限。",
+              "basis": "具体依据待法学负责人确认",
+              "start_event": "关键事实发生日期",
+              "calculation": "manual_review_required",
+              "review_status": "pending_review"
+            }
+          ]
+        },
+        {
+          "id": "request-lawyer-first",
+          "label": "先申请律师协助",
+          "description": "在自行整理材料和选择程序之前，先由平台律师确认处理方向。",
+          "target_stage": "lawyer_help",
+          "target_node": "lawyer_help",
+          "outcome": "案件进入律师协助阶段，管理员可分配平台律师复核。",
+          "next_step": "补充联系方式、争议经过和希望律师协助的事项。",
+          "requirements": [
+            {
+              "type": "always"
+            }
+          ],
+          "deadlines": [
+            {
+              "id": "lawyer-intake-period",
+              "title": "紧急期限需人工确认",
+              "description": "如存在即将届满的仲裁、工伤认定或起诉期限，应立即联系律师。",
+              "basis": "具体依据待法学负责人确认",
+              "start_event": "争议发生或权利受侵害日期",
+              "calculation": "manual_review_required",
+              "review_status": "pending_review"
+            }
+          ]
+        }
+      ]
+    },
+    "evidence": {
+      "stage": "evidence",
+      "options": [
+        {
+          "id": "evidence-to-procedure",
+          "label": "进入办理路径选择",
+          "description": "材料覆盖当前演示规则中的主要证据类别后，进入协商或程序选择。",
+          "target_stage": "procedure",
+          "target_node": "procedure",
+          "outcome": "案件进入办理路径比较，并展示可选后续路径。",
+          "next_step": "根据办理条件选择协商、监察、仲裁、诉讼或律师协助。",
+          "requirements": [
+            {
+              "type": "evidence_ready",
+              "message": "当前证据仍有缺口，请先补齐主要材料。"
+            }
+          ],
+          "deadlines": [
+            {
+              "id": "evidence-arbitration-period",
+              "title": "仲裁时效待复核",
+              "description": "进入程序路径前需要确认仲裁时效、起算点和中止中断情形。",
+              "basis": "具体依据待法学负责人确认",
+              "start_event": "当事人知道或应当知道权利受侵害之日",
+              "calculation": "manual_review_required",
+              "review_status": "pending_review"
+            }
+          ]
+        },
+        {
+          "id": "evidence-request-lawyer",
+          "label": "先申请律师核验材料和期限",
+          "description": "材料复杂、证据真实性存疑或期限紧急时，先转人工律师。",
+          "target_stage": "lawyer_help",
+          "target_node": "lawyer_help",
+          "outcome": "案件进入律师协助阶段，等待管理员分配律师。",
+          "next_step": "向律师说明期限风险、证据来源和目前争议焦点。",
+          "requirements": [
+            {
+              "type": "always"
+            }
+          ],
+          "deadlines": [
+            {
+              "id": "lawyer-evidence-period",
+              "title": "期限和证据风险需人工确认",
+              "description": "律师需要复核关键期限、证据原始性和是否需要补充取证。",
+              "basis": "具体依据待法学负责人确认",
+              "start_event": "争议发生或证据形成日期",
+              "calculation": "manual_review_required",
+              "review_status": "pending_review"
+            }
+          ]
+        }
+      ]
+    },
+    "procedure": {
+      "stage": "procedure",
+      "options": [
+        {
+          "id": "procedure-to-document",
+          "label": "准备法律文书",
+          "description": "先生成和解协议、仲裁申请材料或起诉状草稿。",
+          "target_stage": "document",
+          "target_node": "document",
+          "outcome": "案件进入文书准备阶段，系统会保存草稿和版本。",
+          "next_step": "核对主体、金额、请求事项和事实理由，再导出或提交律师复核。",
+          "requirements": [
+            {
+              "type": "always"
+            }
+          ],
+          "deadlines": []
+        },
+        {
+          "id": "procedure-request-lawyer",
+          "label": "让律师决定办理路径",
+          "description": "存在多个被申请人、管辖不清或时效风险时，先转律师判断。",
+          "target_stage": "lawyer_help",
+          "target_node": "lawyer_help",
+          "outcome": "案件进入律师协助阶段，由律师复核程序选择和风险。",
+          "next_step": "提交已经整理的材料、诉求和希望律师回答的问题。",
+          "requirements": [
+            {
+              "type": "always"
+            }
+          ],
+          "deadlines": [
+            {
+              "id": "procedure-review-period",
+              "title": "程序期限需要人工确认",
+              "description": "选择协商、监察、仲裁或诉讼前，应核对期限、管辖和前置程序。",
+              "basis": "具体依据待法学负责人确认",
+              "start_event": "权利受侵害或程序节点发生日期",
+              "calculation": "manual_review_required",
+              "review_status": "pending_review"
+            }
+          ]
+        }
+      ]
+    },
+    "document": {
+      "stage": "document",
+      "options": [
+        {
+          "id": "document-request-lawyer",
+          "label": "申请律师复核并继续",
+          "description": "文书涉及金额、请求事项和主体信息，提交律师复核后进入协助阶段。",
+          "target_stage": "lawyer_help",
+          "target_node": "lawyer_help",
+          "outcome": "案件进入律师协助阶段，草稿和证据目录可供律师查看。",
+          "next_step": "确认案件已分配律师，并说明文书需要重点核对的内容。",
+          "requirements": [
+            {
+              "type": "lawyer_assigned",
+              "message": "尚未分配律师，请先通过人工协助入口申请分配。"
+            }
+          ],
+          "deadlines": []
+        }
+      ]
+    },
+    "lawyer_help": {
+      "stage": "lawyer_help",
+      "options": [
+        {
+          "id": "lawyer-help-to-closed",
+          "label": "记录结果并结束案件",
+          "description": "律师意见和处理结果已经记录后，可以结束当前案件。",
+          "target_stage": "closed",
+          "target_node": "closed",
+          "outcome": "当前案件标记为结束，历史咨询和材料仍保留。",
+          "next_step": "如出现新的争议事实或程序节点，可重新发起咨询。",
+          "requirements": [
+            {
+              "type": "always"
+            }
+          ],
+          "deadlines": []
+        }
+      ]
+    },
+    "closed": {
+      "stage": "closed",
+      "options": []
+    }
+  }
+}
