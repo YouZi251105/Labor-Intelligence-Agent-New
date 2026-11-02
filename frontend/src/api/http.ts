@@ -36,8 +36,16 @@ export async function apiRequest<T>(
   if (!response.ok) {
     let message = `请求失败：${response.status}`
     try {
-      const payload = (await response.json()) as { detail?: string }
-      if (payload.detail) message = payload.detail
+      const payload = (await response.json()) as { detail?: unknown }
+      if (typeof payload.detail === 'string') {
+        message = payload.detail
+      } else if (Array.isArray(payload.detail) && payload.detail.length > 0) {
+        // FastAPI/Pydantic 422 校验错误：detail 是数组，提取首个字段和提示
+        const first = payload.detail[0] as { loc?: string[]; msg?: string }
+        const field = first?.loc?.slice(-1)[0]
+        message = first?.msg ?? message
+        if (field) message = `${field}: ${message}`
+      }
     } catch {
       // Keep the status-based message when the response is not JSON.
     }

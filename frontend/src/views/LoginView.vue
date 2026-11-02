@@ -101,17 +101,28 @@ function toggleMode() {
 }
 
 async function submit() {
-  if (!form.username.trim() || !form.password) {
+  const username = form.username.trim()
+  if (!username || !form.password) {
     error.value = '请输入用户名和密码'
     return
+  }
+  if (isRegister.value) {
+    if (username.length < 3) {
+      error.value = '用户名至少需要 3 个字符'
+      return
+    }
+    if (form.password.length < 8) {
+      error.value = '密码至少需要 8 位'
+      return
+    }
   }
 
   loading.value = true
   error.value = ''
   try {
     const user = isRegister.value
-      ? await auth.register(form.username.trim(), form.password, form.displayName.trim())
-      : await auth.login(form.username.trim(), form.password)
+      ? await auth.register(username, form.password, form.displayName.trim())
+      : await auth.login(username, form.password)
 
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     if (user.role === 'admin') await router.push('/admin')
