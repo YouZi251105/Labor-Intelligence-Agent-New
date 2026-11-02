@@ -9,7 +9,7 @@ from app.schemas.analytics import (
     TopicsResponse,
     TopicSummary,
 )
-from app.services.ai import DISPUTE_LABELS
+from app.services.dictionary import DISPUTE_LABELS
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 

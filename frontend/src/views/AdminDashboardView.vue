@@ -261,7 +261,7 @@
       <article v-for="rule in rules" :key="rule.id" class="detail-card">
         <div class="detail-section-heading">
           <div>
-            <span class="eyebrow">{{ disputeLabels[rule.dispute_type] }}</span>
+            <span class="eyebrow">{{ dictionary.disputeLabels[rule.dispute_type] }}</span>
             <h2>{{ rule.name }}</h2>
           </div>
           <span class="status-tag">{{ rule.review_status }}</span>
@@ -289,7 +289,7 @@
         <article v-for="item in materials" :key="item.id">
           <div>
             <strong>{{ item.filename }}</strong>
-            <span>案件 #{{ item.case_id }} · {{ categoryLabels[item.category] || item.category }}</span>
+            <span>案件 #{{ item.case_id }} · {{ dictionary.categoryLabels[item.category] || item.category }}</span>
           </div>
           <span class="status-tag">{{ item.extraction_status }}</span>
           <small>{{ formatFileSize(item.file_size) }}</small>
@@ -358,6 +358,7 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
+import { useDictionaryStore } from '../stores/dictionary'
 import RulePackageCenter from '../components/RulePackageCenter.vue'
 import type {
   AdminDashboardData,
@@ -479,24 +480,8 @@ const verificationLabels: Record<string, string> = {
   verified: '已核验',
   rejected: '需重新提交',
 }
-const disputeLabels: Record<string, string> = {
-  wage: '欠薪',
-  termination: '违法解除',
-  contract: '未签劳动合同',
-  overtime: '加班费',
-  injury: '工伤待遇',
-  service_pay: '劳务报酬',
-}
-const categoryLabels: Record<string, string> = {
-  contract: '合同',
-  chat: '聊天记录',
-  payroll: '工资记录',
-  attendance: '考勤',
-  medical: '医疗',
-  social_insurance: '社保',
-  settlement: '结算',
-  other: '其他',
-}
+const dictionary = useDictionaryStore()
+void dictionary.load()
 const auditLabels: Record<string, string> = {
   'admin.rule_reviewed': '规则复核',
   'admin.rule_package_imported': '规则包导入',

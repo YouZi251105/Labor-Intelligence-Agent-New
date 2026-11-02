@@ -4,6 +4,7 @@ from typing import Any
 
 from app.models.case import Case
 from app.models.evidence import Evidence
+from app.services.dictionary import CATEGORY_LABELS, EVIDENCE_CATEGORIES
 from app.services.storage import get_storage
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt", ".doc", ".docx"}
@@ -20,34 +21,13 @@ DISPUTE_EVIDENCE = {
     "general": ["contract", "chat", "payroll"],
 }
 
-CATEGORY_LABELS = {
-    "contract": "合同或协议",
-    "chat": "聊天记录",
-    "payroll": "工资或转账记录",
-    "attendance": "考勤或排班记录",
-    "medical": "就医或伤情材料",
-    "social_insurance": "社保记录",
-    "settlement": "结算单",
-    "other": "其他材料",
-}
-
 
 def detect_category(filename: str, content_type: str, text: str) -> str:
     value = f"{filename} {content_type} {text[:300]}".lower()
-    if any(word in value for word in ["合同", "协议", "contract"]):
-        return "contract"
-    if any(word in value for word in ["聊天", "微信", "chat"]):
-        return "chat"
-    if any(word in value for word in ["工资", "流水", "转账", "payroll"]):
-        return "payroll"
-    if any(word in value for word in ["考勤", "排班", "attendance"]):
-        return "attendance"
-    if any(word in value for word in ["医院", "病历", "医疗", "medical"]):
-        return "medical"
-    if any(word in value for word in ["社保", "公积金", "insurance"]):
-        return "social_insurance"
-    if any(word in value for word in ["结算", "工程款", "settlement"]):
-        return "settlement"
+    for category in EVIDENCE_CATEGORIES:
+        keywords = category["keywords"]
+        if keywords and any(word.lower() in value for word in keywords):
+            return str(category["value"])
     return "other"
 
 

@@ -36,14 +36,14 @@
           @click="router.push(`/cases/${item.id}`)"
         >
           <div class="case-card__top">
-            <span class="status-tag">{{ disputeLabels[item.dispute_type] || '待识别' }}</span>
+            <span class="status-tag">{{ dictionary.disputeLabels[item.dispute_type] || '待识别' }}</span>
             <span class="case-card__id">#{{ item.id }}</span>
           </div>
           <h2>{{ item.title }}</h2>
           <p>{{ item.summary || item.facts }}</p>
           <div class="case-card__meta">
             <span><MapPin :size="14" />{{ item.location || '地点待补充' }}</span>
-            <span><Clock3 :size="14" />{{ stageLabels[item.stage] || item.stage }}</span>
+            <span><Clock3 :size="14" />{{ dictionary.stageLabels[item.stage] || item.stage }}</span>
           </div>
           <div class="case-card__footer">
             <span>{{ new Date(item.updated_at).toLocaleString('zh-CN') }}</span>
@@ -227,6 +227,7 @@ import { useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
 import SafeMarkdown from '../components/SafeMarkdown.vue'
+import { useDictionaryStore } from '../stores/dictionary'
 import type {
   CaseItem,
   LawyerOpinion,
@@ -265,22 +266,7 @@ const tabs = [
   { key: 'revenue', label: '收益台账', icon: WalletCards },
 ]
 
-const disputeLabels: Record<string, string> = {
-  wage: '欠薪',
-  termination: '违法解除',
-  contract: '未签劳动合同',
-  overtime: '加班费',
-  injury: '工伤待遇',
-  service_pay: '劳务报酬',
-  general: '待识别',
-}
-const stageLabels: Record<string, string> = {
-  intake: '问题识别',
-  evidence: '证据整理',
-  procedure: '协商或程序',
-  document: '文书准备',
-  lawyer_help: '律师协助',
-}
+const dictionary = useDictionaryStore()
 const serviceLabels: Record<string, string> = {
   consultation: '咨询',
   evidence: '证据整理',
@@ -410,5 +396,8 @@ async function createRevenue() {
   }
 }
 
-onMounted(loadAll)
+onMounted(async () => {
+  await dictionary.load()
+  await loadAll()
+})
 </script>

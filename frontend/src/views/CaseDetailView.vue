@@ -8,8 +8,8 @@
         <span class="eyebrow">案件 #{{ caseItem.id }}</span>
         <h1>{{ caseItem.title }}</h1>
         <div class="tag-row">
-          <span class="status-tag">{{ disputeLabels[caseItem.dispute_type] || '待识别' }}</span>
-          <span class="status-tag">{{ stageLabels[caseItem.stage] || caseItem.stage }}</span>
+          <span class="status-tag">{{ dictionary.disputeLabels[caseItem.dispute_type] || '待识别' }}</span>
+          <span class="status-tag">{{ dictionary.stageLabels[caseItem.stage] || caseItem.stage }}</span>
           <span class="status-tag">
             {{ caseItem.legal_relationship === 'service' ? '劳务关系' : '劳动关系' }}
           </span>
@@ -196,7 +196,7 @@
             <p v-if="evidenceRulesAssessment.completeness.present_categories.length">
               已有：{{
                 evidenceRulesAssessment.completeness.present_categories
-                  .map((item) => categoryLabels[item] || item)
+                  .map((item) => dictionary.categoryLabels[item] || item)
                   .join('、')
               }}
             </p>
@@ -226,7 +226,7 @@
             <FileText :size="19" />
             <div class="evidence-list__main">
               <strong>{{ item.filename }}</strong>
-              <span>{{ categoryLabels[item.category] || item.category }} · {{ formatFileSize(item.file_size) }}</span>
+              <span>{{ dictionary.categoryLabels[item.category] || item.category }} · {{ formatFileSize(item.file_size) }}</span>
               <small class="evidence-list__time">上传于 {{ new Date(item.created_at).toLocaleString('zh-CN') }}</small>
             </div>
             <div class="evidence-list__side">
@@ -444,6 +444,7 @@ import type {
   WorkflowResponse,
 } from '../types/api'
 import { formatFileSize } from '../utils/format'
+import { useDictionaryStore } from '../stores/dictionary'
 
 const route = useRoute()
 const router = useRouter()
@@ -485,32 +486,7 @@ const tabs = [
   { key: 'contract', label: '合同审查', icon: FileText },
   { key: 'documents', label: '法律文书', icon: FilePlus2 },
 ]
-const disputeLabels: Record<string, string> = {
-  wage: '欠薪',
-  termination: '违法解除',
-  contract: '劳动合同',
-  overtime: '加班费',
-  injury: '工伤待遇',
-  service_pay: '劳务报酬',
-  general: '待识别',
-}
-const stageLabels: Record<string, string> = {
-  intake: '问题识别',
-  evidence: '证据整理',
-  procedure: '协商或程序',
-  document: '文书准备',
-  lawyer_help: '律师协助',
-}
-const categoryLabels: Record<string, string> = {
-  contract: '合同',
-  chat: '聊天记录',
-  payroll: '工资记录',
-  attendance: '考勤',
-  medical: '医疗材料',
-  social_insurance: '社保材料',
-  settlement: '结算单',
-  other: '其他',
-}
+const dictionary = useDictionaryStore()
 const documentOptions = [
   { type: 'settlement', label: '协商和解协议' },
   { type: 'arbitration', label: '劳动仲裁申请书' },
@@ -918,5 +894,8 @@ async function exportDocument(documentItem: DocumentItem, format: 'docx' | 'pdf'
   }
 }
 
-onMounted(loadAll)
+onMounted(async () => {
+  await dictionary.load()
+  await loadAll()
+})
 </script>

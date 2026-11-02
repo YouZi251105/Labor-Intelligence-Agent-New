@@ -19,6 +19,8 @@
 
 from typing import Any
 
+from app.services.dictionary import CATEGORY_LABELS
+
 # 纠纷类型 -> 需要覆盖的证据类别（完整性，与演示规则一致）
 REQUIRED_CATEGORIES: dict[str, list[str]] = {
     "wage": ["payroll", "chat", "contract"],
@@ -41,17 +43,6 @@ CORE_CATEGORIES: dict[str, list[str]] = {
     "insurance": ["social_insurance", "payroll"],
     "service_pay": ["settlement", "chat"],
     "general": ["contract", "chat"],
-}
-
-CATEGORY_LABELS: dict[str, str] = {
-    "contract": "合同或协议",
-    "chat": "聊天记录",
-    "payroll": "工资或转账记录",
-    "attendance": "考勤或排班记录",
-    "medical": "就医或伤情材料",
-    "social_insurance": "社保记录",
-    "settlement": "结算单",
-    "other": "其他材料",
 }
 
 # 允许的文件 MIME 前缀（形式合法性，与上传校验边界一致）

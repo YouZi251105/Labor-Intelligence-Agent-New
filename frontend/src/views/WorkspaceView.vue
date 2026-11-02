@@ -16,7 +16,7 @@
       <div v-if="activeCase" class="case-context-bar">
         <div>
           <span>当前案件</span>
-          <strong>{{ disputeLabels[activeCase.dispute_type] || activeCase.dispute_type }}</strong>
+          <strong>{{ dictionary.disputeLabels[activeCase.dispute_type] || activeCase.dispute_type }}</strong>
         </div>
         <button class="text-link" type="button" @click="router.push(`/cases/${activeCase.id}`)">
           打开案件工作台
@@ -100,9 +100,9 @@
         <p v-else>发送首条咨询后会自动创建案件。</p>
         <ol v-if="activeCase" class="stage-list">
           <li
-            v-for="(stage, index) in stages"
-            :key="stage.key"
-            :class="{ active: stage.key === activeCase.stage }"
+            v-for="(stage, index) in dictionary.stages"
+            :key="stage.value"
+            :class="{ active: stage.value === activeCase.stage }"
           >
             <span>{{ index + 1 }}</span>
             <div>
@@ -134,7 +134,7 @@
               @click="router.push(`/cases/${item.case_id}`)"
             >
               <strong>{{ item.title }}</strong>
-              <span>{{ disputeLabels[item.dispute_type] || item.dispute_type }}</span>
+              <span>{{ dictionary.disputeLabels[item.dispute_type] || item.dispute_type }}</span>
             </button>
             <p v-if="!historyCases.length" class="muted-text">暂无历史案件。</p>
           </div>
@@ -171,6 +171,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { apiRequest } from '../api/http'
 import SafeMarkdown from '../components/SafeMarkdown.vue'
 import { useAuthStore } from '../stores/auth'
+import { useDictionaryStore } from '../stores/dictionary'
 import { useWorkspaceStore } from '../stores/workspace'
 import type {
   CaseItem,
@@ -200,23 +201,7 @@ const topicIcons = {
   没有签合同: FileWarning,
   工伤或受伤: ShieldCheck,
 }
-const disputeLabels: Record<string, string> = {
-  wage: '欠薪',
-  termination: '违法解除',
-  contract: '劳动合同',
-  overtime: '加班费',
-  injury: '工伤待遇',
-  insurance: '社会保险',
-  service_pay: '劳务报酬',
-  general: '待进一步识别',
-}
-const stages = [
-  { key: 'intake', label: '识别问题', description: '判断关系和纠纷类型' },
-  { key: 'evidence', label: '整理证据', description: '确认已有材料与缺口' },
-  { key: 'procedure', label: '协商或程序', description: '选择处理路径' },
-  { key: 'document', label: '文书准备', description: '生成可确认的草稿' },
-  { key: 'lawyer_help', label: '律师协助', description: '人工复核与处理' },
-]
+const dictionary = useDictionaryStore()
 
 const connectionLabel = computed(() => {
   if (workspace.connection === 'online') return '服务已连接'
@@ -225,7 +210,7 @@ const connectionLabel = computed(() => {
 })
 
 function stageLabel(stage: string) {
-  return stages.find((item) => item.key === stage)?.label ?? '识别问题'
+  return dictionary.stageLabels[stage] ?? '识别问题'
 }
 
 async function loadInitialCase() {
@@ -290,6 +275,7 @@ async function sendMessage() {
 
 onMounted(async () => {
   void workspace.checkHealth()
+  await dictionary.load()
   try {
     await loadInitialCase()
   } catch (err) {

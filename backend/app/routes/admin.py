@@ -33,7 +33,7 @@ from app.schemas.admin import (
 )
 from app.schemas.auth import UserRead
 from app.schemas.case import CaseRead
-from app.services.ai import DISPUTE_LABELS
+from app.services.dictionary import DISPUTE_LABELS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 AdminUser = require_roles("admin")

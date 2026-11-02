@@ -13,6 +13,7 @@ from app.routes import (
     evidence_rules,
     help,
     lawyer,
+    meta,
     profile,
     simulations,
     workflow,
@@ -20,6 +21,7 @@ from app.routes import (
 
 api_router = APIRouter()
 api_router.include_router(health.router)
+api_router.include_router(meta.router)
 api_router.include_router(auth.router)
 api_router.include_router(profile.router)
 api_router.include_router(help.router)

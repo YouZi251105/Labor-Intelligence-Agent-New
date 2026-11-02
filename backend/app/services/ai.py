@@ -5,27 +5,7 @@ import httpx
 
 from app.core.config import get_settings
 from app.models.case import Case, Message
-
-DISPUTE_KEYWORDS = {
-    "wage": ["工资", "欠薪", "拖欠", "工钱", "不发", "讨薪"],
-    "termination": ["辞退", "开除", "解雇", "裁员", "解除"],
-    "contract": ["合同", "没签", "双倍工资", "试用期"],
-    "overtime": ["加班", "加班费", "工时"],
-    "injury": ["工伤", "受伤", "医疗费", "伤残"],
-    "insurance": ["社保", "保险", "公积金"],
-    "service_pay": ["劳务费", "劳务报酬", "包工头"],
-}
-
-DISPUTE_LABELS = {
-    "wage": "欠薪",
-    "termination": "违法解除",
-    "contract": "劳动合同",
-    "overtime": "加班费",
-    "injury": "工伤待遇",
-    "insurance": "社会保险",
-    "service_pay": "劳务报酬",
-    "general": "一般劳动纠纷",
-}
+from app.services.dictionary import DISPUTE_KEYWORDS, DISPUTE_LABELS
 
 
 @dataclass

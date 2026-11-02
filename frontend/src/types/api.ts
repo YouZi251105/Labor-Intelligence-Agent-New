@@ -495,3 +495,27 @@ export interface UserProfileItem {
   created_at: string
   updated_at: string
 }
+
+export interface DictionaryDisputeType {
+  value: string
+  label: string
+  keywords: string[]
+}
+
+export interface DictionaryStage {
+  value: string
+  label: string
+  description: string
+}
+
+export interface DictionaryEvidenceCategory {
+  value: string
+  label: string
+  keywords: string[]
+}
+
+export interface DictionaryResponse {
+  disputes: DictionaryDisputeType[]
+  stages: DictionaryStage[]
+  evidence_categories: DictionaryEvidenceCategory[]
+}

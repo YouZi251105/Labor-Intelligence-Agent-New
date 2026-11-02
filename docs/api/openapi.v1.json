@@ -26,6 +26,28 @@
         }
       }
     },
+    "/api/v1/meta/dictionary": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Get Dictionary",
+        "description": "返回纠纷类型、案件阶段、证据类别的统一字典。",
+        "operationId": "get_dictionary_api_v1_meta_dictionary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "tags": [
@@ -4387,6 +4409,64 @@
         ],
         "title": "DashboardTrendPoint"
       },
+      "DictionaryResponse": {
+        "properties": {
+          "disputes": {
+            "items": {
+              "$ref": "#/components/schemas/DisputeTypeDict"
+            },
+            "type": "array",
+            "title": "Disputes"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageDict"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "evidence_categories": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceCategoryDict"
+            },
+            "type": "array",
+            "title": "Evidence Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "disputes",
+          "stages",
+          "evidence_categories"
+        ],
+        "title": "DictionaryResponse"
+      },
+      "DisputeTypeDict": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label",
+          "keywords"
+        ],
+        "title": "DisputeTypeDict"
+      },
       "DocumentCreate": {
         "properties": {
           "doc_type": {
@@ -4555,6 +4635,32 @@
           "disclaimer"
         ],
         "title": "EvidenceAssessmentResponse"
+      },
+      "EvidenceCategoryDict": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label",
+          "keywords"
+        ],
+        "title": "EvidenceCategoryDict"
       },
       "EvidenceExtractionResponse": {
         "properties": {
@@ -6117,6 +6223,29 @@
           "status"
         ],
         "title": "SiteLawyerRead"
+      },
+      "StageDict": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "StageDict"
       },
       "StructuredAIResult": {
         "properties": {

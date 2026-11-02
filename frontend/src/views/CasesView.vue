@@ -21,7 +21,7 @@
         <label>
           <span>纠纷类型</span>
           <select v-model="form.dispute_type">
-            <option v-for="item in disputeTypes" :key="item.value" :value="item.value">
+            <option v-for="item in dictionary.disputes" :key="item.value" :value="item.value">
               {{ item.label }}
             </option>
           </select>
@@ -57,7 +57,7 @@
       <div class="case-filters">
         <select v-model="disputeFilter" aria-label="按纠纷类型筛选" @change="loadCases">
           <option value="">全部类型</option>
-          <option v-for="item in disputeTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
+          <option v-for="item in dictionary.disputes" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
         <input v-model="query" type="search" placeholder="搜索案件标题或内容" @input="onSearch" />
       </div>
@@ -67,14 +67,14 @@
     <div v-else-if="cases.length" class="case-list">
       <article v-for="item in cases" :key="item.id" class="case-row" @click="openCase(item.id)">
         <div class="case-row__main">
-          <span class="status-tag">{{ disputeLabels[item.dispute_type] || '待识别' }}</span>
+          <span class="status-tag">{{ dictionary.disputeLabels[item.dispute_type] || '待识别' }}</span>
           <div class="case-row__text">
             <h2>{{ item.title }}</h2>
             <p>{{ item.summary || item.facts || '暂无案件摘要' }}</p>
           </div>
         </div>
         <div class="case-row__meta">
-          <span><Clock3 :size="14" />{{ stageLabels[item.stage] || item.stage }}</span>
+          <span><Clock3 :size="14" />{{ dictionary.stageLabels[item.stage] || item.stage }}</span>
           <span>{{ new Date(item.updated_at).toLocaleDateString('zh-CN') }}</span>
         </div>
         <div class="case-row__actions" @click.stop>
@@ -104,6 +104,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
+import { useDictionaryStore } from '../stores/dictionary'
 import type { CaseItem } from '../types/api'
 
 const router = useRouter()
@@ -124,23 +125,7 @@ const form = reactive({
   facts: '',
 })
 
-const disputeTypes = [
-  { value: 'general', label: '待进一步识别' },
-  { value: 'wage', label: '欠薪' },
-  { value: 'termination', label: '违法解除' },
-  { value: 'contract', label: '未签劳动合同' },
-  { value: 'overtime', label: '加班费' },
-  { value: 'injury', label: '工伤待遇' },
-  { value: 'service_pay', label: '劳务报酬' },
-]
-const disputeLabels = Object.fromEntries(disputeTypes.map((item) => [item.value, item.label]))
-const stageLabels: Record<string, string> = {
-  intake: '问题识别',
-  evidence: '证据整理',
-  procedure: '协商或程序',
-  document: '文书准备',
-  lawyer_help: '律师协助',
-}
+const dictionary = useDictionaryStore()
 
 function buildParams() {
   const params = new URLSearchParams()
@@ -219,5 +204,8 @@ function openCase(id: number) {
   void router.push(`/cases/${id}`)
 }
 
-onMounted(loadCases)
+onMounted(async () => {
+  await dictionary.load()
+  await loadCases()
+})
 </script>
