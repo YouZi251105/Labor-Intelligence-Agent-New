@@ -29,9 +29,16 @@
         <dl class="profile-account-list">
           <div><dt>用户名</dt><dd>{{ auth.user?.username }}</dd></div>
           <div><dt>账号角色</dt><dd>劳动者</dd></div>
-          <div><dt>绑定手机号</dt><dd>{{ profile?.phone || auth.user?.phone || '未填写' }}</dd></div>
-          <div><dt>核验状态</dt><dd>{{ profile ? verificationLabels[profile.verification_status] : '尚未提交' }}</dd></div>
+          <div><dt>绑定手机号</dt><dd>{{ maskedPhone }}</dd></div>
         </dl>
+        <div class="verification-block">
+          <ol class="verification-steps">
+            <li :class="verificationStepClass(0)">提交资料</li>
+            <li :class="verificationStepClass(1)">审核中</li>
+            <li :class="verificationStepClass(2)">已核验</li>
+          </ol>
+          <p v-if="verificationRejected" class="verification-block__hint">资料未通过，请重新填写后再次提交。</p>
+        </div>
         <p class="muted-text">修改实名资料后会重新进入待审核状态，已产生的历史操作不会因此删除。</p>
       </section>
 
@@ -60,6 +67,9 @@
               maxlength="18"
               required
             />
+            <small v-if="profile?.id_number_masked" class="form-hint">
+              已提交（脱敏）：{{ profile.id_number_masked }}，重新填写会覆盖并重新审核。
+            </small>
           </label>
           <div class="form-grid__wide form-actions">
             <button class="primary-action primary-action--compact" type="submit" :disabled="saving">
@@ -106,6 +116,29 @@ const verificationClass = computed(() => {
   return ''
 })
 const required = computed(() => route.query.required === '1')
+
+const maskedPhone = computed(() => {
+  const raw = profile.value?.phone || auth.user?.phone || ''
+  if (raw.length >= 7) {
+    return `${raw.slice(0, 3)}****${raw.slice(-4)}`
+  }
+  return raw || '未填写'
+})
+const verificationRejected = computed(
+  () => profile.value?.verification_status === 'rejected',
+)
+
+function verificationStepClass(index: number) {
+  const status = profile.value?.verification_status ?? 'unverified'
+  if (status === 'verified') return 'is-done'
+  if (status === 'rejected') return index === 0 ? 'is-current is-rejected' : ''
+  if (status === 'pending') {
+    if (index === 0) return 'is-done'
+    if (index === 1) return 'is-current'
+    return ''
+  }
+  return index === 0 ? 'is-current' : ''
+}
 
 async function saveProfile() {
   saving.value = true

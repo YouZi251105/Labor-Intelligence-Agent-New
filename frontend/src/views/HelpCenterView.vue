@@ -30,8 +30,8 @@
           </div>
           <h3>{{ resource.name }}</h3>
           <p>{{ resource.description }}</p>
-          <dl>
-            <div v-if="resource.phone"><dt>电话</dt><dd>{{ resource.phone }}</dd></div>
+          <dl class="help-resource-contact">
+            <div v-if="resource.phone"><dt>电话</dt><dd class="help-resource-contact__phone">{{ resource.phone }}</dd></div>
             <div v-if="resource.address"><dt>地址</dt><dd>{{ resource.address }}</dd></div>
           </dl>
           <a

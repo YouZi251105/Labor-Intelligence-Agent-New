@@ -3178,6 +3178,15 @@ summary:focus-visible {
   font-size: 11px;
 }
 
+.help-resource-contact dd.help-resource-contact__phone {
+  color: var(--lia-text);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
 .site-lawyer-list,
 .ledger-list,
 .admin-table,
@@ -3350,6 +3359,92 @@ summary:focus-visible {
   margin: 0;
   overflow-wrap: anywhere;
   font-size: 13px;
+}
+
+.verification-block {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--lia-border);
+}
+
+.verification-steps {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.verification-steps li {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  color: var(--lia-text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.verification-steps li::before {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--lia-border-strong);
+  border-radius: 50%;
+  background: var(--lia-surface);
+  content: '';
+  z-index: 1;
+}
+
+.verification-steps li:not(:last-child)::after {
+  position: absolute;
+  top: 5px;
+  left: calc(50% + 8px);
+  width: calc(100% - 16px);
+  height: 2px;
+  background: var(--lia-border);
+  content: '';
+}
+
+.verification-steps li.is-done {
+  color: var(--lia-success);
+}
+
+.verification-steps li.is-done::before {
+  border-color: var(--lia-success);
+  background: var(--lia-success);
+}
+
+.verification-steps li.is-current {
+  color: var(--lia-primary);
+  font-weight: 600;
+}
+
+.verification-steps li.is-current::before {
+  border-color: var(--lia-primary);
+  box-shadow: 0 0 0 3px var(--lia-primary-soft);
+}
+
+.verification-steps li.is-rejected {
+  color: var(--lia-danger);
+}
+
+.verification-steps li.is-rejected::before {
+  border-color: var(--lia-danger);
+  background: var(--lia-danger);
+}
+
+.verification-block__hint {
+  margin: 10px 0 0;
+  color: var(--lia-danger);
+  font-size: 11px;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--lia-text-muted);
+  font-size: 11px;
 }
 
 .topic-stats {
