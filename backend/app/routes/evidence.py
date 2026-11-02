@@ -1,4 +1,5 @@
 import hashlib
+from contextlib import suppress
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
@@ -30,6 +31,7 @@ from app.services.evidence import (
 )
 from app.services.extraction import ExtractionResult, extract_text_from_bytes
 from app.services.jobs import dispatch_evidence_extraction
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/cases", tags=["evidence"])
 
@@ -230,6 +232,43 @@ async def download_evidence(
             )
         },
     )
+
+
+@router.delete(
+    "/{case_id}/evidence/{evidence_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_case_evidence(
+    case_id: int,
+    evidence_id: int,
+    session: DbSession,
+    user: CompleteWorkerProfile,
+) -> Response:
+    await get_worker_owned_case(case_id, session, user)
+    evidence = await session.get(Evidence, evidence_id)
+    if evidence is None or evidence.case_id != case_id:
+        raise HTTPException(status_code=404, detail="材料不存在")
+
+    stored_key = evidence.stored_path
+    filename = evidence.filename
+    digest = evidence.sha256
+    await session.delete(evidence)
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="evidence.deleted",
+            object_type="evidence",
+            object_id=evidence_id,
+            metadata_json={"filename": filename, "sha256": digest},
+        )
+    )
+    await session.commit()
+
+    # 文件可能已不存在，忽略，保证删除流程不因存储异常中断
+    with suppress(FileNotFoundError, ValueError):
+        get_storage().delete(stored_key)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{case_id}/contract-review", response_model=ContractReviewResponse)

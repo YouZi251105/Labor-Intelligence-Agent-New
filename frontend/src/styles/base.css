@@ -2055,6 +2055,64 @@ summary:focus-visible {
   white-space: nowrap;
 }
 
+.evidence-list__time {
+  display: block;
+  margin-top: 2px;
+  color: var(--lia-text-muted);
+  font-size: 11px;
+}
+
+.row-actions__danger {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+.preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.preview-modal__body {
+  position: relative;
+  max-width: min(90vw, 960px);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.preview-modal__body img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+}
+
+.preview-modal__text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.preview-modal__close {
+  display: block;
+  margin: 12px auto 0;
+  padding: 6px 18px;
+  border: 1px solid var(--lia-border-strong);
+  border-radius: 8px;
+  background: var(--lia-surface-soft);
+  cursor: pointer;
+}
+
 .extract-pending {
   border-color: var(--lia-border-strong);
   background: var(--lia-surface-soft);

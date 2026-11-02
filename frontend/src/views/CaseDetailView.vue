@@ -227,6 +227,7 @@
             <div class="evidence-list__main">
               <strong>{{ item.filename }}</strong>
               <span>{{ categoryLabels[item.category] || item.category }} · {{ formatFileSize(item.file_size) }}</span>
+              <small class="evidence-list__time">上传于 {{ new Date(item.created_at).toLocaleString('zh-CN') }}</small>
               <small v-if="item.text_preview" class="evidence-list__preview">{{ item.text_preview }}</small>
             </div>
             <div class="evidence-list__side">
@@ -234,14 +235,31 @@
                 {{ extractionStatusLabels[item.extraction_status] || item.extraction_status }}
               </span>
               <div class="row-actions">
+                <button type="button" @click="previewEvidence(item)">查看</button>
                 <button type="button" :disabled="extractingId === item.id" @click="extractEvidence(item)">
                   {{ extractingId === item.id ? '提取中...' : '重新提取' }}
                 </button>
                 <button type="button" @click="downloadEvidence(item)">下载</button>
+                <button
+                  type="button"
+                  class="row-actions__danger"
+                  :disabled="deletingId === item.id"
+                  @click="deleteEvidence(item)"
+                >
+                  {{ deletingId === item.id ? '删除中...' : '删除' }}
+                </button>
               </div>
             </div>
           </article>
           <p v-if="!evidenceItems.length" class="muted-text">还没有上传材料。</p>
+        </div>
+      </div>
+
+      <div v-if="preview" class="preview-modal" @click.self="closePreview">
+        <div class="preview-modal__body">
+          <img v-if="preview.isImage" :src="preview.url" :alt="preview.filename" />
+          <pre v-else class="preview-modal__text">{{ preview.text }}</pre>
+          <button type="button" class="preview-modal__close" @click="closePreview">关闭</button>
         </div>
       </div>
     </section>
@@ -451,6 +469,8 @@ const workflow = ref<WorkflowResponse | null>(null)
 const transitioningTarget = ref('')
 const evidenceRulesAssessment = ref<EvidenceAssessmentResponse | null>(null)
 const extractingId = ref<number | null>(null)
+const deletingId = ref<number | null>(null)
+const preview = ref<{ filename: string; isImage: boolean; url: string; text: string } | null>(null)
 const contractFileReview = ref<ContractFileReviewResponse | null>(null)
 const reviewingFile = ref(false)
 const editingDocument = ref<DocumentItem | null>(null)
@@ -761,6 +781,61 @@ async function downloadEvidence(item: EvidenceItem) {
   link.download = item.filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+async function deleteEvidence(item: EvidenceItem) {
+  deletingId.value = item.id
+  error.value = ''
+  try {
+    await apiRequest(`/cases/${caseId}/evidence/${item.id}`, { method: 'DELETE' })
+    const evidenceData = await apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`)
+    evidenceItems.value = evidenceData.items
+    evidenceAssessment.value = evidenceData.assessment
+    evidenceRulesAssessment.value = await apiRequest<EvidenceAssessmentResponse>(
+      `/cases/${caseId}/evidence-assessment`,
+    )
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '删除失败'
+  } finally {
+    deletingId.value = null
+  }
+}
+
+async function previewEvidence(item: EvidenceItem) {
+  const isImage = item.content_type.startsWith('image/')
+  if (isImage) {
+    const response = await fetch(
+      `${API_BASE_URL}/cases/${caseId}/evidence/${item.id}/download`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ''}`,
+        },
+      },
+    )
+    if (!response.ok) {
+      error.value = '预览加载失败'
+      return
+    }
+    const blob = await response.blob()
+    preview.value = {
+      filename: item.filename,
+      isImage: true,
+      url: URL.createObjectURL(blob),
+      text: '',
+    }
+  } else {
+    preview.value = {
+      filename: item.filename,
+      isImage: false,
+      url: '',
+      text: item.text_preview || '该类型暂不支持在线预览，请点击「下载」查看。',
+    }
+  }
+}
+
+function closePreview() {
+  if (preview.value?.url) URL.revokeObjectURL(preview.value.url)
+  preview.value = null
 }
 
 async function reviewContractFile(event: Event) {

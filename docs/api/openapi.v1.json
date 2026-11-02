@@ -759,6 +759,55 @@
         }
       }
     },
+    "/api/v1/cases/{case_id}/evidence/{evidence_id}": {
+      "delete": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Delete Case Evidence",
+        "operationId": "delete_case_evidence_api_v1_cases__case_id__evidence__evidence_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cases/{case_id}/contract-review": {
       "post": {
         "tags": [
