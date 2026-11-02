@@ -22,6 +22,7 @@ class CaseRead(BaseModel):
     legal_relationship: str
     stage: str
     status: str
+    archived: bool
     location: str
     facts: str
     summary: str
@@ -32,6 +33,10 @@ class CaseRead(BaseModel):
 
 class MessageCreate(BaseModel):
     message: str = Field(min_length=1, max_length=8_000)
+
+
+class CaseArchiveUpdate(BaseModel):
+    archived: bool
 
 
 class MessageRead(BaseModel):

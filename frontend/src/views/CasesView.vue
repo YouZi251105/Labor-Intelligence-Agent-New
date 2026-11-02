@@ -45,35 +45,61 @@
 
     <p v-if="error" class="inline-error">{{ error }}</p>
 
+    <div class="case-toolbar">
+      <div class="case-tabs" role="tablist">
+        <button type="button" :class="{ active: filterStatus === 'active' }" @click="setStatus('active')">
+          进行中
+        </button>
+        <button type="button" :class="{ active: filterStatus === 'archived' }" @click="setStatus('archived')">
+          已归档
+        </button>
+      </div>
+      <div class="case-filters">
+        <select v-model="disputeFilter" aria-label="按纠纷类型筛选" @change="loadCases">
+          <option value="">全部类型</option>
+          <option v-for="item in disputeTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
+        </select>
+        <input v-model="query" type="search" placeholder="搜索案件标题或内容" @input="onSearch" />
+      </div>
+    </div>
+
     <div v-if="loading" class="loading-block"><span class="spinner-dot" /> 正在加载案件...</div>
-    <div v-else-if="cases.length" class="case-grid">
-      <article v-for="item in cases" :key="item.id" class="case-card" @click="openCase(item.id)">
-        <div class="case-card__top">
+    <div v-else-if="cases.length" class="case-list">
+      <article v-for="item in cases" :key="item.id" class="case-row" @click="openCase(item.id)">
+        <div class="case-row__main">
           <span class="status-tag">{{ disputeLabels[item.dispute_type] || '待识别' }}</span>
-          <span class="case-card__id">#{{ item.id }}</span>
+          <div class="case-row__text">
+            <h2>{{ item.title }}</h2>
+            <p>{{ item.summary || item.facts || '暂无案件摘要' }}</p>
+          </div>
         </div>
-        <h2>{{ item.title }}</h2>
-        <p>{{ item.summary || item.facts || '暂无案件摘要' }}</p>
-        <div class="case-card__meta">
-          <span><MapPin :size="14" />{{ item.location || '地点待补充' }}</span>
+        <div class="case-row__meta">
           <span><Clock3 :size="14" />{{ stageLabels[item.stage] || item.stage }}</span>
+          <span>{{ new Date(item.updated_at).toLocaleDateString('zh-CN') }}</span>
         </div>
-        <div class="case-card__footer">
-          <span>{{ new Date(item.updated_at).toLocaleString('zh-CN') }}</span>
-          <span class="text-link">进入案件 <ArrowRight :size="15" /></span>
+        <div class="case-row__actions" @click.stop>
+          <button type="button" class="text-action" @click="toggleArchive(item)">
+            {{ item.archived ? '取消归档' : '归档' }}
+          </button>
+          <button type="button" class="text-action text-action--danger" @click="removeCase(item)">
+            删除
+          </button>
+          <ArrowRight :size="16" class="case-row__arrow" />
         </div>
       </article>
     </div>
     <div v-else class="empty-state">
       <FolderKanban :size="38" />
-      <h2>还没有案件</h2>
-      <p>创建第一个案件，之后可以在同一案件内持续咨询和整理材料。</p>
+      <h2>{{ filterStatus === 'archived' ? '没有已归档案件' : '还没有案件' }}</h2>
+      <p>
+        {{ filterStatus === 'archived' ? '归档的案件会显示在这里，可随时取消归档。' : '创建第一个案件，之后可以在同一案件内持续咨询和整理材料。' }}
+      </p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, Clock3, FolderKanban, MapPin, Plus } from '@lucide/vue'
+import { ArrowRight, Clock3, FolderKanban, Plus } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -86,6 +112,11 @@ const loading = ref(true)
 const creating = ref(false)
 const showCreate = ref(false)
 const error = ref('')
+const filterStatus = ref<'active' | 'archived'>('active')
+const disputeFilter = ref('')
+const query = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+
 const form = reactive({
   title: '',
   dispute_type: 'general',
@@ -111,14 +142,59 @@ const stageLabels: Record<string, string> = {
   lawyer_help: '律师协助',
 }
 
+function buildParams() {
+  const params = new URLSearchParams()
+  params.set('status', filterStatus.value)
+  if (disputeFilter.value) params.set('dispute_type', disputeFilter.value)
+  if (query.value.trim()) params.set('q', query.value.trim())
+  return params.toString()
+}
+
 async function loadCases() {
   loading.value = true
   try {
-    cases.value = await apiRequest<CaseItem[]>('/cases')
+    cases.value = await apiRequest<CaseItem[]>(`/cases?${buildParams()}`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : '案件加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+function setStatus(status: 'active' | 'archived') {
+  filterStatus.value = status
+  void loadCases()
+}
+
+function onSearch() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    void loadCases()
+  }, 300)
+}
+
+async function toggleArchive(item: CaseItem) {
+  error.value = ''
+  try {
+    await apiRequest<CaseItem>(`/cases/${item.id}/archive`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: !item.archived }),
+    })
+    await loadCases()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '操作失败'
+  }
+}
+
+async function removeCase(item: CaseItem) {
+  error.value = ''
+  if (!window.confirm('确定删除该案件？删除后不可恢复。')) return
+  try {
+    await apiRequest<void>(`/cases/${item.id}`, { method: 'DELETE' })
+    await loadCases()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '删除失败'
   }
 }
 

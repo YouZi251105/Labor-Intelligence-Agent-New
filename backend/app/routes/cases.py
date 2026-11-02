@@ -1,10 +1,13 @@
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import or_, select
 
 from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.case import Case, Conversation, Message
+from app.models.document import Document
+from app.models.evidence import Evidence
 from app.schemas.case import (
+    CaseArchiveUpdate,
     CaseCreate,
     CaseRead,
     ConsultationResponse,
@@ -77,12 +80,36 @@ async def create_case(
 
 
 @router.get("", response_model=list[CaseRead])
-async def list_cases(session: DbSession, user: CurrentUser) -> list[Case]:
+async def list_cases(
+    session: DbSession,
+    user: CurrentUser,
+    status: str = Query(default="active", pattern="^(active|archived|all)$"),
+    dispute_type: str | None = None,
+    q: str | None = None,
+) -> list[Case]:
     query = select(Case).order_by(Case.updated_at.desc())
     if user.role == "user":
         query = query.where(Case.owner_id == user.id)
     elif user.role == "lawyer":
         query = query.where(Case.assigned_lawyer_id == user.id)
+
+    if status == "active":
+        query = query.where(Case.archived == False)  # noqa: E712
+    elif status == "archived":
+        query = query.where(Case.archived == True)  # noqa: E712
+
+    if dispute_type:
+        query = query.where(Case.dispute_type == dispute_type)
+    if q:
+        pattern = f"%{q}%"
+        query = query.where(
+            or_(
+                Case.title.ilike(pattern),
+                Case.summary.ilike(pattern),
+                Case.facts.ilike(pattern),
+            )
+        )
+
     results = await session.scalars(query)
     return list(results)
 
@@ -94,6 +121,66 @@ async def get_case(
     user: CurrentUser,
 ) -> Case:
     return await get_accessible_case(case_id, session, user)
+
+
+@router.patch("/{case_id}/archive", response_model=CaseRead)
+async def archive_case(
+    case_id: int,
+    payload: CaseArchiveUpdate,
+    session: DbSession,
+    user: CurrentUser,
+) -> Case:
+    case = await get_worker_owned_case(case_id, session, user)
+    case.archived = payload.archived
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="case.archived" if payload.archived else "case.unarchived",
+            object_type="case",
+            object_id=case.id,
+        )
+    )
+    await session.commit()
+    await session.refresh(case)
+    return case
+
+
+@router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_case(
+    case_id: int,
+    session: DbSession,
+    user: CurrentUser,
+) -> None:
+    case = await get_worker_owned_case(case_id, session, user)
+
+    has_messages = await session.scalar(
+        select(Message.id)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(Conversation.case_id == case_id)
+        .limit(1)
+    )
+    has_evidence = await session.scalar(
+        select(Evidence.id).where(Evidence.case_id == case_id).limit(1)
+    )
+    has_documents = await session.scalar(
+        select(Document.id).where(Document.case_id == case_id).limit(1)
+    )
+    if has_messages or has_evidence or has_documents:
+        raise HTTPException(
+            status_code=409,
+            detail="该案件已包含咨询、证据或文书，只能归档不能删除",
+        )
+
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="case.deleted",
+            object_type="case",
+            object_id=case.id,
+        )
+    )
+    await session.delete(case)
+    await session.commit()
 
 
 @router.get("/{case_id}/messages", response_model=list[MessageRead])

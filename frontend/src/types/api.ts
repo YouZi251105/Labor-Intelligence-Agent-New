@@ -69,6 +69,7 @@ export interface CaseItem {
   legal_relationship: string
   stage: string
   status: string
+  archived: boolean
   location: string
   facts: string
   summary: string

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,6 +21,7 @@ class Case(Base):
     legal_relationship: Mapped[str] = mapped_column(String(40), default="unknown")
     stage: Mapped[str] = mapped_column(String(40), default="intake")
     status: Mapped[str] = mapped_column(String(30), default="active")
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
     location: Mapped[str] = mapped_column(String(120), default="")
     facts: Mapped[str] = mapped_column(Text, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
