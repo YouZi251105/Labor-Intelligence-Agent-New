@@ -3414,6 +3414,32 @@ summary:focus-visible {
   overflow-x: auto;
 }
 
+.workflow-designer--readonly {
+  grid-template-columns: minmax(440px, 1fr) 250px;
+}
+
+.workflow-designer--readonly .workflow-block {
+  cursor: default;
+}
+
+.workflow-designer--readonly input:disabled,
+.workflow-designer--readonly select:disabled,
+.workflow-designer--readonly textarea:disabled {
+  background: #f3f1ee;
+  color: var(--lia-text-secondary);
+  cursor: default;
+}
+
+.rule-package-readonly-note {
+  margin: 0;
+  border: 1px solid #e8d6a8;
+  border-radius: 7px;
+  background: #fffaf0;
+  color: #715a24;
+  padding: 9px 11px;
+  font-size: 12px;
+}
+
 .workflow-designer__palette,
 .workflow-designer__inspector {
   border: 1px solid var(--lia-border);

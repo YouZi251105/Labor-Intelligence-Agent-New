@@ -33,19 +33,6 @@
           <Download :size="16" />
           导出当前 Excel
         </button>
-        <button type="button" class="secondary-action" @click="loadTemplate">
-          <FilePlus2 :size="16" />
-          载入模板
-        </button>
-        <button type="button" class="secondary-action" @click="downloadTemplate">
-          <Download :size="16" />
-          下载 JSON 模板
-        </button>
-        <label class="secondary-action rule-package-upload">
-          <Upload :size="16" />
-          导入 JSON
-          <input type="file" accept=".json,application/json" @change="importFile" />
-        </label>
       </div>
     </header>
 
@@ -101,39 +88,25 @@
           </div>
         </div>
 
-        <div class="rule-package-view-switch" role="group" aria-label="编辑模式">
-          <button
-            type="button"
-            :class="{ active: viewMode === 'visual' }"
-            @click="setViewMode('visual')"
-          >
-            可视化
-          </button>
-          <button
-            type="button"
-            :class="{ active: viewMode === 'json' }"
-            @click="setViewMode('json')"
-          >
-            JSON
-          </button>
-        </div>
+        <p v-if="selectedPackage && !isEditable" class="rule-package-readonly-note">
+          当前版本已锁定，可查看流程和参与复核，但不能修改。
+        </p>
 
         <WorkflowBlockDesigner
-          v-if="viewMode === 'visual' && visualContent"
+          v-if="visualContent"
           :model-value="visualContent"
+          :readonly="Boolean(selectedPackage && !isEditable)"
           @update:model-value="updateFromDesigner"
         />
-        <textarea
-          v-else
-          v-model="editorContent"
-          class="rule-package-editor__textarea"
-          spellcheck="false"
-          aria-label="规则包 JSON 内容"
-          :readonly="Boolean(selectedPackage && !isEditable)"
-        />
+        <p v-else class="muted-text">请从左侧选择规则包版本。</p>
 
         <div class="rule-package-actions">
-          <button type="button" class="secondary-action" :disabled="busy" @click="validateEditor">
+          <button
+            type="button"
+            class="secondary-action"
+            :disabled="busy || !visualContent"
+            @click="validateEditor"
+          >
             <CheckCircle2 :size="16" />
             校验内容
           </button>
@@ -146,20 +119,6 @@
           >
             <Save :size="16" />
             保存草稿
-          </button>
-          <button
-            v-if="!selectedPackage || selectedPackage.status === 'published'"
-            type="button"
-            class="secondary-action"
-            :disabled="busy"
-            @click="createDraft"
-          >
-            <GitBranch :size="16" />
-            导入为新草稿
-          </button>
-          <button type="button" class="secondary-action" :disabled="busy" @click="downloadEditor">
-            <Download :size="16" />
-            下载当前内容
           </button>
           <button
             v-if="selectedPackage && ['draft', 'rejected'].includes(selectedPackage.status)"
@@ -243,9 +202,7 @@ import {
   BadgeCheck,
   CheckCircle2,
   Download,
-  FilePlus2,
   FileSpreadsheet,
-  GitBranch,
   RefreshCw,
   Rocket,
   Save,
@@ -266,13 +223,11 @@ import type {
 
 const packages = ref<RulePackageSummary[]>([])
 const selectedPackage = ref<RulePackageDetail | null>(null)
-const editorContent = ref('')
 const validation = ref<RulePackageValidationResponse | null>(null)
 const loading = ref(false)
 const busy = ref(false)
 const error = ref('')
 const success = ref('')
-const viewMode = ref<'visual' | 'json'>('visual')
 const visualContent = ref<Record<string, unknown> | null>(null)
 
 const isEditable = computed(
@@ -296,7 +251,7 @@ async function loadPackages(preferredId?: number) {
       if (item) await selectPackage(item)
     } else {
       selectedPackage.value = null
-      editorContent.value = ''
+      visualContent.value = null
       validation.value = null
     }
   } catch (err) {
@@ -313,41 +268,10 @@ async function selectPackage(item: RulePackageSummary) {
     selectedPackage.value = await apiRequest<RulePackageDetail>(
       `/admin/rule-packages/${item.id}`,
     )
-    editorContent.value = JSON.stringify(selectedPackage.value.content, null, 2)
     visualContent.value = cloneContent(selectedPackage.value.content)
-    viewMode.value = isEditable.value ? 'visual' : 'json'
     validation.value = null
   } catch (err) {
     error.value = err instanceof Error ? err.message : '规则包详情加载失败'
-  }
-}
-
-async function loadTemplate() {
-  error.value = ''
-  success.value = ''
-  try {
-    const template = await apiRequest<Record<string, unknown>>(
-      '/admin/rule-packages/template',
-    )
-    editorContent.value = JSON.stringify(template, null, 2)
-    visualContent.value = cloneContent(template)
-    selectedPackage.value = null
-    viewMode.value = 'visual'
-    validation.value = null
-    success.value = '模板已载入编辑器，修改版本号后可导入为新草稿。'
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '模板加载失败'
-  }
-}
-
-async function downloadTemplate() {
-  try {
-    const template = await apiRequest<Record<string, unknown>>(
-      '/admin/rule-packages/template',
-    )
-    downloadJson('workflow-rule-package-template.json', template)
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '模板下载失败'
   }
 }
 
@@ -379,19 +303,6 @@ async function exportSelectedExcel() {
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Excel 导出失败'
   }
-}
-
-function downloadEditor() {
-  const content = parseEditor()
-  if (!content) return
-  downloadJson('workflow-rule-package.json', content)
-}
-
-function downloadJson(filename: string, content: unknown) {
-  const blob = new Blob([JSON.stringify(content, null, 2)], {
-    type: 'application/json;charset=utf-8',
-  })
-  saveBlob(filename, blob)
 }
 
 function saveBlob(filename: string, blob: Blob) {
@@ -440,31 +351,8 @@ async function importExcel(event: Event) {
   }
 }
 
-async function importFile(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  try {
-    const content = parseJsonObject(await file.text())
-    const response = await apiRequest<RulePackageDetail>(
-      '/admin/rule-packages/import',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      },
-    )
-    await loadPackages(response.id)
-    success.value = `已导入草稿 ${response.package_id} · ${response.version}`
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '规则包导入失败'
-  } finally {
-    input.value = ''
-  }
-}
-
 async function validateEditor() {
-  const content = parseEditor()
+  const content = currentContent()
   if (!content) return false
   busy.value = true
   error.value = ''
@@ -488,7 +376,7 @@ async function validateEditor() {
 
 async function saveDraft() {
   if (!selectedPackage.value || !isEditable.value) return
-  const content = parseEditor()
+  const content = currentContent()
   if (!content) return
   busy.value = true
   error.value = ''
@@ -505,29 +393,6 @@ async function saveDraft() {
     success.value = '草稿已保存。'
   } catch (err) {
     error.value = err instanceof Error ? err.message : '草稿保存失败'
-  } finally {
-    busy.value = false
-  }
-}
-
-async function createDraft() {
-  const content = parseEditor()
-  if (!content) return
-  busy.value = true
-  error.value = ''
-  try {
-    const response = await apiRequest<RulePackageDetail>(
-      '/admin/rule-packages/import',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      },
-    )
-    await loadPackages(response.id)
-    success.value = '新草稿已创建。'
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '新草稿创建失败'
   } finally {
     busy.value = false
   }
@@ -579,32 +444,8 @@ async function runPackageAction(
   }
 }
 
-function parseEditor(): Record<string, unknown> | null {
-  try {
-    return parseJsonObject(editorContent.value)
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : 'JSON 格式无效'
-    validation.value = null
-    return null
-  }
-}
-
-function setViewMode(mode: 'visual' | 'json') {
-  if (mode === 'visual') {
-    if (selectedPackage.value && !isEditable.value) {
-      error.value = '当前版本不可编辑，只能查看 JSON。'
-      return
-    }
-    const parsed = parseEditor()
-    if (!parsed) return
-    visualContent.value = cloneContent(parsed)
-  }
-  viewMode.value = mode
-}
-
 function updateFromDesigner(value: Record<string, unknown>) {
   visualContent.value = cloneContent(value)
-  editorContent.value = JSON.stringify(value, null, 2)
   validation.value = null
 }
 
@@ -612,12 +453,12 @@ function cloneContent(value: Record<string, unknown>) {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>
 }
 
-function parseJsonObject(value: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(value)
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('规则包内容必须是 JSON 对象')
+function currentContent(): Record<string, unknown> | null {
+  if (!visualContent.value) {
+    error.value = '规则包内容尚未加载'
+    return null
   }
-  return parsed as Record<string, unknown>
+  return cloneContent(visualContent.value)
 }
 
 function statusLabel(status: string) {

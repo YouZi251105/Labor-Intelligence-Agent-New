@@ -1,6 +1,10 @@
 <template>
-  <div v-if="content" class="workflow-designer">
-    <aside class="workflow-designer__palette">
+  <div
+    v-if="content"
+    class="workflow-designer"
+    :class="{ 'workflow-designer--readonly': readonly }"
+  >
+    <aside v-if="!readonly" class="workflow-designer__palette">
       <span class="eyebrow">受控积木</span>
       <h3>流程组件</h3>
       <button
@@ -42,7 +46,7 @@
       >
         <header
           class="workflow-block__header"
-          draggable="true"
+          :draggable="!readonly"
           @dragstart="startBlockDrag($event, block.id)"
         >
           <span class="workflow-block__kind">{{ blockTypeLabel(block.block_type) }}</span>
@@ -65,10 +69,11 @@
     <aside v-if="selectedBlock && selectedNode" class="workflow-designer__inspector">
       <div class="workflow-designer__inspector-heading">
         <div>
-          <span class="eyebrow">积木设置</span>
+          <span class="eyebrow">{{ readonly ? '积木详情' : '积木设置' }}</span>
           <h3>{{ selectedNode.label || selectedBlock.id }}</h3>
         </div>
         <button
+          v-if="!readonly"
           type="button"
           class="icon-button"
           title="删除积木"
@@ -81,11 +86,11 @@
 
       <label>
         <span>名称</span>
-        <input v-model="selectedNode.label" @input="emitContent" />
+        <input v-model="selectedNode.label" :disabled="readonly" @input="emitContent" />
       </label>
       <label>
         <span>业务阶段</span>
-        <select v-model="selectedNode.stage" @change="changeStage">
+        <select v-model="selectedNode.stage" :disabled="readonly" @change="changeStage">
           <option v-for="stage in content.stages" :key="stage.key" :value="stage.key">
             {{ stage.label }}
           </option>
@@ -94,6 +99,7 @@
       <label>
         <span>积木类型</span>
         <select
+          :disabled="readonly"
           :value="selectedBlock.block_type"
           @change="changeBlockType(($event.target as HTMLSelectElement).value as BlockType)"
         >
@@ -107,7 +113,7 @@
         <div class="workflow-outlets__heading">
           <strong>出口与去向</strong>
           <button
-            v-if="selectedBlock.block_type === 'decision'"
+            v-if="!readonly && selectedBlock.block_type === 'decision'"
             type="button"
             class="table-action"
             @click="addOption"
@@ -128,11 +134,15 @@
           </summary>
           <label>
             <span>出口名称</span>
-            <input v-model="option.label" @input="emitContent" />
+            <input v-model="option.label" :disabled="readonly" @input="emitContent" />
           </label>
           <label>
             <span>目标积木</span>
-            <select v-model="option.target_node" @change="changeTarget(option)">
+            <select
+              v-model="option.target_node"
+              :disabled="readonly"
+              @change="changeTarget(option)"
+            >
               <option value="">未连接</option>
               <option
                 v-for="target in connectableTargets"
@@ -145,14 +155,28 @@
           </label>
           <label>
             <span>选择后结果</span>
-            <textarea v-model="option.outcome" rows="2" @input="emitContent" />
+            <textarea
+              v-model="option.outcome"
+              rows="2"
+              :disabled="readonly"
+              @input="emitContent"
+            />
           </label>
           <label>
             <span>下一步操作</span>
-            <textarea v-model="option.next_step" rows="2" @input="emitContent" />
+            <textarea
+              v-model="option.next_step"
+              rows="2"
+              :disabled="readonly"
+              @input="emitContent"
+            />
           </label>
           <button
-            v-if="selectedBlock.block_type === 'decision' && selectedNode.options.length > 2"
+            v-if="
+              !readonly &&
+              selectedBlock.block_type === 'decision' &&
+              selectedNode.options.length > 2
+            "
             type="button"
             class="table-action workflow-outlet__remove"
             @click="removeOption(option.id)"
@@ -226,6 +250,7 @@ interface DesignerContent {
 
 const props = defineProps<{
   modelValue: Record<string, unknown>
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -254,12 +279,13 @@ const content = ref<DesignerContent | null>(null)
 const selectedBlockId = ref('')
 const draggingBlockId = ref('')
 let optionCounter = 0
+const readonly = computed(() => Boolean(props.readonly))
 
 watch(
   () => props.modelValue,
   (value) => {
     content.value = normalizeContent(value)
-    if (JSON.stringify(content.value) !== JSON.stringify(value)) {
+    if (!props.readonly && JSON.stringify(content.value) !== JSON.stringify(value)) {
       emit('update:modelValue', content.value as unknown as Record<string, unknown>)
     }
     if (!selectedBlockId.value || !content.value.nodes[selectedBlockId.value]) {
@@ -331,16 +357,19 @@ function inferBlockType(node: NodeRule): BlockType {
 }
 
 function startPaletteDrag(event: DragEvent, type: BlockType) {
+  if (readonly.value) return
   event.dataTransfer?.setData('application/x-workflow-block-type', type)
   draggingBlockId.value = ''
 }
 
 function startBlockDrag(event: DragEvent, blockId: string) {
+  if (readonly.value) return
   draggingBlockId.value = blockId
   event.dataTransfer?.setData('application/x-workflow-block-id', blockId)
 }
 
 function dropOnCanvas(event: DragEvent) {
+  if (readonly.value) return
   const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const x = Math.max(20, event.clientX - bounds.left - 110)
   const y = Math.max(20, event.clientY - bounds.top - 30)
@@ -360,6 +389,7 @@ function dropOnCanvas(event: DragEvent) {
 }
 
 function addBlock(type: BlockType, x: number, y: number) {
+  if (readonly.value) return
   if (!content.value) return
   let index = 1
   let id = `${type}-${index}`
@@ -383,12 +413,14 @@ function addBlock(type: BlockType, x: number, y: number) {
 }
 
 function changeBlockType(type: BlockType) {
+  if (readonly.value) return
   if (!selectedBlock.value) return
   selectedBlock.value.block_type = type
   applyBlockType(type)
 }
 
 function applyBlockType(type: BlockType) {
+  if (readonly.value) return
   if (!selectedNode.value) return
   const node = selectedNode.value
   if (type === 'end') {
@@ -437,6 +469,7 @@ function createOption(label: string, requirement: string): OptionRule {
 }
 
 function addOption() {
+  if (readonly.value) return
   if (!selectedNode.value) return
   selectedNode.value.options.push(
     createOption(`选项 ${selectedNode.value.options.length + 1}`, 'always'),
@@ -445,6 +478,7 @@ function addOption() {
 }
 
 function removeOption(optionId: string) {
+  if (readonly.value) return
   if (!selectedNode.value) return
   selectedNode.value.options = selectedNode.value.options.filter(
     (item) => item.id !== optionId,
@@ -453,6 +487,7 @@ function removeOption(optionId: string) {
 }
 
 function changeTarget(option: OptionRule) {
+  if (readonly.value) return
   if (!content.value || !option.target_node) {
     option.target_stage = ''
   } else {
@@ -462,6 +497,7 @@ function changeTarget(option: OptionRule) {
 }
 
 function changeStage() {
+  if (readonly.value) return
   if (!content.value || !selectedNode.value) return
   for (const option of selectedNode.value.options) {
     if (option.target_node) {
@@ -472,6 +508,7 @@ function changeStage() {
 }
 
 function removeBlock(blockId: string) {
+  if (readonly.value) return
   if (!content.value || blockId === content.value.start_node) return
   delete content.value.nodes[blockId]
   if (content.value.designer) {
@@ -492,6 +529,7 @@ function removeBlock(blockId: string) {
 }
 
 function emitContent() {
+  if (readonly.value) return
   if (!content.value) return
   emit('update:modelValue', content.value as unknown as Record<string, unknown>)
 }

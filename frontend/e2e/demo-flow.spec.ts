@@ -311,6 +311,13 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
     page.getByRole('heading', { level: 1, name: '规则包中心' }),
   ).toBeVisible()
   await expect(page.locator('.rule-package-list__item').first()).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: '下载 JSON 模板' }),
+  ).toHaveCount(0)
+  await expect(page.getByText('导入 JSON', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '载入模板' })).toHaveCount(0)
+  await expect(page.locator('.rule-package-view-switch')).toHaveCount(0)
+  await expect(page.getByText('JSON', { exact: true })).toHaveCount(0)
   await expect(page.getByText('导入 Excel', { exact: true })).toBeVisible()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '下载 Excel 模板' }).click()
@@ -324,9 +331,16 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
     .locator('input[accept*=".xlsx"]')
     .setInputFiles(downloadedTemplate)
   await expect(page.locator('.inline-error')).toContainText('规则包版本已存在')
-  await page.getByRole('button', { name: '载入模板' }).click()
+  const pendingReviewPackage = page
+    .locator('.rule-package-list__item')
+    .filter({ hasText: '待复核' })
+    .first()
+  await expect(pendingReviewPackage).toBeVisible()
+  await pendingReviewPackage.click()
   await expect(page.locator('.workflow-designer')).toBeVisible()
+  await expect(page.locator('.workflow-designer__palette')).toHaveCount(0)
   await expect(page.locator('.workflow-block')).toHaveCount(6)
+  await expect(page.locator('.workflow-designer input').first()).toBeDisabled()
   await page.getByRole('button', { name: '校验内容' }).click()
 
   await expect(page.getByText('结构校验通过')).toBeVisible()
