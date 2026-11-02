@@ -9,6 +9,7 @@
 - FastAPI 版本化 API、JWT 登录和角色权限。
 - PostgreSQL/pgvector、Redis、Celery、MinIO 的开发环境配置。
 - 浅色法律风格视觉基线。
+- 统一红白法律品牌视觉，覆盖登录页、侧边栏和 favicon。
 - 多轮 AI 咨询、案件上下文和本地演示规则。
 - 证据上传、PDF/DOCX 提取、四性评估和材料缺口提示。
 - 合同文本风险审查和文件提取审查。
@@ -34,6 +35,10 @@
 
 ## 界面预览
 
+以下截图取自当前 0.2.0 验证环境；桌面端按 1440×1000、移动端按 390×844 视口生成，长页面保留完整高度。
+
+在线验证环境：<http://134.175.21.129:18080/>
+
 ![登录页](docs/screenshots/login-desktop.png)
 
 ![咨询工作台](docs/screenshots/workspace-desktop.png)
@@ -55,6 +60,10 @@
 - [登录页](docs/screenshots/login-mobile.png)
 - [咨询工作台](docs/screenshots/workspace-mobile.png)
 - [案件工作台](docs/screenshots/case-workspace-mobile.png)
+- [完善个人资料](docs/screenshots/profile-required-mobile.png)
+- [运营数据大屏](docs/screenshots/admin-dashboard-mobile.png)
+- [管理后台](docs/screenshots/admin-mobile.png)
+- [律师工作台](docs/screenshots/lawyer-mobile.png)
 - [模拟对话](docs/screenshots/simulation-mobile.png)
 - [维权帮助](docs/screenshots/help-mobile.png)
 
@@ -71,6 +80,7 @@ docs/      需求、架构和实施文档
 
 - [使用说明](使用说明.md)
 - [文档中心](docs/README.md)
+- [品牌资产说明](docs/brand/品牌资产说明.md)
 - [用户使用手册](docs/user/用户使用手册.md)
 - [律师使用手册](docs/lawyer/律师使用手册.md)
 - [管理员使用手册](docs/admin/管理员使用手册.md)

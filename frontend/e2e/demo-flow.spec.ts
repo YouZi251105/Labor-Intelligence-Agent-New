@@ -1,6 +1,37 @@
 import { expect, type Page, test } from '@playwright/test'
 
-const API_BASE_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:8000'
+const configuredBaseURL = process.env.PLAYWRIGHT_BASE_URL
+const APP_BASE_URL = configuredBaseURL ?? 'http://127.0.0.1:5173'
+const API_BASE_URL =
+  process.env.PLAYWRIGHT_API_URL ??
+  (configuredBaseURL ? new URL(configuredBaseURL).origin : 'http://127.0.0.1:8000')
+
+async function waitForBrandImages(page: Page) {
+  const images = page.locator('.brand-mark img, .auth-brand__logo img')
+  await expect(images.first()).toBeVisible()
+  await images.evaluateAll(async (elements) => {
+    await Promise.all(
+      elements.map(async (element) => {
+        const image = element as HTMLImageElement
+        if (!image.complete) {
+          await new Promise<void>((resolve, reject) => {
+            image.addEventListener('load', () => resolve(), { once: true })
+            image.addEventListener('error', () => reject(new Error('brand image failed')), {
+              once: true,
+            })
+          })
+        }
+        if (typeof image.decode === 'function') await image.decode()
+      }),
+    )
+  })
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  )
+}
 
 async function login(page: Page, username: string, password: string) {
   await page.goto('/login')
@@ -8,6 +39,7 @@ async function login(page: Page, username: string, password: string) {
   await page.locator('input[type="password"]').fill(password)
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await page.waitForURL((url) => url.pathname !== '/login')
+  await waitForBrandImages(page)
 }
 
 async function createDemoCase(
@@ -46,8 +78,14 @@ test('login page is accessible', async ({ page }, testInfo) => {
   await page.goto('/login')
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
   await expect(page.getByText('演示账号')).toHaveCount(0)
-  await expect(page.locator('.auth-brand .brand-mark svg')).toBeVisible()
-  await expect(page.locator('.auth-brand .brand-mark')).not.toContainText('⚖')
+  await waitForBrandImages(page)
+  const brandLogo = page.locator('.auth-brand__logo img')
+  await expect(brandLogo).toBeVisible()
+  await expect
+    .poll(() =>
+      brandLogo.evaluate((image) => (image as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(128)
   await page.screenshot({
     path: `../docs/screenshots/login-${testInfo.project.name}.png`,
     fullPage: true,
@@ -65,6 +103,7 @@ test('new worker must complete profile before entering core workspace', async ({
 
   await expect(page).toHaveURL(/\/profile\?required=1/)
   await expect(page.getByRole('heading', { name: '请先完善个人资料' })).toBeVisible()
+  await waitForBrandImages(page)
   await page.screenshot({
     path: `../docs/screenshots/profile-required-${testInfo.project.name}.png`,
     fullPage: false,
@@ -78,7 +117,7 @@ test('new worker must complete profile before entering core workspace', async ({
   await page.locator('input[autocomplete="off"][maxlength="18"]').fill('110101199001011234')
   await page.getByRole('button', { name: '保存并继续使用' }).click()
 
-  await expect(page).toHaveURL('http://127.0.0.1:5173/')
+  await expect(page).toHaveURL((url) => url.origin === APP_BASE_URL && url.pathname === '/')
   await expect(page.locator('.workspace-header')).toBeVisible()
 })
 
@@ -142,17 +181,15 @@ test('simulation and help pages use one scroll layer at 100 percent zoom', async
 
 test('worker can consult, review a contract, and generate a document', async ({ page }, testInfo) => {
   await login(page, 'demo', 'Demo123!')
-  await expect(page.locator('.workspace-header h1')).toBeVisible()
+  const caseId = await createDemoCase(page, '工地欠薪咨询', true)
+  await page.goto('/')
+  await expect(page.locator('.workspace-header h1')).toHaveText('工地欠薪咨询')
+  await waitForBrandImages(page)
   await page.screenshot({
-    path: testInfo.outputPath(`workspace-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/workspace-${testInfo.project.name}.png`,
     fullPage: true,
   })
 
-  const caseId = await createDemoCase(
-    page,
-    `咨询文书流程-${testInfo.project.name}`,
-    true,
-  )
   const workflowResponsePromise = page.waitForResponse(
     (response) =>
       response.request().method() === 'GET' &&
@@ -206,7 +243,7 @@ test('worker can consult, review a contract, and generate a document', async ({ 
   await expect(page.locator('.document-preview')).toContainText('劳动仲裁申请书')
 
   await page.screenshot({
-    path: testInfo.outputPath(`case-workspace-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/case-workspace-${testInfo.project.name}.png`,
     fullPage: true,
   })
 })
@@ -303,7 +340,7 @@ test('admin and lawyer help pages do not expose worker-only actions', async ({ p
   await expect(page.getByText('申请人工协助', { exact: true })).toHaveCount(0)
 
   await page.goto('/lawyer')
-  await expect(page).toHaveURL('http://127.0.0.1:5173/')
+  await expect(page).toHaveURL((url) => url.origin === APP_BASE_URL && url.pathname === '/')
 
   await page.evaluate(() => localStorage.clear())
   await login(page, 'lawyer', 'Lawyer123!')
