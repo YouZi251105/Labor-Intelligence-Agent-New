@@ -7,9 +7,9 @@ const LoginView = () => import('../views/LoginView.vue')
 const WorkspaceView = () => import('../views/WorkspaceView.vue')
 const CasesView = () => import('../views/CasesView.vue')
 const CaseDetailView = () => import('../views/CaseDetailView.vue')
-const ModulePlaceholderView = () => import('../views/ModulePlaceholderView.vue')
 const SimulationView = () => import('../views/SimulationView.vue')
 const HelpCenterView = () => import('../views/HelpCenterView.vue')
+const ProfileView = () => import('../views/ProfileView.vue')
 const LawyerDashboardView = () => import('../views/LawyerDashboardView.vue')
 const AdminDashboardView = () => import('../views/AdminDashboardView.vue')
 
@@ -48,13 +48,7 @@ const router = createRouter({
         },
         {
           path: 'evidence',
-          name: 'evidence',
-          component: ModulePlaceholderView,
-          meta: {
-            title: '证据整理',
-            eyebrow: '材料中心',
-            description: '后续将支持聊天记录、合同、工资流水等材料上传、筛查和评估。',
-          },
+          redirect: '/cases',
         },
         {
           path: 'simulation',
@@ -69,10 +63,16 @@ const router = createRouter({
           meta: { title: '维权帮助' },
         },
         {
+          path: 'profile',
+          name: 'profile',
+          component: ProfileView,
+          meta: { title: '账户资料', roles: ['user'] },
+        },
+        {
           path: 'lawyer',
           name: 'lawyer',
           component: LawyerDashboardView,
-          meta: { title: '律师工作台', roles: ['lawyer', 'admin'] },
+          meta: { title: '律师工作台', roles: ['lawyer'] },
         },
         {
           path: 'admin',

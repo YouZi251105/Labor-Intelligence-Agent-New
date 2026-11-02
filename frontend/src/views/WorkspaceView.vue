@@ -47,7 +47,7 @@
           :class="`chat-message--${message.role}`"
         >
           <span class="chat-message__role">{{ message.role === 'user' ? '你' : '劳务通' }}</span>
-          <p>{{ message.content }}</p>
+          <SafeMarkdown :content="message.content" />
         </article>
 
         <div v-if="sending" class="chat-message chat-message--assistant">
@@ -199,6 +199,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
+import SafeMarkdown from '../components/SafeMarkdown.vue'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
 import type {

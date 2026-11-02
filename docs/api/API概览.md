@@ -1,6 +1,6 @@
 # API 概览
 
-版本：0.1.0 Demo  
+版本：0.2.0 Demo
 Base URL：`http://127.0.0.1:8000/api/v1`  
 Swagger：<http://127.0.0.1:8000/docs>
 
@@ -160,6 +160,7 @@ file
 | GET | `/admin/stats` | 数据统计 | 管理员 |
 | GET | `/admin/users` | 用户列表 | 管理员 |
 | POST | `/admin/users/{user_id}/reset-password` | 重置密码 | 管理员 |
+| PATCH | `/admin/users/{user_id}/status` | 启用或停用账号 | 管理员 |
 | GET | `/admin/lawyers` | 律师列表 | 管理员 |
 | GET | `/admin/cases` | 全部案件 | 管理员 |
 | POST | `/admin/cases/{case_id}/assign` | 分配律师 | 管理员 |

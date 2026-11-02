@@ -13,6 +13,7 @@ from app.models.evidence import Evidence
 from app.models.lawyer import LawyerProfile
 from app.models.user import User
 from app.schemas.admin import (
+    AdminUserUpdate,
     AuditLogRead,
     CaseAssignmentRequest,
     LawyerStatusUpdate,
@@ -72,6 +73,40 @@ async def reset_password(
     )
     await session.commit()
     return {"success": True}
+
+
+@router.patch("/users/{user_id}/status", response_model=UserRead)
+async def update_user_status(
+    user_id: int,
+    payload: AdminUserUpdate,
+    session: DbSession,
+    admin: AdminRequired,
+) -> User:
+    target = await session.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if payload.is_active is None:
+        raise HTTPException(status_code=400, detail="请提供账号状态")
+    if payload.role is not None and payload.role != target.role:
+        raise HTTPException(status_code=400, detail="角色调整需通过独立流程处理")
+    if target.id == admin.id and not payload.is_active:
+        raise HTTPException(status_code=400, detail="不能停用当前管理员账号")
+    if target.role == "admin" and not payload.is_active:
+        raise HTTPException(status_code=400, detail="管理员账号需完成交接后停用")
+
+    target.is_active = payload.is_active
+    session.add(
+        AuditLog(
+            actor_id=admin.id,
+            action="admin.user_status_changed",
+            object_type="user",
+            object_id=target.id,
+            metadata_json={"is_active": target.is_active},
+        )
+    )
+    await session.commit()
+    await session.refresh(target)
+    return target
 
 
 @router.get("/lawyers", response_model=list[LawyerSummary])

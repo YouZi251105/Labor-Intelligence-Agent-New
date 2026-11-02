@@ -45,10 +45,33 @@ async function createDemoCase(
 test('login page is accessible', async ({ page }, testInfo) => {
   await page.goto('/login')
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await expect(page.getByText('演示账号')).toHaveCount(0)
   await page.screenshot({
-    path: testInfo.outputPath(`login-${testInfo.project.name}.png`),
+    path: `../docs/screenshots/login-${testInfo.project.name}.png`,
     fullPage: true,
   })
+})
+
+test('workspace stays usable at a 1366 by 768 viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await login(page, 'demo', 'Demo123!')
+
+  await expect(page.locator('.composer')).toBeInViewport()
+  const layout = await page.evaluate(() => ({
+    horizontalOverflow:
+      document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    pageOverflow: document.querySelector<HTMLElement>('.page')?.scrollHeight
+      ? document.querySelector<HTMLElement>('.page')!.scrollHeight >
+        document.querySelector<HTMLElement>('.page')!.clientHeight
+      : false,
+    chatScrollable:
+      (document.querySelector<HTMLElement>('.chat-message-list')?.scrollHeight ?? 0) >=
+      (document.querySelector<HTMLElement>('.chat-message-list')?.clientHeight ?? 0),
+  }))
+
+  expect(layout.horizontalOverflow).toBe(false)
+  expect(layout.pageOverflow).toBe(false)
+  expect(layout.chatScrollable).toBe(true)
 })
 
 test('worker can consult, review a contract, and generate a document', async ({ page }, testInfo) => {
@@ -79,10 +102,17 @@ test('worker can consult, review a contract, and generate a document', async ({ 
 
   await page.getByRole('button', { name: '咨询记录' }).click()
   await page.locator('.chat-compose-inline textarea').fill('老板说这周还是不能发工资，我还需要准备什么？')
+  const assistantCount = await page.locator('.chat-message--assistant').count()
+  const consultationResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith(`/api/v1/cases/${caseId}/consultations`),
+  )
   await page.getByRole('button', { name: '发送', exact: true }).click()
-  await expect(
-    page.locator('.chat-message--assistant p').filter({ hasText: '本地演示规则回复' }).last(),
-  ).toBeVisible()
+  const consultationResponse = await consultationResponsePromise
+  expect(consultationResponse.ok()).toBeTruthy()
+  await expect(page.locator('.chat-message--assistant')).toHaveCount(assistantCount + 1)
+  await expect(page.locator('.chat-message--assistant .markdown-body').last()).not.toBeEmpty()
 
   await page.getByRole('button', { name: '证据材料' }).click()
   const evidenceName = `聊天记录-${testInfo.project.name}.txt`
@@ -142,12 +172,17 @@ test('workflow transitions are persisted by the backend', async ({ page }, testI
 test('admin can open the management dashboard', async ({ page }, testInfo) => {
   await login(page, 'admin', 'Admin123!')
   await expect(page.getByRole('heading', { name: '管理后台' })).toBeVisible()
-  await expect(page.getByText('案件与律师')).toBeVisible()
-  await expect(page.getByText('用户管理', { exact: true })).toBeVisible()
   await expect(page.locator('.metric-grid article').first().locator('strong')).not.toHaveText('0')
+  const openNavigation = page.getByRole('button', { name: '打开导航' })
+  if (await openNavigation.isVisible()) await openNavigation.click()
+  await page.getByRole('link', { name: '用户管理', exact: true }).click()
+  await expect(page).toHaveURL(/section=users/)
+  await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible()
+  await expect(page.getByPlaceholder('搜索用户名、姓名或手机号')).toBeVisible()
+  await expect(page.locator('.sidebar--open')).toHaveCount(0)
   await page.screenshot({
     path: `../docs/screenshots/admin-${testInfo.project.name}.png`,
-    fullPage: true,
+    fullPage: testInfo.project.name === 'desktop',
   })
 })
 

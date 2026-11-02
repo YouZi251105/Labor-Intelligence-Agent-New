@@ -17,17 +17,29 @@
       </div>
 
       <nav class="nav" aria-label="主导航">
-        <RouterLink
-          v-for="item in navigation"
-          :key="item.name"
-          :to="item.to"
-          class="nav__item"
-          active-class="nav__item--active"
-          @click="sidebarOpen = false"
-        >
-          <component :is="item.icon" :size="19" :stroke-width="1.8" />
-          <span>{{ item.label }}</span>
-        </RouterLink>
+        <template v-for="item in navigation" :key="item.name">
+          <RouterLink
+            :to="item.to"
+            class="nav__item"
+            :class="{ 'nav__item--active': isNavActive(item.to) }"
+            @click="sidebarOpen = false"
+          >
+            <component :is="item.icon" :size="19" :stroke-width="1.8" />
+            <span>{{ item.label }}</span>
+          </RouterLink>
+          <div v-if="item.children" class="nav__children">
+            <RouterLink
+              v-for="child in item.children"
+              :key="child.name"
+              :to="child.to"
+              class="nav__child"
+              :class="{ 'nav__child--active': isNavActive(child.to) }"
+              @click="sidebarOpen = false"
+            >
+              <span>{{ child.label }}</span>
+            </RouterLink>
+          </div>
+        </template>
       </nav>
 
       <div class="sidebar__support">
@@ -59,7 +71,7 @@
         <span class="mobile-header__status">法律服务</span>
       </header>
 
-      <main class="page">
+      <main class="page" :class="{ 'page--workspace': route.name === 'workspace' }">
         <RouterView />
       </main>
     </div>
@@ -74,13 +86,13 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
-  Paperclip,
   ShieldCheck,
   ShieldPlus,
+  UserRound,
   UsersRound,
 } from '@lucide/vue'
-import { computed, ref } from 'vue'
-import { RouterLink, RouterView, useRouter } from 'vue-router'
+import { computed, ref, type Component } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import BrandMark from '../components/BrandMark.vue'
 import { useAuthStore } from '../stores/auth'
@@ -88,24 +100,54 @@ import { getInitial } from '../utils/format'
 
 const sidebarOpen = ref(false)
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 
-const userNavigation = [
+interface NavChild {
+  name: string
+  label: string
+  to: string
+}
+
+interface NavItem {
+  name: string
+  label: string
+  to: string
+  icon: Component
+  children?: NavChild[]
+}
+
+const userNavigation: NavItem[] = [
   { name: 'workspace', label: 'AI 法律咨询', to: '/', icon: MessageSquareText },
   { name: 'cases', label: '我的案件', to: '/cases', icon: FolderKanban },
-  { name: 'evidence', label: '证据整理', to: '/evidence', icon: Paperclip },
   { name: 'simulation', label: '模拟对话', to: '/simulation', icon: Drama },
   { name: 'help', label: '维权帮助', to: '/help', icon: BookOpenText },
+  { name: 'profile', label: '账户资料', to: '/profile', icon: UserRound },
 ]
 
-const lawyerNavigation = [
+const lawyerNavigation: NavItem[] = [
   { name: 'lawyer', label: '律师工作台', to: '/lawyer', icon: ShieldPlus },
   { name: 'help', label: '维权帮助', to: '/help', icon: BookOpenText },
 ]
 
-const adminNavigation = [
-  { name: 'admin', label: '管理后台', to: '/admin', icon: UsersRound },
-  { name: 'help', label: '帮助中心', to: '/help', icon: BookOpenText },
+const adminNavigation: NavItem[] = [
+  {
+    name: 'admin',
+    label: '管理后台',
+    to: '/admin?section=overview',
+    icon: UsersRound,
+    children: [
+      { name: 'admin-overview', label: '管理总览', to: '/admin?section=overview' },
+      { name: 'admin-users', label: '用户管理', to: '/admin?section=users' },
+      { name: 'admin-lawyers', label: '律师管理', to: '/admin?section=lawyers' },
+      { name: 'admin-cases', label: '案件分配', to: '/admin?section=cases' },
+      { name: 'admin-rules', label: '规则复核', to: '/admin?section=rules' },
+      { name: 'admin-materials', label: '材料管理', to: '/admin?section=materials' },
+      { name: 'admin-audit', label: '审计日志', to: '/admin?section=audit' },
+      { name: 'admin-revenue', label: '收益管理', to: '/admin?section=revenue' },
+    ],
+  },
+  { name: 'admin-help', label: '平台资源', to: '/help', icon: BookOpenText },
 ]
 
 const navigation = computed(() => {
@@ -121,13 +163,26 @@ const roleLabel = computed(() => {
 })
 
 const supportTitle = computed(() =>
-  auth.user?.role === 'lawyer' ? '只查看已分配案件' : '人工协助随时可接入',
+  auth.user?.role === 'lawyer'
+    ? '只查看已分配案件'
+    : auth.user?.role === 'admin'
+      ? '平台配置与审计'
+      : '人工协助随时可接入',
 )
 const supportDescription = computed(() =>
   auth.user?.role === 'lawyer'
     ? '案件材料访问会记录审计日志。'
-    : '复杂问题可申请本站律师复核。',
+    : auth.user?.role === 'admin'
+      ? '权限变更、材料访问和账号操作均留痕。'
+      : '复杂问题可申请本站律师复核。',
 )
+
+function isNavActive(to: string) {
+  const target = router.resolve(to)
+  if (route.path !== target.path) return false
+  const section = target.query.section
+  return typeof section !== 'string' || route.query.section === section
+}
 
 function logout() {
   auth.logout()

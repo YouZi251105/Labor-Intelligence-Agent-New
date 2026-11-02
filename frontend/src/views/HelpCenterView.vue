@@ -6,7 +6,7 @@
         <h1>维权帮助</h1>
         <p>集中查看仲裁、法院、法律援助和本站律师入口，关键事项仍以当地官方要求为准。</p>
       </div>
-      <RouterLink to="/cases" class="primary-action primary-action--compact">
+      <RouterLink v-if="isWorker" to="/cases" class="primary-action primary-action--compact">
         <MessageCircleMore :size="17" />
         申请人工协助
       </RouterLink>
@@ -49,40 +49,7 @@
       </div>
     </section>
 
-    <section class="detail-card profile-card">
-      <div class="detail-section-heading">
-        <div>
-          <span class="eyebrow">账户资料</span>
-          <h2>{{ profile ? '实名资料已提交' : '补充必要资料' }}</h2>
-        </div>
-        <span v-if="profile" class="status-tag">{{ verificationLabels[profile.verification_status] }}</span>
-      </div>
-      <p v-if="profile" class="profile-summary">
-        {{ profile.real_name }} · {{ profile.id_number_masked }} · {{ profile.phone }}
-      </p>
-      <form v-else class="form-grid" @submit.prevent="saveProfile">
-        <label>
-          <span>真实姓名</span>
-          <input v-model="profileForm.real_name" required />
-        </label>
-        <label>
-          <span>手机号</span>
-          <input v-model="profileForm.phone" inputmode="tel" required />
-        </label>
-        <label class="form-grid__wide">
-          <span>身份证号</span>
-          <input v-model="profileForm.id_number" required />
-        </label>
-        <div class="form-grid__wide form-actions">
-          <button class="primary-action primary-action--compact" type="submit" :disabled="savingProfile">
-            {{ savingProfile ? '提交中...' : '提交实名资料' }}
-          </button>
-          <small>身份证号只保存脱敏值、哈希和审核状态。</small>
-        </div>
-      </form>
-    </section>
-
-    <div class="detail-grid">
+    <div v-if="isWorker" class="detail-grid">
       <section class="detail-card">
         <div class="detail-section-heading">
           <div>
@@ -120,6 +87,26 @@
         </RouterLink>
       </section>
     </div>
+
+    <section v-else class="detail-card">
+      <div class="detail-section-heading">
+        <div>
+          <span class="eyebrow">{{ isAdmin ? '平台管理' : '律师服务' }}</span>
+          <h2>{{ isAdmin ? '平台资源维护' : '律师服务支持' }}</h2>
+        </div>
+        <ShieldCheck :size="22" />
+      </div>
+      <p v-if="isAdmin" class="muted-text">
+        官方办事入口由平台统一维护。用户实名资料、劳动者协助申请和律师分配分别在独立管理页面处理。
+      </p>
+      <p v-else class="muted-text">
+        你只能查看已分配给自己的案件。案件事实由劳动者维护，律师意见、服务记录和收益记录请在律师工作台提交。
+      </p>
+      <RouterLink :to="isAdmin ? '/admin?section=overview' : '/lawyer'" class="text-link">
+        返回{{ isAdmin ? '管理总览' : '律师工作台' }}
+        <ArrowRight :size="15" />
+      </RouterLink>
+    </section>
   </section>
 </template>
 
@@ -130,22 +117,19 @@ import {
   MessageCircleMore,
   ShieldCheck,
 } from '@lucide/vue'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import { apiRequest } from '../api/http'
-import type { HelpResource, SiteLawyer, UserProfileItem } from '../types/api'
+import { useAuthStore } from '../stores/auth'
+import type { HelpResource, SiteLawyer } from '../types/api'
 
+const auth = useAuthStore()
 const resources = ref<HelpResource[]>([])
 const lawyers = ref<SiteLawyer[]>([])
-const profile = ref<UserProfileItem | null>(null)
-const savingProfile = ref(false)
 const error = ref('')
-const profileForm = ref({
-  real_name: '',
-  phone: '',
-  id_number: '',
-})
+const isWorker = computed(() => auth.user?.role === 'user')
+const isAdmin = computed(() => auth.user?.role === 'admin')
 
 const resourceTypeLabels: Record<string, string> = {
   arbitration: '劳动仲裁',
@@ -154,39 +138,13 @@ const resourceTypeLabels: Record<string, string> = {
   site_lawyer: '本站律师',
   other: '其他入口',
 }
-const verificationLabels: Record<string, string> = {
-  unverified: '未提交',
-  pending: '审核中',
-  verified: '已核验',
-  rejected: '需重新提交',
-}
-
-async function saveProfile() {
-  savingProfile.value = true
-  error.value = ''
-  try {
-    profile.value = await apiRequest<UserProfileItem>('/users/me/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profileForm.value),
-    })
-    profileForm.value.id_number = ''
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '个人资料提交失败'
-  } finally {
-    savingProfile.value = false
-  }
-}
-
 onMounted(async () => {
   try {
-    const [resourceData, lawyerData] = await Promise.all([
-      apiRequest<HelpResource[]>('/help/resources'),
-      apiRequest<SiteLawyer[]>('/help/site-lawyers'),
-    ])
+    const resourceData = await apiRequest<HelpResource[]>('/help/resources')
     resources.value = resourceData
-    lawyers.value = lawyerData
-    profile.value = await apiRequest<UserProfileItem>('/users/me/profile').catch(() => null)
+    if (isWorker.value) {
+      lawyers.value = await apiRequest<SiteLawyer[]>('/help/site-lawyers')
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : '帮助数据加载失败'
   }

@@ -82,7 +82,7 @@
             :class="`simulation-message--${message.role}`"
           >
             <span>{{ message.role === 'user' ? '你' : roleLabels[currentSession.role_type] }}</span>
-            <p>{{ message.content }}</p>
+            <SafeMarkdown :content="message.content" />
           </article>
           <p v-if="!messages.length" class="muted-text">
             可以先说明事实、金额和希望对方确认的内容。
@@ -136,6 +136,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiRequest } from '../api/http'
+import SafeMarkdown from '../components/SafeMarkdown.vue'
 import type {
   CaseItem,
   SimulationMessage,

@@ -34,12 +34,27 @@ async def get_accessible_case(
     return case
 
 
+async def get_worker_owned_case(
+    case_id: int,
+    session: DbSession,
+    user: CurrentUser,
+) -> Case:
+    case = await get_accessible_case(case_id, session, user)
+    if user.role != "user":
+        raise HTTPException(status_code=403, detail="仅劳动者本人可执行此操作")
+    if case.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="案件不存在")
+    return case
+
+
 @router.post("", response_model=CaseRead, status_code=status.HTTP_201_CREATED)
 async def create_case(
     payload: CaseCreate,
     session: DbSession,
     user: CurrentUser,
 ) -> Case:
+    if user.role != "user":
+        raise HTTPException(status_code=403, detail="仅劳动者可创建案件")
     case = Case(
         owner_id=user.id,
         title=payload.title,
@@ -110,7 +125,7 @@ async def consult_case(
     session: DbSession,
     user: CurrentUser,
 ) -> ConsultationResponse:
-    case = await get_accessible_case(case_id, session, user)
+    case = await get_worker_owned_case(case_id, session, user)
     conversation = await session.scalar(
         select(Conversation).where(Conversation.case_id == case_id)
     )

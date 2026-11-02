@@ -11,75 +11,14 @@
 
     <p v-if="error" class="inline-error">{{ error }}</p>
 
-    <div class="metric-grid">
+    <div v-if="activeTab === '总览'" class="metric-grid">
       <article><span>用户</span><strong>{{ stats.users }}</strong></article>
       <article><span>案件</span><strong>{{ stats.cases }}</strong></article>
       <article><span>证据</span><strong>{{ stats.evidence }}</strong></article>
       <article><span>文书</span><strong>{{ stats.documents }}</strong></article>
     </div>
 
-    <nav class="tab-bar" aria-label="管理功能">
-      <button
-        v-for="tab in tabs"
-        :key="tab"
-        type="button"
-        :class="{ active: activeTab === tab }"
-        @click="activeTab = tab"
-      >
-        {{ tab }}
-      </button>
-    </nav>
-
     <div v-if="activeTab === '总览'" class="admin-grid">
-      <section class="detail-card">
-        <div class="detail-section-heading">
-          <div><span class="eyebrow">案件分配</span><h2>案件与律师</h2></div>
-        </div>
-        <div class="assignment-list">
-          <article v-for="item in cases" :key="item.id">
-            <div class="assignment-list__main">
-              <strong>#{{ item.id }} {{ item.title }}</strong>
-              <span>{{ item.summary || item.facts }}</span>
-            </div>
-            <div class="assignment-list__actions">
-              <select v-model="assignmentSelections[item.id]">
-                <option :value="null">选择律师</option>
-                <option v-for="lawyerItem in lawyers" :key="lawyerItem.id" :value="lawyerItem.id">
-                  {{ lawyerItem.display_name }} · {{ lawyerItem.specialties }}
-                </option>
-              </select>
-              <button
-                class="primary-action primary-action--compact"
-                type="button"
-                :disabled="!assignmentSelections[item.id] || assigningId === item.id"
-                @click="assignCase(item.id)"
-              >
-                {{ assigningId === item.id ? '分配中...' : '分配' }}
-              </button>
-              <button class="secondary-action" type="button" @click="router.push(`/cases/${item.id}`)">
-                查看
-              </button>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="detail-card">
-        <div class="detail-section-heading">
-          <div><span class="eyebrow">用户管理</span><h2>{{ users.length }} 个账号</h2></div>
-        </div>
-        <div class="user-admin-list">
-          <article v-for="userItem in users" :key="userItem.id">
-            <div class="user-admin-list__avatar">{{ userItem.username.slice(0, 1).toUpperCase() }}</div>
-            <div>
-              <strong>{{ userItem.display_name || userItem.username }}</strong>
-              <span>{{ userItem.username }} · {{ roleLabels[userItem.role] }}</span>
-            </div>
-            <button type="button" class="table-action" @click="resetPassword(userItem)">重置密码</button>
-          </article>
-        </div>
-      </section>
-
       <section class="detail-card detail-card--wide">
         <span class="eyebrow">匿名话题</span>
         <h2>{{ topics.total }} 个案件主题</h2>
@@ -91,7 +30,96 @@
         </div>
         <small>仅展示聚合纠纷类型，不展示用户原始咨询。</small>
       </section>
+      <section class="detail-card">
+        <span class="eyebrow">待办概览</span>
+        <h2>{{ pendingLawyerCount }} 位律师待审核</h2>
+        <p class="muted-text">律师审核、规则复核与材料访问都在独立管理页处理。</p>
+      </section>
+      <section class="detail-card">
+        <span class="eyebrow">案件分配</span>
+        <h2>{{ cases.filter((item) => !item.assigned_lawyer_id).length }} 个案件待分配</h2>
+        <p class="muted-text">从左侧“案件分配”进入，按案件查看材料和分配律师。</p>
+      </section>
     </div>
+
+    <section v-else-if="activeTab === '用户'" class="detail-card">
+      <div class="detail-section-heading">
+        <div><span class="eyebrow">账号与权限</span><h2>用户管理</h2></div>
+        <span class="status-tag">{{ filteredUsers.length }} / {{ users.length }}</span>
+      </div>
+      <div class="admin-filter-bar">
+        <input v-model.trim="userSearch" type="search" placeholder="搜索用户名、姓名或手机号" />
+        <select v-model="userRoleFilter">
+          <option value="all">全部角色</option>
+          <option value="user">劳动者</option>
+          <option value="lawyer">律师</option>
+          <option value="admin">管理员</option>
+        </select>
+        <select v-model="userStatusFilter">
+          <option value="all">全部状态</option>
+          <option value="active">正常</option>
+          <option value="inactive">已停用</option>
+        </select>
+      </div>
+      <div class="admin-table user-management-table">
+        <article v-for="userItem in filteredUsers" :key="userItem.id">
+          <div class="user-admin-list__avatar">{{ userItem.username.slice(0, 1).toUpperCase() }}</div>
+          <div class="user-management-table__identity">
+            <strong>{{ userItem.display_name || userItem.username }}</strong>
+            <span>{{ userItem.username }} · {{ roleLabels[userItem.role] }}</span>
+            <small>{{ userItem.phone || '未填写手机号' }} · {{ new Date(userItem.created_at).toLocaleDateString('zh-CN') }}</small>
+          </div>
+          <span class="status-tag" :class="{ 'status-tag--warning': !userItem.is_active }">
+            {{ userItem.is_active ? '正常' : '已停用' }}
+          </span>
+          <div class="user-management-table__actions">
+            <button type="button" class="table-action" @click="resetPassword(userItem)">重置密码</button>
+            <button
+              type="button"
+              class="table-action"
+              :disabled="userItem.role === 'admin'"
+              @click="updateUserStatus(userItem)"
+            >
+              {{ userItem.is_active ? '停用账号' : '恢复账号' }}
+            </button>
+          </div>
+        </article>
+        <p v-if="!filteredUsers.length" class="muted-text">没有符合筛选条件的账号。</p>
+      </div>
+    </section>
+
+    <section v-else-if="activeTab === '案件'" class="detail-card">
+      <div class="detail-section-heading">
+        <div><span class="eyebrow">案件分配</span><h2>案件与律师</h2></div>
+      </div>
+      <div class="assignment-list">
+        <article v-for="item in cases" :key="item.id">
+          <div class="assignment-list__main">
+            <strong>#{{ item.id }} {{ item.title }}</strong>
+            <span>{{ item.summary || item.facts }}</span>
+          </div>
+          <div class="assignment-list__actions">
+            <select v-model="assignmentSelections[item.id]">
+              <option :value="null">选择律师</option>
+              <option v-for="lawyerItem in lawyers" :key="lawyerItem.id" :value="lawyerItem.id">
+                {{ lawyerItem.display_name }} · {{ lawyerItem.specialties }}
+              </option>
+            </select>
+            <button
+              class="primary-action primary-action--compact"
+              type="button"
+              :disabled="!assignmentSelections[item.id] || assigningId === item.id"
+              @click="assignCase(item.id)"
+            >
+              {{ assigningId === item.id ? '分配中...' : '分配' }}
+            </button>
+            <button class="secondary-action" type="button" @click="router.push(`/cases/${item.id}`)">
+              查看
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <section v-else-if="activeTab === '律师'" class="detail-card">
       <span class="eyebrow">律师审核</span>
@@ -199,8 +227,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
 import type {
@@ -224,8 +252,21 @@ interface LawyerSummary {
   status: string
 }
 
+const route = useRoute()
 const router = useRouter()
-const activeTab = ref('总览')
+const sectionTabs: Record<string, string> = {
+  overview: '总览',
+  users: '用户',
+  lawyers: '律师',
+  cases: '案件',
+  rules: '规则',
+  materials: '材料',
+  audit: '审计',
+  revenue: '收益',
+}
+const activeTab = computed(
+  () => sectionTabs[String(route.query.section ?? 'overview')] ?? '总览',
+)
 const users = ref<User[]>([])
 const lawyers = ref<LawyerSummary[]>([])
 const cases = ref<CaseItem[]>([])
@@ -241,8 +282,10 @@ const lawyerStatuses = reactive<Record<number, string>>({})
 const ruleReviews = reactive<Record<number, { status: string; note: string }>>({})
 const assigningId = ref<number | null>(null)
 const error = ref('')
+const userSearch = ref('')
+const userRoleFilter = ref('all')
+const userStatusFilter = ref('all')
 
-const tabs = ['总览', '律师', '规则', '材料', '审计', '收益']
 const roleLabels: Record<string, string> = { user: '劳动者', lawyer: '律师', admin: '管理员' }
 const disputeLabels: Record<string, string> = {
   wage: '欠薪',
@@ -266,9 +309,31 @@ const auditLabels: Record<string, string> = {
   'admin.rule_reviewed': '规则复核',
   'admin.lawyer_status_changed': '律师状态变更',
   'admin.revenue_status_changed': '收益状态变更',
+  'admin.user_status_changed': '账号状态变更',
   'case.assigned': '案件分配',
   'user.password_reset': '密码重置',
 }
+
+const pendingLawyerCount = computed(
+  () => lawyers.value.filter((lawyer) => lawyer.status === 'pending').length,
+)
+
+const filteredUsers = computed(() => {
+  const keyword = userSearch.value.toLowerCase()
+  return users.value.filter((userItem) => {
+    const matchesKeyword =
+      !keyword ||
+      userItem.username.toLowerCase().includes(keyword) ||
+      userItem.display_name.toLowerCase().includes(keyword) ||
+      userItem.phone.includes(keyword)
+    const matchesRole =
+      userRoleFilter.value === 'all' || userItem.role === userRoleFilter.value
+    const matchesStatus =
+      userStatusFilter.value === 'all' ||
+      (userStatusFilter.value === 'active' ? userItem.is_active : !userItem.is_active)
+    return matchesKeyword && matchesRole && matchesStatus
+  })
+})
 
 function nextRevenueStatus(status: string) {
   if (status === 'pending') return 'confirmed'
@@ -360,6 +425,23 @@ async function resetPassword(userItem: User) {
     window.alert('密码已重置')
   } catch (err) {
     error.value = err instanceof Error ? err.message : '密码重置失败'
+  }
+}
+
+async function updateUserStatus(userItem: User) {
+  const nextStatus = !userItem.is_active
+  const actionLabel = nextStatus ? '恢复' : '停用'
+  if (!window.confirm(`确认${actionLabel}账号 ${userItem.username} 吗？`)) return
+  try {
+    const updated = await apiRequest<User>(`/admin/users/${userItem.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: nextStatus }),
+    })
+    const index = users.value.findIndex((item) => item.id === userItem.id)
+    if (index >= 0) users.value[index] = updated
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '账号状态更新失败'
   }
 }
 

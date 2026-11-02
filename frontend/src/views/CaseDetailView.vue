@@ -112,7 +112,7 @@
           :class="`chat-message--${message.role}`"
         >
           <span class="chat-message__role">{{ message.role === 'user' ? '你' : '劳务通' }}</span>
-          <p>{{ message.content }}</p>
+          <SafeMarkdown :content="message.content" />
         </article>
         <p v-if="!messages.length" class="muted-text">还没有咨询记录。</p>
       </div>
@@ -349,7 +349,7 @@
           </div>
           <button class="secondary-action" type="button" @click="selectedDocument = null">关闭</button>
         </div>
-        <pre class="document-preview">{{ selectedDocument.content }}</pre>
+        <SafeMarkdown class="document-preview" :content="selectedDocument.content" />
       </div>
     </section>
   </section>
@@ -372,6 +372,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { API_BASE_URL, apiRequest, TOKEN_KEY } from '../api/http'
+import SafeMarkdown from '../components/SafeMarkdown.vue'
 import type {
   CaseItem,
   ConsultationResponse,

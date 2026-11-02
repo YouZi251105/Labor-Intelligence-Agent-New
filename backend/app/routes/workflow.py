@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.evidence import Evidence
-from app.routes.cases import get_accessible_case
+from app.routes.cases import get_accessible_case, get_worker_owned_case
 from app.schemas.workflow import TransitionRequest, WorkflowResponse
 from app.services.workflow import build_workflow
 
@@ -39,7 +39,7 @@ async def transition_case(
     session: DbSession,
     user: CurrentUser,
 ) -> WorkflowResponse:
-    case = await get_accessible_case(case_id, session, user)
+    case = await get_worker_owned_case(case_id, session, user)
     evidence_items = list(
         await session.scalars(select(Evidence).where(Evidence.case_id == case_id))
     )
