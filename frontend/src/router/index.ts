@@ -18,6 +18,7 @@ const adminSections = new Set([
   'lawyers',
   'cases',
   'rules',
+  'packages',
   'materials',
   'audit',
   'revenue',

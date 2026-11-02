@@ -7,7 +7,12 @@ from app.core.security import hash_password
 from app.models.case import Case
 from app.models.collaboration import HelpResource, RuleConfig, UserProfile
 from app.models.lawyer import LawyerProfile
+from app.models.rule_package import RulePackage
 from app.models.user import User
+from app.services.rule_packages import (
+    load_default_workflow_package,
+    rule_package_checksum,
+)
 
 
 async def seed_demo_data(session: AsyncSession) -> None:
@@ -74,6 +79,7 @@ async def seed_demo_data(session: AsyncSession) -> None:
             )
 
     await seed_reference_data(session)
+    await seed_rule_content(session)
     await session.commit()
 
 
@@ -107,6 +113,29 @@ async def seed_reference_data(session: AsyncSession) -> None:
                 ),
             ]
         )
+
+
+async def seed_rule_content(session: AsyncSession) -> None:
+    package_count = await session.scalar(
+        select(func.count()).select_from(RulePackage)
+    )
+    if package_count:
+        return
+    package = load_default_workflow_package()
+    content = package.model_dump(mode="json")
+    content["review_status"] = "pending_review"
+    admin = await session.scalar(select(User).where(User.username == "admin"))
+    session.add(
+        RulePackage(
+            package_type="workflow",
+            package_id=package.package_id,
+            version=package.version,
+            status="pending_review",
+            content=content,
+            checksum=rule_package_checksum(content),
+            created_by_id=admin.id if admin is not None else None,
+        )
+    )
 
     rule_count = await session.scalar(select(func.count()).select_from(RuleConfig))
     if not rule_count:

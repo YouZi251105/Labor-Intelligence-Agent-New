@@ -178,6 +178,7 @@ const adminNavigation: NavItem[] = [
       { name: 'admin-lawyers', label: '律师管理', to: '/admin/lawyers' },
       { name: 'admin-cases', label: '案件分配', to: '/admin/cases' },
       { name: 'admin-rules', label: '规则复核', to: '/admin/rules' },
+      { name: 'admin-packages', label: '规则包', to: '/admin/packages' },
       { name: 'admin-materials', label: '材料管理', to: '/admin/materials' },
       { name: 'admin-audit', label: '审计日志', to: '/admin/audit' },
       { name: 'admin-revenue', label: '收益管理', to: '/admin/revenue' },

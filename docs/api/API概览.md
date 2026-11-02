@@ -172,6 +172,15 @@ file
 | GET | `/admin/materials` | 材料元数据 | 管理员 |
 | GET | `/admin/audit-logs` | 审计日志 | 管理员 |
 | GET/PATCH | `/admin/rules`、`/admin/rules/{id}` | 规则复核 | 管理员 |
+| GET | `/admin/rule-packages` | 规则包版本列表 | 管理员 |
+| GET | `/admin/rule-packages/template` | 下载内置规则包模板 | 管理员 |
+| POST | `/admin/rule-packages/validate` | 校验规则包结构和引用 | 管理员 |
+| POST | `/admin/rule-packages/import` | 导入新草稿版本 | 管理员 |
+| GET/PUT | `/admin/rule-packages/{id}` | 查看或编辑草稿 | 管理员 |
+| POST | `/admin/rule-packages/{id}/submit` | 提交复核 | 管理员 |
+| POST | `/admin/rule-packages/{id}/review` | 批准或驳回 | 管理员 |
+| POST | `/admin/rule-packages/{id}/publish` | 发布规则包 | 管理员 |
+| POST | `/admin/rule-packages/{id}/retire` | 停用规则包 | 管理员 |
 | PATCH | `/admin/lawyers/{id}/status` | 律师状态 | 管理员 |
 | GET | `/admin/service-records`、`/admin/revenue` | 服务与收益 | 管理员 |
 | PATCH | `/admin/revenue/{id}/status` | 收益状态 | 管理员 |

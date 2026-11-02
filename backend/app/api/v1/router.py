@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import health
 from app.routes import (
     admin,
+    admin_rule_packages,
     analytics,
     auth,
     cases,
@@ -32,4 +33,5 @@ api_router.include_router(workflow.router)
 api_router.include_router(lawyer.router)
 api_router.include_router(collaboration.router)
 api_router.include_router(collaboration.admin_router)
+api_router.include_router(admin_rule_packages.router)
 api_router.include_router(admin.router)

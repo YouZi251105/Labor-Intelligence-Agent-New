@@ -439,6 +439,50 @@ export interface RuleConfigItem {
   updated_at: string
 }
 
+export type RulePackageStatus =
+  | 'draft'
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+  | 'published'
+  | 'retired'
+
+export interface RulePackageSummary {
+  id: number
+  package_type: string
+  package_id: string
+  version: string
+  status: RulePackageStatus
+  checksum: string
+  created_by_id: number | null
+  reviewed_by_id: number | null
+  created_at: string
+  updated_at: string
+  published_at: string | null
+}
+
+export interface RulePackageDetail extends RulePackageSummary {
+  content: Record<string, unknown>
+}
+
+export interface RulePackageValidationSummary {
+  package_id: string
+  version: string
+  jurisdiction: string
+  start_node: string
+  stage_count: number
+  node_count: number
+  option_count: number
+  review_status: string
+}
+
+export interface RulePackageValidationResponse {
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+  summary: RulePackageValidationSummary | null
+}
+
 export interface UserProfileItem {
   user_id: number
   real_name: string

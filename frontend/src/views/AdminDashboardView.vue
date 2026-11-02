@@ -280,6 +280,8 @@
       </article>
     </section>
 
+    <RulePackageCenter v-else-if="activeTab === '规则包'" />
+
     <section v-else-if="activeTab === '材料'" class="detail-card">
       <span class="eyebrow">材料管理</span>
       <h2>{{ materials.length }} 份材料</h2>
@@ -356,6 +358,7 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
+import RulePackageCenter from '../components/RulePackageCenter.vue'
 import type {
   AdminDashboardData,
   AdminUserPage,
@@ -391,6 +394,7 @@ const sectionTabs: Record<string, string> = {
   lawyers: '律师',
   cases: '案件',
   rules: '规则',
+  packages: '规则包',
   materials: '材料',
   audit: '审计',
   revenue: '收益',
@@ -401,6 +405,7 @@ const sectionTitles: Record<string, string> = {
   lawyers: '律师管理',
   cases: '案件分配',
   rules: '规则复核',
+  packages: '规则包中心',
   materials: '材料管理',
   audit: '审计日志',
   revenue: '收益管理',
@@ -411,6 +416,7 @@ const sectionDescriptions: Record<string, string> = {
   lawyers: '审核律师状态和平台服务能力。',
   cases: '查看待分配案件并指定承办律师。',
   rules: '复核证据规则和法律内容版本。',
+  packages: '导入、编辑、校验、审核和发布版本化规则包。',
   materials: '查看材料元数据和提取状态，不展示材料正文。',
   audit: '追踪平台关键操作和敏感数据访问。',
   revenue: '核对律师服务记录和收益流转。',
@@ -493,6 +499,12 @@ const categoryLabels: Record<string, string> = {
 }
 const auditLabels: Record<string, string> = {
   'admin.rule_reviewed': '规则复核',
+  'admin.rule_package_imported': '规则包导入',
+  'admin.rule_package_updated': '规则包编辑',
+  'admin.rule_package_submitted': '规则包送审',
+  'admin.rule_package_reviewed': '规则包审核',
+  'admin.rule_package_published': '规则包发布',
+  'admin.rule_package_retired': '规则包停用',
   'admin.lawyer_status_changed': '律师状态变更',
   'admin.revenue_status_changed': '收益状态变更',
   'admin.user_status_changed': '账号状态变更',
@@ -570,6 +582,9 @@ async function loadSection(section: string) {
     }
     if (section === 'rules') {
       await loadRules()
+      return
+    }
+    if (section === 'packages') {
       return
     }
     if (section === 'materials') {

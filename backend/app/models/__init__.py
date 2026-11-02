@@ -13,6 +13,7 @@ from app.models.collaboration import (
 from app.models.document import Document, DocumentEvidence
 from app.models.evidence import Evidence
 from app.models.lawyer import LawyerProfile
+from app.models.rule_package import RulePackage
 from app.models.user import User
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "Message",
     "RevenueLedger",
     "RuleConfig",
+    "RulePackage",
     "ServiceRecord",
     "SimulationMessage",
     "SimulationSession",

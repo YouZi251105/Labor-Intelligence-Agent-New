@@ -303,6 +303,27 @@ test('admin can open the management dashboard', async ({ page }, testInfo) => {
   })
 })
 
+test('admin can validate a rule package', async ({ page }, testInfo) => {
+  await login(page, 'admin', 'Admin123!')
+  await page.goto('/admin/packages')
+
+  await expect(
+    page.getByRole('heading', { level: 1, name: '规则包中心' }),
+  ).toBeVisible()
+  await expect(page.locator('.rule-package-list__item').first()).toBeVisible()
+  await page.getByRole('button', { name: '载入模板' }).click()
+  await page.getByRole('button', { name: '校验内容' }).click()
+
+  await expect(page.getByText('结构校验通过')).toBeVisible()
+  await expect(page.locator('.rule-package-summary')).toContainText(
+    'cn-labor-workflow',
+  )
+  await page.screenshot({
+    path: testInfo.outputPath(`admin-rule-packages-${testInfo.project.name}.png`),
+    fullPage: true,
+  })
+})
+
 test('admin navigation group collapses and remembers its state', async ({ page }) => {
   await login(page, 'admin', 'Admin123!')
   const openNavigation = page.getByRole('button', { name: '打开导航' })

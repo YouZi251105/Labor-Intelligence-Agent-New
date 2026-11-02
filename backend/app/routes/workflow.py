@@ -8,7 +8,10 @@ from app.models.audit import AuditLog
 from app.models.evidence import Evidence
 from app.routes.cases import get_accessible_case, get_worker_owned_case
 from app.schemas.workflow import TransitionRequest, WorkflowResponse
-from app.services.rule_packages import load_default_workflow_package
+from app.services.rule_packages import (
+    load_default_workflow_package,
+    load_published_workflow_package,
+)
 from app.services.workflow import build_workflow
 
 router = APIRouter(prefix="/cases", tags=["workflow"])
@@ -23,7 +26,11 @@ async def _workflow_for_case(
     evidence_items = list(
         await session.scalars(select(Evidence).where(Evidence.case_id == case_id))
     )
-    return build_workflow(case, evidence_items)
+    rule_package = (
+        await load_published_workflow_package(session)
+        or load_default_workflow_package()
+    )
+    return build_workflow(case, evidence_items, rule_package)
 
 
 @router.get("/{case_id}/workflow", response_model=WorkflowResponse)
@@ -46,7 +53,11 @@ async def transition_case(
     evidence_items = list(
         await session.scalars(select(Evidence).where(Evidence.case_id == case_id))
     )
-    workflow = build_workflow(case, evidence_items)
+    rule_package = (
+        await load_published_workflow_package(session)
+        or load_default_workflow_package()
+    )
+    workflow = build_workflow(case, evidence_items, rule_package)
     if payload.option_id:
         option = next(
             (item for item in workflow.options if item.id == payload.option_id),
@@ -74,7 +85,6 @@ async def transition_case(
         raise HTTPException(status_code=400, detail=f"无法推进：{reasons}")
 
     previous_stage = case.stage
-    rule_package = load_default_workflow_package()
     selected_at = datetime.now(UTC)
     classification = dict(case.classification or {})
     choices = classification.get("workflow_choices", [])
