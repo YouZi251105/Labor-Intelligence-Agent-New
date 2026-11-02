@@ -1,10 +1,11 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class Evidence(Base):
@@ -23,7 +24,7 @@ class Evidence(Base):
     screening_status: Mapped[str] = mapped_column(String(30), default="accepted")
     assessment: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        UTCDateTime(), default=lambda: datetime.now(UTC)
     )
 
     @property

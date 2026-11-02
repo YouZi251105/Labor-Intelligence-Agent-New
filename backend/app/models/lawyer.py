@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class LawyerProfile(Base):
@@ -16,5 +17,5 @@ class LawyerProfile(Base):
     status: Mapped[str] = mapped_column(String(20), default="active")
     bio: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        UTCDateTime(), default=lambda: datetime.now(UTC)
     )
