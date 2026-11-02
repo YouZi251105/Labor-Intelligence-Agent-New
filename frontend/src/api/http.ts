@@ -15,6 +15,34 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   return apiRequest<T>(path, init)
 }
 
+export async function apiFile(
+  path: string,
+  init: RequestInit & { auth?: boolean } = {},
+): Promise<Blob> {
+  const { auth = true, ...requestInit } = init
+  const headers = new Headers(requestInit.headers)
+  headers.set(
+    'Accept',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  if (auth) {
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...requestInit,
+    headers,
+  })
+  if (!response.ok) {
+    throw new ApiError(
+      await responseErrorMessage(response),
+      response.status,
+    )
+  }
+  return response.blob()
+}
+
 export async function apiRequest<T>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
@@ -34,26 +62,44 @@ export async function apiRequest<T>(
   })
 
   if (!response.ok) {
-    let message = `请求失败：${response.status}`
-    try {
-      const payload = (await response.json()) as { detail?: unknown }
-      if (typeof payload.detail === 'string') {
-        message = payload.detail
-      } else if (Array.isArray(payload.detail) && payload.detail.length > 0) {
-        // FastAPI/Pydantic 422 校验错误：detail 是数组，提取首个字段和提示
-        const first = payload.detail[0] as { loc?: string[]; msg?: string }
-        const field = first?.loc?.slice(-1)[0]
-        message = first?.msg ?? message
-        if (field) message = `${field}: ${message}`
-      }
-    } catch {
-      // Keep the status-based message when the response is not JSON.
-    }
-    throw new ApiError(message, response.status)
+    throw new ApiError(
+      await responseErrorMessage(response),
+      response.status,
+    )
   }
 
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
+}
+
+async function responseErrorMessage(response: Response): Promise<string> {
+  let message = `请求失败：${response.status}`
+  try {
+    const payload = (await response.json()) as { detail?: unknown }
+    const detail = payload.detail
+    if (typeof detail === 'string') {
+      return detail
+    }
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as { loc?: string[]; msg?: string }
+      const field = first?.loc?.slice(-1)[0]
+      message = first?.msg ?? message
+      if (field) message = `${field}: ${message}`
+      return message
+    }
+    if (
+      detail &&
+      typeof detail === 'object' &&
+      'errors' in detail &&
+      Array.isArray(detail.errors) &&
+      detail.errors.length > 0
+    ) {
+      return detail.errors.map(String).join('\n')
+    }
+  } catch {
+    // Keep the status-based message when the response is not JSON.
+  }
+  return message
 }
 
 export { API_BASE_URL, TOKEN_KEY }

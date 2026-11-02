@@ -7,13 +7,39 @@
         <p>管理决策树内容、版本状态和发布流程。</p>
       </div>
       <div class="rule-package-toolbar__actions">
+        <button
+          type="button"
+          class="primary-action primary-action--compact"
+          @click="downloadExcelTemplate"
+        >
+          <FileSpreadsheet :size="16" />
+          下载 Excel 模板
+        </button>
+        <label class="secondary-action rule-package-upload">
+          <Upload :size="16" />
+          导入 Excel
+          <input
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            @change="importExcel"
+          />
+        </label>
+        <button
+          v-if="selectedPackage"
+          type="button"
+          class="secondary-action"
+          @click="exportSelectedExcel"
+        >
+          <Download :size="16" />
+          导出当前 Excel
+        </button>
         <button type="button" class="secondary-action" @click="loadTemplate">
           <FilePlus2 :size="16" />
           载入模板
         </button>
         <button type="button" class="secondary-action" @click="downloadTemplate">
           <Download :size="16" />
-          下载模板
+          下载 JSON 模板
         </button>
         <label class="primary-action primary-action--compact rule-package-upload">
           <Upload :size="16" />
@@ -218,6 +244,7 @@ import {
   CheckCircle2,
   Download,
   FilePlus2,
+  FileSpreadsheet,
   GitBranch,
   RefreshCw,
   Rocket,
@@ -228,7 +255,7 @@ import {
 } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
-import { apiRequest } from '../api/http'
+import { apiFile, apiRequest } from '../api/http'
 import WorkflowBlockDesigner from './WorkflowBlockDesigner.vue'
 import type {
   RulePackageDetail,
@@ -324,6 +351,36 @@ async function downloadTemplate() {
   }
 }
 
+async function downloadExcelTemplate() {
+  error.value = ''
+  success.value = ''
+  try {
+    const blob = await apiFile('/admin/rule-packages/template.xlsx')
+    saveBlob('workflow-rule-package-template.xlsx', blob)
+    success.value = 'Excel 模板已下载。'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Excel 模板下载失败'
+  }
+}
+
+async function exportSelectedExcel() {
+  if (!selectedPackage.value) return
+  error.value = ''
+  success.value = ''
+  try {
+    const blob = await apiFile(
+      `/admin/rule-packages/${selectedPackage.value.id}/export.xlsx`,
+    )
+    saveBlob(
+      `workflow-rule-package-${selectedPackage.value.version}.xlsx`,
+      blob,
+    )
+    success.value = '当前规则包已导出为 Excel。'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Excel 导出失败'
+  }
+}
+
 function downloadEditor() {
   const content = parseEditor()
   if (!content) return
@@ -334,12 +391,53 @@ function downloadJson(filename: string, content: unknown) {
   const blob = new Blob([JSON.stringify(content, null, 2)], {
     type: 'application/json;charset=utf-8',
   })
+  saveBlob(filename, blob)
+}
+
+function saveBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+async function importExcel(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.name.toLowerCase().endsWith('.xlsx')) {
+    error.value = '请选择 .xlsx 格式的规则包文件'
+    input.value = ''
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    error.value = 'Excel 文件不能超过 5 MiB'
+    input.value = ''
+    return
+  }
+  busy.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const formData = new FormData()
+    formData.append('file', file, file.name)
+    const response = await apiRequest<RulePackageDetail>(
+      '/admin/rule-packages/import-excel',
+      {
+        method: 'POST',
+        body: formData,
+      },
+    )
+    await loadPackages(response.id)
+    success.value = `已导入 Excel 草稿 ${response.package_id} · ${response.version}`
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Excel 规则包导入失败'
+  } finally {
+    busy.value = false
+    input.value = ''
+  }
 }
 
 async function importFile(event: Event) {

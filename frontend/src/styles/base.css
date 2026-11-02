@@ -1000,6 +1000,7 @@ summary:focus-visible {
   color: var(--lia-danger);
   padding: 8px 11px;
   font-size: 12px;
+  white-space: pre-line;
 }
 
 .tag-row {
