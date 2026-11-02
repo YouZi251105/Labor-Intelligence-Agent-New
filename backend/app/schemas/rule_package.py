@@ -60,3 +60,11 @@ class RulePackageValidationResponse(BaseModel):
 class RulePackageReviewRequest(BaseModel):
     decision: Literal["approved", "rejected"]
     note: str = Field(default="", max_length=2_000)
+
+
+class RulePackageExcelErrorDetail(BaseModel):
+    errors: list[str] = Field(min_length=1)
+
+
+class RulePackageExcelErrorResponse(BaseModel):
+    detail: RulePackageExcelErrorDetail
