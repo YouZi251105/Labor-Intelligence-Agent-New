@@ -2011,6 +2011,20 @@ summary:focus-visible {
   gap: 8px;
 }
 
+.streaming-message .streaming-status {
+  margin: 8px 0 0;
+  color: var(--lia-text-muted);
+  font-size: 12px;
+}
+
+.streaming-message .markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.streaming-message .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
 .spinner-dot {
   display: inline-block;
   width: 11px;

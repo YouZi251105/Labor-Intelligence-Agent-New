@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { apiFile, apiRequest } from './http'
+import { apiFile, apiRequest, apiStream } from './http'
 
 describe('apiFile', () => {
   afterEach(() => {
@@ -70,5 +70,42 @@ describe('apiFile', () => {
       message: '路径!F2：目标节点不存在\n阶段!B4：显示名称不能为空',
       status: 422,
     })
+  })
+
+  it('consumes authenticated server-sent events', async () => {
+    localStorage.setItem('lia_token', 'stream-token')
+    const encoder = new TextEncoder()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode('event: status\ndata: {"stage":"thinking"}\n\n'),
+        )
+        controller.enqueue(
+          encoder.encode('event: delta\ndata: {"text":"工资"}\n\n'),
+        )
+        controller.close()
+      },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const events: Array<[string, unknown]> = []
+
+    await apiStream('/cases/1/consultations/stream', {}, (event, data) => {
+      events.push([event, data])
+    })
+
+    expect(events).toEqual([
+      ['status', { stage: 'thinking' }],
+      ['delta', { text: '工资' }],
+    ])
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(new Headers(request.headers).get('Authorization')).toBe(
+      'Bearer stream-token',
+    )
   })
 })

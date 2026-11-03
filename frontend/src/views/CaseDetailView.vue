@@ -205,13 +205,33 @@
         >
           <span class="chat-message__role">{{ message.role === 'user' ? '你' : '劳务通' }}</span>
           <SafeMarkdown :content="message.content" />
+          <ReferenceMaterials
+            v-if="message.role === 'assistant'"
+            :references="referencesFromMessage(message)"
+          />
         </article>
-        <p v-if="!messages.length" class="muted-text">还没有咨询记录。</p>
+        <div
+          v-if="chatStreamingReply"
+          class="chat-message chat-message--assistant streaming-message"
+          aria-live="polite"
+        >
+          <span class="chat-message__role">劳务通</span>
+          <SafeMarkdown
+            v-if="chatStreamingReply.content"
+            :content="chatStreamingReply.content"
+            streaming
+          />
+          <p class="thinking-line streaming-status">
+            <span class="spinner-dot" />
+            {{ chatStreamingReply.status }}
+          </p>
+        </div>
+        <p v-if="!messages.length && !chatStreamingReply" class="muted-text">还没有咨询记录。</p>
       </div>
       <form v-if="!auth.isLawyer" class="chat-compose-inline" @submit.prevent="sendChat">
         <textarea v-model="chatInput" rows="3" placeholder="继续补充事实，系统会带上当前案件上下文。" />
         <button class="primary-action primary-action--compact" type="submit" :disabled="chatSending">
-          {{ chatSending ? '发送中...' : '发送' }}
+          {{ chatSending ? '生成中...' : '发送' }}
         </button>
       </form>
       <p v-else class="muted-text">你以承办律师身份查看咨询记录，仅当事人可以继续对话。</p>
@@ -797,8 +817,9 @@ import {
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { API_BASE_URL, ApiError, apiRequest, TOKEN_KEY } from '../api/http'
+import { API_BASE_URL, ApiError, apiRequest, apiStream, TOKEN_KEY } from '../api/http'
 import ConsultationChat from '../components/ConsultationChat.vue'
+import ReferenceMaterials from '../components/ReferenceMaterials.vue'
 import SafeMarkdown from '../components/SafeMarkdown.vue'
 import type {
   CaseItem,
@@ -826,6 +847,7 @@ import { useAuthStore } from '../stores/auth'
 import { useDictionaryStore } from '../stores/dictionary'
 import { splitLawyerRequests } from '../utils/lawyerRequests'
 import { confirmAction, notifySuccess } from '../utils/dialogs'
+import { referencesFromMessage } from '../utils/references'
 
 const route = useRoute()
 const router = useRouter()
@@ -848,6 +870,10 @@ const error = ref('')
 const suggestedNextStep = ref('')
 const chatInput = ref('')
 const chatSending = ref(false)
+const chatStreamingReply = ref<{
+  status: string
+  content: string
+} | null>(null)
 const uploading = ref(false)
 const contractText = ref('')
 const reviewing = ref(false)
@@ -1417,20 +1443,92 @@ async function sendChat() {
   const text = chatInput.value.trim()
   if (!text) return
   chatSending.value = true
+  chatStreamingReply.value = {
+    status: '正在理解你的问题…',
+    content: '',
+  }
+  let donePayload: ConsultationResponse | null = null
   try {
-    const response = await apiRequest<ConsultationResponse>(`/cases/${caseId}/consultations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
-    })
+    await apiStream(
+      `/cases/${caseId}/consultations/stream`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      },
+      (event, data) => {
+        const payload = (data ?? {}) as Record<string, unknown>
+        if (event === 'status') {
+          if (payload.case) {
+            caseItem.value = payload.case as CaseItem
+          }
+          const userMessage = payload.user_message as MessageItem | undefined
+          if (
+            userMessage &&
+            !messages.value.some((message) => message.id === userMessage.id)
+          ) {
+            messages.value.push(userMessage)
+          }
+          if (chatStreamingReply.value) {
+            chatStreamingReply.value = {
+              ...chatStreamingReply.value,
+              status:
+                typeof payload.label === 'string'
+                  ? payload.label
+                  : '正在生成回复…',
+            }
+          }
+          return
+        }
+        if (event === 'delta' && typeof payload.text === 'string') {
+          if (chatStreamingReply.value && payload.text) {
+            chatStreamingReply.value = {
+              ...chatStreamingReply.value,
+              content: chatStreamingReply.value.content + payload.text,
+            }
+          }
+          return
+        }
+        if (event === 'done') {
+          donePayload = payload as unknown as ConsultationResponse
+          return
+        }
+        if (event === 'error') {
+          throw new Error(
+            typeof payload.detail === 'string'
+              ? payload.detail
+              : '回复生成失败，请稍后重试',
+          )
+        }
+      },
+    )
+    const response = donePayload as ConsultationResponse | null
+    if (!response) {
+      throw new Error('流式回复提前结束，请重试')
+    }
+    messages.value = messages.value.filter(
+      (message) =>
+        message.id !== response.user_message.id &&
+        message.id !== response.assistant_message.id,
+    )
     messages.value.push(response.user_message, response.assistant_message)
     caseItem.value = response.case
     suggestedNextStep.value = response.suggested_next_step
     workflow.value = await apiRequest<WorkflowResponse>(`/cases/${caseId}/workflow`)
     chatInput.value = ''
   } catch (err) {
+    if (chatStreamingReply.value?.content.trim()) {
+      messages.value.push({
+        id: -Date.now(),
+        role: 'assistant',
+        content: chatStreamingReply.value.content,
+        metadata_json: { streaming_status: 'interrupted' },
+        created_at: new Date().toISOString(),
+      })
+    }
     error.value = err instanceof Error ? err.message : '发送失败'
   } finally {
+    chatStreamingReply.value = null
     chatSending.value = false
   }
 }

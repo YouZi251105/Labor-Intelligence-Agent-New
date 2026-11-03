@@ -1,6 +1,8 @@
+import asyncio
 import json
 import re
-from dataclasses import asdict, dataclass
+from collections.abc import AsyncIterator
+from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
 import httpx
@@ -23,6 +25,7 @@ class AIResult:
     summary: str
     follow_up_options: list["FollowUpOption"]
     intervention_recommendation: "InterventionRecommendation"
+    references: list["ReferenceItem"] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,20 @@ class InterventionRecommendation:
     level: Literal["none", "suggested", "urgent"]
     reasons: list[str]
     action: Literal["lawyer_request", "filing_review"]
+
+
+@dataclass(frozen=True)
+class ReferenceItem:
+    type: Literal["law", "case"]
+    id: str
+    title: str
+    excerpt: str = ""
+    source_name: str = ""
+    source_url: str = ""
+    review_status: str = "published"
+    case_no: str = ""
+    court: str = ""
+    year: int | None = None
 
 
 FOLLOW_UP_PATTERN = re.compile(
@@ -63,6 +80,127 @@ def parse_qwen_follow_ups(content: str) -> tuple[str, list[str]]:
     ][:4]
     clean = FOLLOW_UP_PATTERN.sub("", content).strip()
     return clean, options
+
+
+def extract_qwen_stream_text(line: str) -> str | None:
+    """Return a Qwen content delta from one OpenAI-compatible SSE line."""
+    stripped = line.strip()
+    if not stripped.startswith("data:"):
+        return None
+    payload = stripped.removeprefix("data:").strip()
+    if not payload or payload == "[DONE]":
+        return None
+    try:
+        body = json.loads(payload)
+        choices = body.get("choices") or []
+        delta = choices[0].get("delta") or {}
+        content = delta.get("content")
+    except (IndexError, TypeError, json.JSONDecodeError):
+        return None
+    return content if isinstance(content, str) and content else None
+
+
+def _reply_requirements(dispute_type: str) -> tuple[str, list[str], list[str]]:
+    next_step = {
+        "labor_confirmation": "补充入职时间、工作安排和工资支付记录，用于确认劳动关系。",
+        "labor_contract": "整理劳动合同、续签或变更沟通记录和工资流水。",
+        "labor_termination": "保存解除通知和沟通记录，核对解除理由。",
+        "labor_benefits": "查询社保缴费记录，保存考勤排班和工资流水。",
+        "labor_pay": "整理工资流水和欠薪聊天记录，确认金额。",
+        "labor_other": "补充对方主体信息、事情经过和现有材料。",
+        "service_pay": "整理结算单、聊天记录和转账凭证。",
+        "service_quality": "保存劳务合同、工作成果记录和验收沟通。",
+        "service_injury": "保存就医材料并固定事故经过证据。",
+        "service_breach": "整理劳务合同、解除沟通和结算凭证。",
+    }.get(dispute_type, "补充对方主体信息、事情经过和现有材料。")
+    required_information = {
+        "labor_confirmation": ["入职时间", "工作安排", "工资支付方式", "管理方式"],
+        "labor_contract": ["入职时间", "合同签订情况", "实际用工安排", "工资支付方式"],
+        "labor_termination": ["解除时间", "解除原因", "是否收到书面通知", "工资标准"],
+        "labor_benefits": ["工作起止时间", "工时安排", "社保缴费情况", "工资标准"],
+        "labor_pay": ["用工主体", "入职时间", "工资标准", "金额和发生时间"],
+        "labor_other": ["对方主体", "事情经过", "当前诉求", "现有材料"],
+        "service_pay": ["委托方主体", "工作成果", "结算约定", "欠款金额"],
+        "service_quality": ["委托方主体", "工作内容", "质量约定", "争议焦点"],
+        "service_injury": ["受伤时间", "就医情况", "事故发生经过", "劳务关系"],
+        "service_breach": ["委托方主体", "合同约定", "解除经过", "损失情况"],
+    }.get(dispute_type, ["对方主体", "事情经过", "当前诉求", "现有材料"])
+    evidence_gaps = {
+        "labor_confirmation": ["工资或转账记录", "工作安排聊天记录", "工牌工服等用工证明"],
+        "labor_contract": ["劳动合同", "实际用工记录", "工资流水", "考勤记录"],
+        "labor_termination": ["解除通知", "聊天记录", "劳动合同", "工资流水"],
+        "labor_benefits": ["社保缴费记录", "考勤或排班记录", "工资流水"],
+        "labor_pay": ["工资或转账记录", "聊天记录", "劳动合同或其他用工证明"],
+        "labor_other": ["聊天记录", "合同", "工资记录", "其他事实材料"],
+        "service_pay": ["结算单", "聊天记录", "转账记录", "工作成果"],
+        "service_quality": ["劳务合同", "工作成果记录", "验收或返工沟通记录"],
+        "service_injury": ["就医材料", "事故经过记录", "劳务关系证明"],
+        "service_breach": ["劳务合同", "解除沟通记录", "结算凭证"],
+    }.get(dispute_type, ["聊天记录", "合同", "工资记录", "其他事实材料"])
+    return next_step, required_information, evidence_gaps
+
+
+def _build_qwen_prompt(
+    case: Case,
+    text: str,
+    history: list[Message],
+    *,
+    request_follow_ups: bool,
+) -> str:
+    history_context = "\n".join(
+        f"{item.role}: {item.content}" for item in history[-8:]
+    )
+    follow_up_instruction = (
+        "回答后另起一行输出 2 至 4 个用户可以继续点击追问的问题，格式必须是："
+        '<FOLLOW_UPS>["问题1","问题2","问题3"]</FOLLOW_UPS>。'
+        "问题要简短、具体，不重复用户原问题。"
+        if request_follow_ups
+        else ""
+    )
+    return (
+        "你是劳务通的法律咨询助手。请先识别问题类别，再给出简洁建议。"
+        "不得保证结果，不得编造法条。"
+        f"{follow_up_instruction}"
+        f"案件事实：{case.facts}\n历史对话：{history_context}\n用户新消息：{text}"
+    )
+
+
+def _result_from_reply(
+    *,
+    case: Case,
+    text: str,
+    reply: str,
+    classification: dict[str, Any],
+    recommendation: InterventionRecommendation,
+    next_step: str,
+    required_information: list[str],
+    evidence_gaps: list[str],
+    demo_mode: bool,
+    model_suggestions: list[str] | None = None,
+) -> AIResult:
+    return AIResult(
+        reply=reply,
+        classification=classification,
+        suggested_next_step=next_step,
+        demo_mode=demo_mode,
+        required_information=required_information,
+        evidence_gaps=evidence_gaps,
+        risk_flags=["注意仲裁时效和材料完整性，关键判断建议人工复核。"],
+        citations=[],
+        summary=(
+            f"初步判断为{classification['dispute_label']}，需要补充信息和材料后继续处理。"
+            if demo_mode
+            else reply[:180]
+        ),
+        follow_up_options=build_follow_up_options(
+            f"{case.facts}\n{text}",
+            required_information,
+            next_step,
+            recommendation,
+            model_suggestions,
+        ),
+        intervention_recommendation=recommendation,
+    )
 
 
 def build_follow_up_options(
@@ -267,6 +405,7 @@ def structured_result(result: AIResult) -> dict[str, Any]:
         "evidence_gaps": result.evidence_gaps,
         "risk_flags": result.risk_flags,
         "citations": result.citations,
+        "references": [asdict(item) for item in result.references],
         "demo_mode": result.demo_mode,
         "follow_up_options": [asdict(item) for item in result.follow_up_options],
         "intervention_recommendation": asdict(result.intervention_recommendation),
@@ -282,57 +421,17 @@ async def generate_ai_reply(
     classification = classify_message(text)
     recommendation = assess_intervention_recommendation(text, classification)
     dispute_type = classification["dispute_type"]
-    next_step = {
-        "labor_confirmation": "补充入职时间、工作安排和工资支付记录，用于确认劳动关系。",
-        "labor_contract": "整理劳动合同、续签或变更沟通记录和工资流水。",
-        "labor_termination": "保存解除通知和沟通记录，核对解除理由。",
-        "labor_benefits": "查询社保缴费记录，保存考勤排班和工资流水。",
-        "labor_pay": "整理工资流水和欠薪聊天记录，确认金额。",
-        "labor_other": "补充对方主体信息、事情经过和现有材料。",
-        "service_pay": "整理结算单、聊天记录和转账凭证。",
-        "service_quality": "保存劳务合同、工作成果记录和验收沟通。",
-        "service_injury": "保存就医材料并固定事故经过证据。",
-        "service_breach": "整理劳务合同、解除沟通和结算凭证。",
-    }.get(dispute_type, "补充对方主体信息、事情经过和现有材料。")
-    required_information = {
-        "labor_confirmation": ["入职时间", "工作安排", "工资支付方式", "管理方式"],
-        "labor_contract": ["入职时间", "合同签订情况", "实际用工安排", "工资支付方式"],
-        "labor_termination": ["解除时间", "解除原因", "是否收到书面通知", "工资标准"],
-        "labor_benefits": ["工作起止时间", "工时安排", "社保缴费情况", "工资标准"],
-        "labor_pay": ["用工主体", "入职时间", "工资标准", "金额和发生时间"],
-        "labor_other": ["对方主体", "事情经过", "当前诉求", "现有材料"],
-        "service_pay": ["委托方主体", "工作成果", "结算约定", "欠款金额"],
-        "service_quality": ["委托方主体", "工作内容", "质量约定", "争议焦点"],
-        "service_injury": ["受伤时间", "就医情况", "事故发生经过", "劳务关系"],
-        "service_breach": ["委托方主体", "合同约定", "解除经过", "损失情况"],
-    }.get(dispute_type, ["对方主体", "事情经过", "当前诉求", "现有材料"])
-    evidence_gaps = {
-        "labor_confirmation": ["工资或转账记录", "工作安排聊天记录", "工牌工服等用工证明"],
-        "labor_contract": ["劳动合同", "实际用工记录", "工资流水", "考勤记录"],
-        "labor_termination": ["解除通知", "聊天记录", "劳动合同", "工资流水"],
-        "labor_benefits": ["社保缴费记录", "考勤或排班记录", "工资流水"],
-        "labor_pay": ["工资或转账记录", "聊天记录", "劳动合同或其他用工证明"],
-        "labor_other": ["聊天记录", "合同", "工资记录", "其他事实材料"],
-        "service_pay": ["结算单", "聊天记录", "转账记录", "工作成果"],
-        "service_quality": ["劳务合同", "工作成果记录", "验收或返工沟通记录"],
-        "service_injury": ["就医材料", "事故经过记录", "劳务关系证明"],
-        "service_breach": ["劳务合同", "解除沟通记录", "结算凭证"],
-    }.get(dispute_type, ["聊天记录", "合同", "工资记录", "其他事实材料"])
-    risk_flags = ["注意仲裁时效和材料完整性，关键判断建议人工复核。"]
-    follow_up_context = f"{case.facts}\n{text}"
+    next_step, required_information, evidence_gaps = _reply_requirements(
+        dispute_type
+    )
 
     if settings.qianwen_api_key:
         try:
-            history_context = "\n".join(
-                f"{item.role}: {item.content}" for item in history[-8:]
-            )
-            prompt = (
-                "你是劳务通的法律咨询助手。请先识别问题类别，再给出简洁建议。"
-                "不得保证结果，不得编造法条。回答后另起一行输出 2 至 4 个"
-                "用户可以继续点击追问的问题，格式必须是："
-                '<FOLLOW_UPS>["问题1","问题2","问题3"]</FOLLOW_UPS>。'
-                "问题要简短、具体，不重复用户原问题。案件事实："
-                f"{case.facts}\n历史对话：{history_context}\n用户新消息：{text}"
+            prompt = _build_qwen_prompt(
+                case,
+                text,
+                history,
+                request_follow_ups=True,
             )
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
@@ -352,46 +451,154 @@ async def generate_ai_reply(
             clean_content, model_suggestions = parse_qwen_follow_ups(content)
             if not clean_content:
                 raise ValueError("Qwen returned an empty reply")
-            return AIResult(
+            return _result_from_reply(
+                case=case,
+                text=text,
                 reply=clean_content,
                 classification=classification,
-                suggested_next_step=next_step,
-                demo_mode=False,
+                recommendation=recommendation,
+                next_step=next_step,
                 required_information=required_information,
                 evidence_gaps=evidence_gaps,
-                risk_flags=risk_flags,
-                citations=[],
-                summary=clean_content[:180],
-                follow_up_options=build_follow_up_options(
-                    follow_up_context,
-                    required_information,
-                    next_step,
-                    recommendation,
-                    model_suggestions,
-                ),
-                intervention_recommendation=recommendation,
+                demo_mode=False,
+                model_suggestions=model_suggestions,
             )
         except (httpx.HTTPError, KeyError, TypeError, ValueError):
             pass
 
-    return AIResult(
+    return _result_from_reply(
+        case=case,
+        text=text,
         reply=build_demo_reply(case, text, classification, history),
         classification=classification,
-        suggested_next_step=next_step,
-        demo_mode=True,
+        recommendation=recommendation,
+        next_step=next_step,
         required_information=required_information,
         evidence_gaps=evidence_gaps,
-        risk_flags=risk_flags,
-        citations=[],
-        summary=f"初步判断为{classification['dispute_label']}，需要补充信息和材料后继续处理。",
-        follow_up_options=build_follow_up_options(
-            follow_up_context,
-            required_information,
-            next_step,
-            recommendation,
-        ),
-        intervention_recommendation=recommendation,
+        demo_mode=True,
     )
+
+
+async def _stream_qwen_content(
+    *,
+    prompt: str,
+    text: str,
+    settings,
+) -> AsyncIterator[str]:
+    async with (
+        httpx.AsyncClient(timeout=60) as client,
+        client.stream(
+            "POST",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.qianwen_api_key}"},
+            json={
+                "model": settings.qianwen_model,
+                "messages": [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": text},
+                ],
+                "temperature": 0.3,
+                "stream": True,
+            },
+        ) as response,
+    ):
+        response.raise_for_status()
+        async for line in response.aiter_lines():
+            content = extract_qwen_stream_text(line)
+            if content:
+                yield content
+
+
+async def generate_ai_reply_stream(
+    case: Case,
+    text: str,
+    history: list[Message],
+) -> AsyncIterator[dict[str, Any]]:
+    """Yield safe UI events while reading real Qwen content tokens."""
+    settings = get_settings()
+    classification = classify_message(text)
+    recommendation = assess_intervention_recommendation(text, classification)
+    next_step, required_information, evidence_gaps = _reply_requirements(
+        classification["dispute_type"]
+    )
+
+    yield {
+        "type": "status",
+        "stage": "thinking",
+        "label": "正在理解你的问题…",
+    }
+
+    generating_sent = False
+    if settings.qianwen_api_key:
+        try:
+            prompt = _build_qwen_prompt(
+                case,
+                text,
+                history,
+                request_follow_ups=False,
+            )
+            parts: list[str] = []
+            async for content in _stream_qwen_content(
+                prompt=prompt,
+                text=text,
+                settings=settings,
+            ):
+                if not generating_sent:
+                    generating_sent = True
+                    yield {
+                        "type": "status",
+                        "stage": "generating",
+                        "label": "正在生成回复…",
+                    }
+                parts.append(content)
+                yield {"type": "delta", "text": content}
+            reply = "".join(parts).strip()
+            if not reply:
+                raise ValueError("Qwen stream returned an empty reply")
+            yield {
+                "type": "complete",
+                "result": _result_from_reply(
+                    case=case,
+                    text=text,
+                    reply=reply,
+                    classification=classification,
+                    recommendation=recommendation,
+                    next_step=next_step,
+                    required_information=required_information,
+                    evidence_gaps=evidence_gaps,
+                    demo_mode=False,
+                ),
+            }
+            return
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
+            if generating_sent:
+                raise
+
+    if not generating_sent:
+        yield {
+            "type": "status",
+            "stage": "generating",
+            "label": "正在生成回复…",
+        }
+    reply = build_demo_reply(case, text, classification, history)
+    for start in range(0, len(reply), 24):
+        chunk = reply[start : start + 24]
+        yield {"type": "delta", "text": chunk}
+        await asyncio.sleep(0.02)
+    yield {
+        "type": "complete",
+        "result": _result_from_reply(
+            case=case,
+            text=text,
+            reply=reply,
+            classification=classification,
+            recommendation=recommendation,
+            next_step=next_step,
+            required_information=required_information,
+            evidence_gaps=evidence_gaps,
+            demo_mode=True,
+        ),
+    }
 
 
 def _information_present(label: str, context: str) -> bool:

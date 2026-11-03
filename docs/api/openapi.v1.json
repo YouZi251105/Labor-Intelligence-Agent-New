@@ -717,6 +717,61 @@
         }
       }
     },
+    "/api/v1/cases/{case_id}/consultations/stream": {
+      "post": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "Consult Case Stream",
+        "operationId": "consult_case_stream_api_v1_cases__case_id__consultations_stream_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cases/{case_id}/evidence": {
       "get": {
         "tags": [
@@ -7360,6 +7415,74 @@
         ],
         "title": "PasswordResetRequest"
       },
+      "ReferenceItemRead": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "law",
+              "case"
+            ],
+            "title": "Type"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt",
+            "default": ""
+          },
+          "source_name": {
+            "type": "string",
+            "title": "Source Name",
+            "default": ""
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url",
+            "default": ""
+          },
+          "review_status": {
+            "type": "string",
+            "title": "Review Status",
+            "default": "published"
+          },
+          "case_no": {
+            "type": "string",
+            "title": "Case No",
+            "default": ""
+          },
+          "court": {
+            "type": "string",
+            "title": "Court",
+            "default": ""
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "id",
+          "title"
+        ],
+        "title": "ReferenceItemRead"
+      },
       "RegisterRequest": {
         "properties": {
           "username": {
@@ -8487,6 +8610,13 @@
             "type": "array",
             "title": "Citations"
           },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceItemRead"
+            },
+            "type": "array",
+            "title": "References"
+          },
           "demo_mode": {
             "type": "boolean",
             "title": "Demo Mode"
@@ -8513,6 +8643,7 @@
           "evidence_gaps",
           "risk_flags",
           "citations",
+          "references",
           "demo_mode",
           "follow_up_options",
           "intervention_recommendation"
