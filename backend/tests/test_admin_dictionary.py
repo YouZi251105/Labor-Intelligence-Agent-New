@@ -204,6 +204,53 @@ def test_publish_updates_meta_and_runtime_behavior() -> None:
     assert result["completeness"]["missing_categories"] == ["chat"]
 
 
+def test_new_custom_dispute_type_supports_consultation() -> None:
+    """管理端新增自定义分类后，咨询链路不得因 AI 提示映射缺失而 500。"""
+    with TestClient(app) as client:
+        admin_token = login(client, "admin", "Admin123!")
+        content = dictionary.build_default_package()
+        content["disputes"].append(
+            {
+                "value": "service_contract",
+                "label": "劳务合同订立争议",
+                "group": "service",
+                "keywords": ["劳务合同签订"],
+                "required_categories": ["contract", "chat"],
+                "core_categories": ["contract"],
+                "claim_text": "请求确认劳务合同关系并处理相关争议。",
+            }
+        )
+        created = client.post(
+            "/api/v1/admin/dictionary/versions",
+            headers=auth(admin_token),
+            json={"content": content},
+        )
+        assert created.status_code == 201
+        published = client.post(
+            f"/api/v1/admin/dictionary/versions/{created.json()['id']}/publish",
+            headers=auth(admin_token),
+        )
+        assert published.status_code == 200
+
+        user_token = login(client, "demo", "Demo123!")
+        case = client.post(
+            "/api/v1/cases",
+            headers=auth(user_token),
+            json={
+                "title": "新分类咨询",
+                "dispute_type": "service_contract",
+                "facts": "双方就劳务合同签订发生争议。",
+            },
+        )
+        assert case.status_code == 201
+        consultation = client.post(
+            f"/api/v1/cases/{case.json()['id']}/consultations",
+            headers=auth(user_token),
+            json={"message": "劳务合同签订后对方不认可，怎么办？"},
+        )
+        assert consultation.status_code == 200
+
+
 def test_new_publish_retires_previous_version() -> None:
     with TestClient(app) as client:
         admin_token = login(client, "admin", "Admin123!")

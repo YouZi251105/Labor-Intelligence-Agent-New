@@ -51,7 +51,9 @@ def build_demo_reply(
     history: list[Message],
 ) -> str:
     label = classification["dispute_label"]
+    dispute_type = classification["dispute_type"]
     relationship = "劳务关系" if classification["legal_relationship"] == "service" else "劳动关系"
+    # 自定义分类可能没有内置提示文案，回落到兜底分类的表述。
     evidence_hint = {
         "labor_confirmation": "实际用工记录、工资流水和工作安排聊天记录",
         "labor_contract": "劳动合同、实际用工记录、工资流水和工作安排聊天记录",
@@ -63,7 +65,9 @@ def build_demo_reply(
         "service_quality": "劳务合同、工作成果记录、验收或返工沟通记录",
         "service_injury": "就医材料、事故经过、现场记录和劳务关系证明",
         "service_breach": "劳务合同、解除沟通记录和结算凭证",
-    }[classification["dispute_type"]]
+    }.get(
+        dispute_type, "聊天记录、合同、工资记录和能够说明事情经过的材料"
+    )
 
     previous_user_messages = [item.content for item in history if item.role == "user"]
     context_line = (
@@ -105,6 +109,7 @@ async def generate_ai_reply(
 ) -> AIResult:
     settings = get_settings()
     classification = classify_message(text)
+    dispute_type = classification["dispute_type"]
     next_step = {
         "labor_confirmation": "补充入职时间、工作安排和工资支付记录，用于确认劳动关系。",
         "labor_contract": "整理劳动合同、续签或变更沟通记录和工资流水。",
@@ -116,7 +121,7 @@ async def generate_ai_reply(
         "service_quality": "保存劳务合同、工作成果记录和验收沟通。",
         "service_injury": "保存就医材料并固定事故经过证据。",
         "service_breach": "整理劳务合同、解除沟通和结算凭证。",
-    }[classification["dispute_type"]]
+    }.get(dispute_type, "补充对方主体信息、事情经过和现有材料。")
     required_information = {
         "labor_confirmation": ["入职时间", "工作安排", "工资支付方式", "管理方式"],
         "labor_contract": ["入职时间", "合同签订情况", "实际用工安排", "工资支付方式"],
@@ -128,7 +133,7 @@ async def generate_ai_reply(
         "service_quality": ["委托方主体", "工作内容", "质量约定", "争议焦点"],
         "service_injury": ["受伤时间", "就医情况", "事故发生经过", "劳务关系"],
         "service_breach": ["委托方主体", "合同约定", "解除经过", "损失情况"],
-    }[classification["dispute_type"]]
+    }.get(dispute_type, ["对方主体", "事情经过", "当前诉求", "现有材料"])
     evidence_gaps = {
         "labor_confirmation": ["工资或转账记录", "工作安排聊天记录", "工牌工服等用工证明"],
         "labor_contract": ["劳动合同", "实际用工记录", "工资流水", "考勤记录"],
@@ -140,7 +145,7 @@ async def generate_ai_reply(
         "service_quality": ["劳务合同", "工作成果记录", "验收或返工沟通记录"],
         "service_injury": ["就医材料", "事故经过记录", "劳务关系证明"],
         "service_breach": ["劳务合同", "解除沟通记录", "结算凭证"],
-    }[classification["dispute_type"]]
+    }.get(dispute_type, ["聊天记录", "合同", "工资记录", "其他事实材料"])
     risk_flags = ["注意仲裁时效和材料完整性，关键判断建议人工复核。"]
 
     if settings.qianwen_api_key:
