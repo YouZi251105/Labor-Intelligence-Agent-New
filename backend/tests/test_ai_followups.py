@@ -63,3 +63,38 @@ def test_qwen_follow_up_delimiter_is_removed_and_validated() -> None:
         "怎么证明劳动关系？",
         "可以申请律师复核吗？",
     ]
+
+
+def test_high_risk_case_recommends_filing_review_action() -> None:
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "demo", "password": "Demo123!"},
+        )
+        token = login.json()["access_token"]
+        created = client.post(
+            "/api/v1/cases",
+            headers=auth(token),
+            json={
+                "title": "工伤仲裁前复核",
+                "dispute_type": "labor_pay",
+                "location": "上海市",
+                "facts": "工伤后公司不承认，我准备马上申请仲裁。",
+            },
+        )
+        response = client.post(
+            f"/api/v1/cases/{created.json()['id']}/consultations",
+            headers=auth(token),
+            json={"message": "工伤还没处理，我准备直接申请仲裁，需要准备什么？"},
+        )
+
+    assert response.status_code == 200
+    structured = response.json()["structured"]
+    recommendation = structured["intervention_recommendation"]
+    assert recommendation["recommended"] is True
+    assert recommendation["level"] == "urgent"
+    assert recommendation["action"] == "filing_review"
+    assert recommendation["reasons"]
+    assert "filing_review" in {
+        item["kind"] for item in structured["follow_up_options"]
+    }

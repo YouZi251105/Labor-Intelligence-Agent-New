@@ -4,12 +4,13 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.document import Document, DocumentEvidence
 from app.models.evidence import Evidence
+from app.models.lawyer_service import CaseReview
 from app.routes.cases import get_accessible_case, get_worker_owned_case
 from app.schemas.document import (
     DocumentCreate,
@@ -110,6 +111,55 @@ async def list_documents(
         .order_by(Document.created_at.desc())
     )
     return [await to_document_read(document, session) for document in results]
+
+
+@router.post(
+    "/{case_id}/documents/{document_id}/mark-ready",
+    response_model=DocumentRead,
+)
+async def mark_document_ready(
+    case_id: int,
+    document_id: int,
+    session: DbSession,
+    user: CompleteWorkerProfile,
+) -> DocumentRead:
+    """Allow the latest reviewed document version to become a filing candidate."""
+    await get_worker_owned_case(case_id, session, user)
+    document = await get_case_document(case_id, document_id, session, user)
+    review = await session.scalar(
+        select(CaseReview).where(
+            CaseReview.case_id == case_id,
+            CaseReview.status == "reviewed",
+            CaseReview.conclusion == "ready_to_file",
+        )
+    )
+    if review is None:
+        raise HTTPException(
+            status_code=409,
+            detail="正式提交前必须完成人工复核，并确认材料可以立案",
+        )
+    latest_version = await session.scalar(
+        select(func.max(Document.version)).where(
+            Document.case_id == case_id,
+            Document.doc_type == document.doc_type,
+        )
+    )
+    if latest_version != document.version:
+        raise HTTPException(status_code=409, detail="只能标记当前文书的最新版本")
+
+    document.status = "ready"
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            action="document.marked_ready",
+            object_type="document",
+            object_id=document.id,
+            metadata_json={"review_id": review.id},
+        )
+    )
+    await session.commit()
+    await session.refresh(document)
+    return await to_document_read(document, session)
 
 
 @router.post(

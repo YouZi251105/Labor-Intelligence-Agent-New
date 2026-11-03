@@ -9,6 +9,7 @@ RequestStatus = Literal[
 RequestPriority = Literal["normal", "urgent"]
 RequestSlot = Literal["morning", "afternoon", "evening"]
 ReviewConclusion = Literal["ready_to_file", "need_more", "not_recommended"]
+ResolutionDecision = Literal["self_handle", "lawyer_assist", "pause"]
 
 SLOT_LABELS: dict[str, str] = {
     "morning": "上午 09:00-12:00",
@@ -109,3 +110,7 @@ class CaseReviewDecision(BaseModel):
 class CaseReviewSubmit(BaseModel):
     conclusion: ReviewConclusion
     comment: str = Field(default="", max_length=2_000)
+
+
+class CaseResolutionUpdate(BaseModel):
+    decision: ResolutionDecision

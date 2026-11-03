@@ -56,4 +56,28 @@ describe('followUpOptions', () => {
 
     expect(result).toHaveLength(4)
   })
+
+  it('preserves lawyer and filing review action options', () => {
+    const result = followUpOptions(
+      assistantMessage([
+        {
+          id: 'lawyer',
+          label: '预约律师',
+          message: '申请律师介入',
+          kind: 'lawyer_request',
+        },
+        {
+          id: 'review',
+          label: '申请立案前复核',
+          message: '申请正式流程前复核',
+          kind: 'filing_review',
+        },
+      ]),
+    )
+
+    expect(result.map((item) => item.kind)).toEqual([
+      'lawyer_request',
+      'filing_review',
+    ])
+  })
 })

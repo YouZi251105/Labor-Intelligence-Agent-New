@@ -18,7 +18,10 @@ export function followUpOptions(message: MessageItem): FollowUpOption[] {
         !item.label.trim() ||
         typeof item.message !== 'string' ||
         !item.message.trim() ||
-        (item.kind !== 'send' && item.kind !== 'fill')
+        (item.kind !== 'send' &&
+          item.kind !== 'fill' &&
+          item.kind !== 'lawyer_request' &&
+          item.kind !== 'filing_review')
       ) {
         return []
       }

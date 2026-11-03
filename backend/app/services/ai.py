@@ -22,6 +22,7 @@ class AIResult:
     citations: list[str]
     summary: str
     follow_up_options: list["FollowUpOption"]
+    intervention_recommendation: "InterventionRecommendation"
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,15 @@ class FollowUpOption:
     id: str
     label: str
     message: str
-    kind: Literal["send", "fill"]
+    kind: Literal["send", "fill", "lawyer_request", "filing_review"]
+
+
+@dataclass(frozen=True)
+class InterventionRecommendation:
+    recommended: bool
+    level: Literal["none", "suggested", "urgent"]
+    reasons: list[str]
+    action: Literal["lawyer_request", "filing_review"]
 
 
 FOLLOW_UP_PATTERN = re.compile(
@@ -60,6 +69,7 @@ def build_follow_up_options(
     context: str,
     required_information: list[str],
     next_step: str,
+    recommendation: InterventionRecommendation,
     model_suggestions: list[str] | None = None,
 ) -> list[FollowUpOption]:
     """Combine missing-information prompts with model or local next questions."""
@@ -87,6 +97,27 @@ def build_follow_up_options(
     seen_messages.add(fill_message)
     seen_labels = {options[0].label}
 
+    if recommendation.recommended:
+        action_label = (
+            "申请律师介入"
+            if recommendation.action == "lawyer_request"
+            else "申请正式流程前复核"
+        )
+        action_message = (
+            "申请律师介入"
+            if recommendation.action == "lawyer_request"
+            else "申请正式流程前复核"
+        )
+        options.append(
+            FollowUpOption(
+                id=f"recommended-{recommendation.action}",
+                label=action_label,
+                message=action_message,
+                kind=recommendation.action,
+            )
+        )
+        seen_labels.add(action_label)
+
     suggestions = model_suggestions or [
         "请根据我的情况，列出现有材料还可能缺少哪些关键材料。",
         f"{next_step} 请进一步说明我应该先协商、投诉还是申请仲裁。",
@@ -112,6 +143,51 @@ def build_follow_up_options(
         if len(options) >= 4:
             break
     return options
+
+
+def assess_intervention_recommendation(
+    text: str,
+    classification: dict[str, Any],
+) -> InterventionRecommendation:
+    """Recommend a lawyer workflow without assigning one automatically."""
+    filing_terms = ("仲裁", "起诉", "法院", "立案", "开庭", "申请书")
+    urgent_terms = ("工伤", "时效", "马上", "紧急", "尽快", "期限", "今天", "明天")
+    complex_terms = (
+        "复杂",
+        "不承认",
+        "没签合同",
+        "包工头",
+        "多个",
+        "证据不足",
+        "不知道",
+    )
+    reasons: list[str] = []
+    action: Literal["lawyer_request", "filing_review"] = "lawyer_request"
+    if any(term in text for term in filing_terms):
+        action = "filing_review"
+        reasons.append("用户提到仲裁、起诉或正式立案流程")
+    if any(term in text for term in urgent_terms):
+        reasons.append("问题涉及工伤、期限或紧急处理")
+    if any(term in text for term in complex_terms):
+        reasons.append("当前事实或责任关系需要人工判断")
+    if classification["dispute_type"] in {"labor_confirmation", "service_injury"}:
+        reasons.append("该纠纷类型涉及关系认定或人身损害，风险较高")
+
+    level: Literal["none", "suggested", "urgent"]
+    if any(term in text for term in urgent_terms) or classification[
+        "dispute_type"
+    ] == "service_injury":
+        level = "urgent"
+    elif reasons:
+        level = "suggested"
+    else:
+        level = "none"
+    return InterventionRecommendation(
+        recommended=bool(reasons),
+        level=level,
+        reasons=list(dict.fromkeys(reasons)),
+        action=action,
+    )
 
 
 def classify_message(text: str) -> dict[str, Any]:
@@ -193,6 +269,7 @@ def structured_result(result: AIResult) -> dict[str, Any]:
         "citations": result.citations,
         "demo_mode": result.demo_mode,
         "follow_up_options": [asdict(item) for item in result.follow_up_options],
+        "intervention_recommendation": asdict(result.intervention_recommendation),
     }
 
 
@@ -203,6 +280,7 @@ async def generate_ai_reply(
 ) -> AIResult:
     settings = get_settings()
     classification = classify_message(text)
+    recommendation = assess_intervention_recommendation(text, classification)
     dispute_type = classification["dispute_type"]
     next_step = {
         "labor_confirmation": "补充入职时间、工作安排和工资支付记录，用于确认劳动关系。",
@@ -288,8 +366,10 @@ async def generate_ai_reply(
                     follow_up_context,
                     required_information,
                     next_step,
+                    recommendation,
                     model_suggestions,
                 ),
+                intervention_recommendation=recommendation,
             )
         except (httpx.HTTPError, KeyError, TypeError, ValueError):
             pass
@@ -308,7 +388,9 @@ async def generate_ai_reply(
             follow_up_context,
             required_information,
             next_step,
+            recommendation,
         ),
+        intervention_recommendation=recommendation,
     )
 
 

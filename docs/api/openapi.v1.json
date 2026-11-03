@@ -1481,6 +1481,63 @@
         }
       }
     },
+    "/api/v1/cases/{case_id}/documents/{document_id}/mark-ready": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Mark Document Ready",
+        "description": "Allow the latest reviewed document version to become a filing candidate.",
+        "operationId": "mark_document_ready_api_v1_cases__case_id__documents__document_id__mark_ready_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cases/{case_id}/documents/{document_id}/revisions": {
       "post": {
         "tags": [
@@ -2350,6 +2407,64 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CaseReviewRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/cases/{case_id}/resolution": {
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Record Case Resolution",
+        "description": "Record the user's final choice for continuing the case.",
+        "operationId": "record_case_resolution_api_v1_lawyer_service_cases__case_id__resolution_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseResolutionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseRead"
                 }
               }
             }
@@ -5266,6 +5381,24 @@
         ],
         "title": "CaseRead"
       },
+      "CaseResolutionUpdate": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "self_handle",
+              "lawyer_assist",
+              "pause"
+            ],
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "CaseResolutionUpdate"
+      },
       "CaseReviewDecision": {
         "properties": {
           "decision": {
@@ -6560,7 +6693,9 @@
             "type": "string",
             "enum": [
               "send",
-              "fill"
+              "fill",
+              "lawyer_request",
+              "filing_review"
             ],
             "title": "Kind"
           }
@@ -6728,6 +6863,46 @@
           "cases"
         ],
         "title": "HistoryResponse"
+      },
+      "InterventionRecommendationRead": {
+        "properties": {
+          "recommended": {
+            "type": "boolean",
+            "title": "Recommended"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "none",
+              "suggested",
+              "urgent"
+            ],
+            "title": "Level"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "lawyer_request",
+              "filing_review"
+            ],
+            "title": "Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recommended",
+          "level",
+          "reasons",
+          "action"
+        ],
+        "title": "InterventionRecommendationRead"
       },
       "LawyerOpinionCreate": {
         "properties": {
@@ -8322,6 +8497,9 @@
             },
             "type": "array",
             "title": "Follow Up Options"
+          },
+          "intervention_recommendation": {
+            "$ref": "#/components/schemas/InterventionRecommendationRead"
           }
         },
         "type": "object",
@@ -8336,7 +8514,8 @@
           "risk_flags",
           "citations",
           "demo_mode",
-          "follow_up_options"
+          "follow_up_options",
+          "intervention_recommendation"
         ],
         "title": "StructuredAIResult"
       },

@@ -184,6 +184,41 @@ test('worker can continue with a clickable AI follow-up option', async ({ page }
   await expect(page.locator('.chat-message--assistant')).toHaveCount(assistantCount + 1)
 })
 
+test('worker can request lawyer intervention and confirm self handling', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, '律师介入闭环')
+  await page.goto('/')
+  await page.getByRole('button', { name: '申请律师介入', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/cases/${caseId}\\?tab=lawyer&request=1`))
+  await expect(page.getByRole('heading', { name: '预约律师协助' })).toBeVisible()
+
+  await page.goto(`/cases/${caseId}`)
+  await page.getByRole('button', { name: '由我自己继续办理', exact: true }).click()
+  await expect(page.getByText('后续办理方式已记录')).toBeVisible()
+})
+
+test('high-risk consultation can jump to filing review', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, '工伤仲裁前复核入口')
+  await page.goto('/')
+
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith(`/api/v1/cases/${caseId}/consultations`),
+  )
+  await page
+    .getByPlaceholder(/描述情况/)
+    .fill('工伤后公司不承认，我准备马上申请仲裁，需要准备什么？')
+  await page.getByRole('button', { name: '发送问题', exact: true }).click()
+  expect((await responsePromise).ok()).toBeTruthy()
+
+  await expect(page.getByText('建议律师介入')).toBeVisible()
+  await page.getByRole('button', { name: '申请复核', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/cases/${caseId}\\?tab=lawyer&review=1`))
+  await expect(page.getByRole('heading', { name: '立案前人工复核' })).toBeVisible()
+})
+
 test('simulation and help pages use one scroll layer at 100 percent zoom', async ({ page }) => {
   await login(page, 'demo', 'Demo123!')
 

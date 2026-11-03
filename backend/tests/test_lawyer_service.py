@@ -733,3 +733,20 @@ def test_review_flow_and_duplicate_conflict() -> None:
         )
         assert got.status_code == 200
         assert got.json()["conclusion"] == "ready_to_file"
+
+
+def test_case_resolution_is_recorded_in_case_context() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        case_id = create_case(client, user_token, "最终去向确认")
+
+        response = client.post(
+            f"/api/v1/lawyer-service/cases/{case_id}/resolution",
+            headers=auth(user_token),
+            json={"decision": "self_handle"},
+        )
+
+        assert response.status_code == 200
+        classification = response.json()["classification"]
+        assert classification["resolution_decision"] == "self_handle"
+        assert classification["resolution_confirmed_at"]

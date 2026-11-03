@@ -33,6 +33,7 @@ from app.schemas.document import DocumentRead
 from app.schemas.evidence import EvidenceRead
 from app.schemas.lawyer_service import (
     SLOT_LABELS,
+    CaseResolutionUpdate,
     CaseReviewDecision,
     CaseReviewRead,
     CaseReviewSubmit,
@@ -457,6 +458,29 @@ async def request_review(
     return review
 
 
+@router.post("/cases/{case_id}/resolution", response_model=CaseRead)
+async def record_case_resolution(
+    case_id: int,
+    payload: CaseResolutionUpdate,
+    session: DbSession,
+    user: CompleteWorkerProfile,
+) -> Case:
+    """Record the user's final choice for continuing the case."""
+    case = await _owned_case(case_id, session, user)
+    _set_case_resolution(case, payload.decision)
+    session.add(
+        _audit(
+            user.id,
+            "case.resolution_confirmed",
+            case.id,
+            {"decision": payload.decision},
+        )
+    )
+    await session.commit()
+    await session.refresh(case)
+    return case
+
+
 @router.get("/cases/{case_id}/review", response_model=CaseReviewRead)
 async def get_review(
     case_id: int,
@@ -495,10 +519,18 @@ async def record_review_decision(
 
     review.user_decision = payload.decision
     review.user_decision_at = datetime.now(UTC)
+    _set_case_resolution(case, payload.decision)
     session.add(_audit(user.id, "case.review.decision", review.id))
     await session.commit()
     await session.refresh(review)
     return review
+
+
+def _set_case_resolution(case: Case, decision: str) -> None:
+    classification = dict(case.classification or {})
+    classification["resolution_decision"] = decision
+    classification["resolution_confirmed_at"] = datetime.now(UTC).isoformat()
+    case.classification = classification
 
 
 @router.get("/reviews/{review_id}/case-brief")

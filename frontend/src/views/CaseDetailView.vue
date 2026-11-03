@@ -144,6 +144,48 @@
           </dl>
         </div>
       </div>
+      <div v-if="auth.user?.role === 'user'" class="detail-card case-resolution-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">最终去向</span>
+            <h2>
+              {{
+                resolutionDecision
+                  ? resolutionLabels[resolutionDecision]
+                  : '请确认后续办理方式'
+              }}
+            </h2>
+          </div>
+          <UserCheck :size="22" />
+        </div>
+        <p>
+          确认接下来由你自己继续办理，还是需要平台律师协助。该选择可以重新修改，并会记录确认时间。
+        </p>
+        <div class="lawyer-slot-picker__options">
+          <button
+            v-for="option in resolutionOptions"
+            :key="option.value"
+            type="button"
+            class="lawyer-slot-chip"
+            :class="{ 'lawyer-slot-chip--active': resolutionDecision === option.value }"
+            :disabled="savingResolution"
+            @click="submitResolution(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <p v-if="resolutionConfirmedAt" class="muted-text">
+          最近确认：{{ new Date(resolutionConfirmedAt).toLocaleString('zh-CN') }}
+        </p>
+        <button
+          v-if="resolutionDecision === 'lawyer_assist'"
+          class="primary-action primary-action--compact"
+          type="button"
+          @click="activeTab = 'lawyer'"
+        >
+          前往律师协助
+        </button>
+      </div>
     </section>
 
     <section v-else-if="activeTab === 'chat'" class="detail-card detail-card--wide">
@@ -345,6 +387,24 @@
 
     <section v-else-if="activeTab === 'documents'" class="detail-grid">
       <div v-if="!auth.isLawyer" class="detail-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">正式提交门槛</span>
+            <h2>{{ documentGateTitle }}</h2>
+          </div>
+          <ShieldCheck :size="22" />
+        </div>
+        <p>{{ documentGateDescription }}</p>
+        <button
+          v-if="!reviewReadyForFiling"
+          class="secondary-action"
+          type="button"
+          @click="activeTab = 'lawyer'"
+        >
+          前往立案前复核
+        </button>
+      </div>
+      <div v-if="!auth.isLawyer" class="detail-card">
         <span class="eyebrow">文书生成</span>
         <h2>生成案件草稿</h2>
         <p>系统会根据已确认的案件事实和证据目录生成文本草稿。</p>
@@ -374,11 +434,30 @@
             <div>
               <strong>{{ document.title }}</strong>
               <span>版本 {{ document.version }} · {{ new Date(document.created_at).toLocaleString('zh-CN') }}</span>
+              <span
+                class="status-tag"
+                :class="{ 'status-tag--success': document.status === 'ready' }"
+              >
+                {{ document.status === 'ready' ? '可提交版本' : '草稿' }}
+              </span>
               <small v-if="document.evidence.length">引用 {{ document.evidence.length }} 份证据</small>
             </div>
             <div class="row-actions">
               <button type="button" @click="selectedDocument = document">预览</button>
               <button type="button" @click="startEditDocument(document)">编辑</button>
+              <button
+                v-if="isLatestDocument(document) && document.status !== 'ready'"
+                type="button"
+                :disabled="!reviewReadyForFiling || markingReadyId === document.id"
+                :title="
+                  reviewReadyForFiling
+                    ? '标记为可正式提交版本'
+                    : '完成立案前复核后才能标记'
+                "
+                @click="markDocumentReady(document)"
+              >
+                {{ markingReadyId === document.id ? '标记中...' : '标记可提交' }}
+              </button>
               <button type="button" :disabled="exportingFormat !== ''" @click="exportDocument(document, 'docx')">DOCX</button>
               <button type="button" :disabled="exportingFormat !== ''" @click="exportDocument(document, 'pdf')">PDF</button>
               <button type="button" @click="downloadDocument(document)">TXT</button>
@@ -614,7 +693,7 @@
         </div>
       </div>
 
-      <div class="detail-card">
+      <div id="filing-review-card" class="detail-card">
         <span class="eyebrow">主动介入</span>
         <h2>立案前人工复核</h2>
         <p v-if="!caseReview">
@@ -715,7 +794,7 @@ import {
   Upload,
   UserCheck,
 } from '@lucide/vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { API_BASE_URL, ApiError, apiRequest, TOKEN_KEY } from '../api/http'
@@ -737,6 +816,7 @@ import type {
   LawyerRequestItem,
   MessageItem,
   RequestSlot,
+  ResolutionDecision,
   ReviewUserDecision,
   WorkflowOption,
   WorkflowResponse,
@@ -756,7 +836,14 @@ const messages = ref<MessageItem[]>([])
 const evidenceItems = ref<EvidenceItem[]>([])
 const evidenceAssessment = ref<EvidenceResponse['assessment'] | null>(null)
 const documents = ref<DocumentItem[]>([])
-const activeTab = ref('overview')
+const requestedTab = String(route.query.tab ?? '')
+const activeTab = ref(
+  ['overview', 'chat', 'evidence', 'contract', 'documents', 'lawyer'].includes(
+    requestedTab,
+  )
+    ? requestedTab
+    : 'overview',
+)
 const error = ref('')
 const suggestedNextStep = ref('')
 const chatInput = ref('')
@@ -780,6 +867,8 @@ const editTitle = ref('')
 const editContent = ref('')
 const savingRevision = ref(false)
 const exportingFormat = ref('')
+const markingReadyId = ref<number | null>(null)
+const savingResolution = ref(false)
 
 const lawyerRequests = ref<LawyerRequestItem[]>([])
 const caseSessions = ref<ConsultationSessionItem[]>([])
@@ -969,11 +1058,42 @@ async function submitDecision(decision: ReviewUserDecision) {
       },
     )
     caseReview.value = updated
+    if (caseItem.value) {
+      caseItem.value = {
+        ...caseItem.value,
+        classification: {
+          ...caseItem.value.classification,
+          resolution_decision: decision,
+          resolution_confirmed_at:
+            updated.user_decision_at ?? new Date().toISOString(),
+        },
+      }
+    }
     notifySuccess(decision === 'self_handle' ? '已记录：自行办理后续流程' : '已记录：继续由律师协助')
   } catch (err) {
     error.value = err instanceof Error ? err.message : '选择提交失败'
   } finally {
     submittingDecision.value = false
+  }
+}
+
+async function applyRouteIntent() {
+  if (route.query.request === '1') {
+    activeTab.value = 'lawyer'
+    await nextTick()
+    document.getElementById('lawyer-request-card')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+    requestReasonInput.value?.focus()
+  }
+  if (route.query.review === '1') {
+    activeTab.value = 'lawyer'
+    await nextTick()
+    document.getElementById('filing-review-card')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
   }
 }
 
@@ -1152,6 +1272,47 @@ function dimStatusLabel(status: string) {
 }
 
 const latestClassification = computed(() => caseItem.value?.classification ?? {})
+const resolutionDecision = computed(
+  () =>
+    (latestClassification.value.resolution_decision as ResolutionDecision | undefined) ??
+    null,
+)
+const resolutionConfirmedAt = computed(() =>
+  String(latestClassification.value.resolution_confirmed_at ?? ''),
+)
+const resolutionLabels: Record<ResolutionDecision, string> = {
+  self_handle: '由我自己继续办理',
+  lawyer_assist: '需要平台律师协助',
+  pause: '暂时保存，不继续办理',
+}
+const resolutionOptions: Array<{ value: ResolutionDecision; label: string }> = [
+  { value: 'self_handle', label: resolutionLabels.self_handle },
+  { value: 'lawyer_assist', label: resolutionLabels.lawyer_assist },
+  { value: 'pause', label: resolutionLabels.pause },
+]
+const reviewReadyForFiling = computed(
+  () =>
+    caseReview.value?.status === 'reviewed' &&
+    caseReview.value.conclusion === 'ready_to_file',
+)
+const documentGateTitle = computed(() => {
+  if (reviewReadyForFiling.value) return '已完成复核，可标记正式版本'
+  if (caseReview.value?.status === 'pending') return '复核进行中'
+  if (caseReview.value?.status === 'reviewed') return '当前复核结论暂不支持正式提交'
+  return '正式提交前需要人工复核'
+})
+const documentGateDescription = computed(() => {
+  if (reviewReadyForFiling.value) {
+    return '草稿仍可继续编辑；确认内容无误后，可将最新版本标记为可提交版本。'
+  }
+  if (caseReview.value?.status === 'pending') {
+    return '律师正在核对案件事实、证据和文书，完成后才能标记正式提交版本。'
+  }
+  if (caseReview.value?.status === 'reviewed') {
+    return '请根据律师意见补充材料或调整办理路径，必要时重新发起复核。'
+  }
+  return '可以继续生成和编辑草稿，但只有完成立案前人工复核后才能标记为正式提交版本。'
+})
 
 const dimensions = computed(() => {
   const rules = evidenceRulesAssessment.value
@@ -1271,6 +1432,56 @@ async function sendChat() {
     error.value = err instanceof Error ? err.message : '发送失败'
   } finally {
     chatSending.value = false
+  }
+}
+
+async function submitResolution(decision: ResolutionDecision) {
+  if (!caseItem.value || savingResolution.value) return
+  savingResolution.value = true
+  error.value = ''
+  try {
+    caseItem.value = await apiRequest<CaseItem>(
+      `/lawyer-service/cases/${caseId}/resolution`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      },
+    )
+    notifySuccess('后续办理方式已记录')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '后续办理方式保存失败'
+  } finally {
+    savingResolution.value = false
+  }
+}
+
+function isLatestDocument(documentItem: DocumentItem) {
+  const latestVersion = Math.max(
+    ...documents.value
+      .filter((item) => item.doc_type === documentItem.doc_type)
+      .map((item) => item.version),
+  )
+  return documentItem.version === latestVersion
+}
+
+async function markDocumentReady(documentItem: DocumentItem) {
+  markingReadyId.value = documentItem.id
+  error.value = ''
+  try {
+    const updated = await apiRequest<DocumentItem>(
+      `/cases/${caseId}/documents/${documentItem.id}/mark-ready`,
+      { method: 'POST' },
+    )
+    documents.value = documents.value.map((item) =>
+      item.id === updated.id ? updated : item,
+    )
+    if (selectedDocument.value?.id === updated.id) selectedDocument.value = updated
+    notifySuccess('已标记为可提交版本')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '标记可提交版本失败'
+  } finally {
+    markingReadyId.value = null
   }
 }
 
@@ -1551,5 +1762,6 @@ onMounted(async () => {
   await dictionary.load()
   await loadAll()
   await loadLawyerService()
+  await applyRouteIntent()
 })
 </script>
