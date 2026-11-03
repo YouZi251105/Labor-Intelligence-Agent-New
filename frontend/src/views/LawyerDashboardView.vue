@@ -149,14 +149,15 @@
       <div class="detail-card">
         <span class="eyebrow">已提交意见</span>
         <h2>{{ opinions.length }} 条</h2>
-        <div class="ledger-list">
-          <article v-for="opinion in opinions" :key="opinion.id">
-            <div>
+        <div class="opinion-list">
+          <article v-for="opinion in opinions" :key="opinion.id" class="opinion-card">
+            <div class="opinion-card__head">
               <strong>案件 #{{ opinion.case_id }}</strong>
-              <SafeMarkdown :content="opinion.content" />
               <small>{{ new Date(opinion.created_at).toLocaleString('zh-CN') }}</small>
             </div>
+            <SafeMarkdown class="opinion-card__content" :content="opinion.content" />
           </article>
+          <p v-if="!opinions.length" class="muted-text">尚未提交意见。</p>
         </div>
       </div>
     </section>
@@ -264,38 +265,59 @@
           </div>
         </div>
         <div class="ledger-list">
-          <article v-for="review in todoReviews" :key="review.id">
-            <div>
-              <strong>#{{ review.case_id }} · {{ todoCaseTitle(review.case_id) }}</strong>
-              <small>申请于 {{ new Date(review.created_at).toLocaleString('zh-CN') }}</small>
-              <div class="form-grid">
-                <label class="form-grid__wide">
-                  <span>复核结论</span>
-                  <select v-model="reviewForm(review.id).conclusion">
-                    <option value="ready_to_file">材料齐备，可以立案</option>
-                    <option value="need_more">需要补充材料后再立案</option>
-                    <option value="not_recommended">暂不建议立案</option>
-                  </select>
-                </label>
-                <label class="form-grid__wide">
-                  <span>复核意见</span>
-                  <textarea
-                    v-model="reviewForm(review.id).comment"
-                    rows="3"
-                    placeholder="向用户说明结论依据和下一步建议。"
-                  />
-                </label>
+          <article
+            v-for="review in todoReviews"
+            :key="review.id"
+            class="review-item"
+            :class="{ 'review-item--open': expandedReviewId === review.id }"
+          >
+            <div class="review-item__head">
+              <div>
+                <strong>#{{ review.case_id }} · {{ todoCaseTitle(review.case_id) }}</strong>
+                <small>申请于 {{ new Date(review.created_at).toLocaleString('zh-CN') }}</small>
               </div>
-            </div>
-            <div class="ledger-list__actions">
               <button
-                class="primary-action primary-action--compact"
+                class="secondary-action"
                 type="button"
-                :disabled="submittingReviewId === review.id"
-                @click="submitReview(review)"
+                @click="expandedReviewId = expandedReviewId === review.id ? null : review.id"
               >
-                {{ submittingReviewId === review.id ? '提交中...' : '提交复核结论' }}
+                {{ expandedReviewId === review.id ? '收起' : '开始复核' }}
               </button>
+            </div>
+            <div v-if="expandedReviewId === review.id" class="review-item__body">
+              <div class="review-item__field">
+                <span>复核结论</span>
+                <div class="lawyer-slot-picker__options">
+                  <button
+                    v-for="option in reviewConclusionOptions"
+                    :key="option.value"
+                    type="button"
+                    class="lawyer-slot-chip"
+                    :class="{ 'lawyer-slot-chip--active': reviewForm(review.id).conclusion === option.value }"
+                    @click="reviewForm(review.id).conclusion = option.value"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+              <div class="review-item__field">
+                <span>复核意见</span>
+                <textarea
+                  v-model="reviewForm(review.id).comment"
+                  rows="4"
+                  placeholder="向用户说明结论依据和下一步建议。"
+                />
+              </div>
+              <div class="form-actions">
+                <button
+                  class="primary-action primary-action--compact"
+                  type="button"
+                  :disabled="submittingReviewId === review.id || !reviewForm(review.id).conclusion"
+                  @click="submitReview(review)"
+                >
+                  {{ submittingReviewId === review.id ? '提交中...' : '提交复核结论' }}
+                </button>
+              </div>
             </div>
           </article>
           <p v-if="!todoReviews.length" class="muted-text">暂无待复核案件。</p>
@@ -419,7 +441,14 @@ const sessionTitles = ref<Record<number, string>>({})
 const activeSessionId = ref(0)
 const actingRequestId = ref<number | null>(null)
 const submittingReviewId = ref<number | null>(null)
+const expandedReviewId = ref<number | null>(null)
 const reviewForms = reactive<Record<number, { conclusion: string; comment: string }>>({})
+
+const reviewConclusionOptions = [
+  { value: 'ready_to_file', label: '材料齐备，可以立案' },
+  { value: 'need_more', label: '需要补充材料后再立案' },
+  { value: 'not_recommended', label: '暂不建议立案' },
+]
 
 const activeSession = computed(
   () => sessions.value.find((item) => item.id === activeSessionId.value) ?? null,
@@ -520,6 +549,7 @@ async function submitReview(review: CaseReviewItem) {
       body: JSON.stringify({ conclusion: form.conclusion, comment: form.comment.trim() }),
     })
     notifySuccess('复核结论已提交')
+    expandedReviewId.value = null
     await refreshLawyerService()
   } catch (err) {
     error.value = err instanceof Error ? err.message : '复核提交失败'

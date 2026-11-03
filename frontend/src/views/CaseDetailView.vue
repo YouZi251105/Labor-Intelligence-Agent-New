@@ -466,10 +466,19 @@
           </div>
           <div class="lawyer-form-block">
             <span class="lawyer-form-block__title">2 · 选择时间（可选）</span>
-            <label class="lawyer-form-block__field">
-              期望日期（最多提前 14 天）
-              <input v-model="requestForm.preferred_date" type="date" :min="dateMin" :max="dateMax" />
-            </label>
+            <div class="lawyer-date-grid">
+              <button
+                v-for="option in dateOptions"
+                :key="option.iso"
+                type="button"
+                class="lawyer-date-chip"
+                :class="{ 'lawyer-date-chip--active': requestForm.preferred_date === option.iso }"
+                @click="requestForm.preferred_date = requestForm.preferred_date === option.iso ? '' : option.iso"
+              >
+                <small>{{ option.badge }}</small>
+                <strong>{{ option.monthDay }}</strong>
+              </button>
+            </div>
             <div v-if="requestForm.preferred_date" class="lawyer-slot-picker">
               <span class="lawyer-slot-picker__label">期望时段</span>
               <div class="lawyer-slot-picker__options">
@@ -673,12 +682,25 @@ const priorityOptions = [
   { value: 'urgent' as const, label: '加急' },
 ]
 
-const todayIso = new Date().toISOString().slice(0, 10)
-const dateMin = todayIso
-const dateMax = computed(() => {
-  const max = new Date()
-  max.setDate(max.getDate() + 14)
-  return max.toISOString().slice(0, 10)
+function localIso(day: Date) {
+  const y = day.getFullYear()
+  const m = String(day.getMonth() + 1).padStart(2, '0')
+  const d = String(day.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+const dateMin = localIso(new Date())
+const dateOptions = computed(() => {
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  return Array.from({ length: 15 }, (_, offset) => {
+    const day = new Date()
+    day.setDate(day.getDate() + offset)
+    return {
+      iso: localIso(day),
+      monthDay: `${day.getMonth() + 1}月${day.getDate()}日`,
+      badge: offset === 0 ? '今天' : offset === 1 ? '明天' : weekdays[day.getDay()],
+    }
+  })
 })
 
 const requestStatusLabels: Record<string, string> = {
@@ -830,7 +852,7 @@ const requestExpired = computed(() => {
   const request = activeRequest.value
   if (!request) return false
   if (!['pending', 'accepted'].includes(request.status)) return false
-  return Boolean(request.preferred_date && request.preferred_date < todayIso)
+  return Boolean(request.preferred_date && request.preferred_date < dateMin)
 })
 
 async function cancelRequest() {
