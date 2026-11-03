@@ -4,8 +4,10 @@ from __future__ import annotations
 import io
 
 import numpy as np
+from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
 
+from app.main import app
 from app.services.evidence_forensics import analyze_image
 
 
@@ -113,3 +115,60 @@ def test_plain_background_not_mosaic():
     img = Image.new("RGB", (400, 300), (245, 245, 245))
     result = analyze_image("evidence.png", _to_bytes(img))
     assert result.suspicious is False
+
+
+def _upload_image(client: TestClient, token: str, case_id: int, content: bytes):
+    return client.post(
+        f"/api/v1/cases/{case_id}/evidence",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("聊天记录.png", content, "image/png")},
+    )
+
+
+def _create_case_with_login(client: TestClient) -> tuple[str, int]:
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "demo", "password": "Demo123!"},
+    )
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+    created = client.post(
+        "/api/v1/cases",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "图片真实性初筛测试",
+            "dispute_type": "wage",
+            "location": "上海市",
+            "facts": "公司拖欠工资，上传聊天记录截图。",
+        },
+    )
+    assert created.status_code == 201
+    return token, created.json()["id"]
+
+
+def test_uploaded_screenshot_persists_forensics_assessment() -> None:
+    with TestClient(app) as client:
+        token, case_id = _create_case_with_login(client)
+        response = _upload_image(client, token, case_id, _make_screenshot())
+
+        assert response.status_code == 201
+        forensics = response.json()["assessment"]["forensics"]
+        assert forensics["image_type"] == "screenshot"
+        assert forensics["suspicious"] is False
+        assert forensics["disclaimer"]
+
+
+def test_suspicious_image_is_rejected_before_storage() -> None:
+    with TestClient(app) as client:
+        token, case_id = _create_case_with_login(client)
+        response = _upload_image(client, token, case_id, _make_mosaic())
+
+        assert response.status_code == 422
+        assert "真实性初筛" in response.json()["detail"]
+
+        listing = client.get(
+            f"/api/v1/cases/{case_id}/evidence",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert listing.status_code == 200
+        assert listing.json()["items"] == []

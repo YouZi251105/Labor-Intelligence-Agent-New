@@ -162,7 +162,7 @@ async def seed_rule_content(session: AsyncSession) -> None:
                     name=f"{labels[dispute_type]}演示证据规则",
                     evidence_requirements=requirements,
                     next_steps=["整理材料清单", "核对事实和金额", "申请人工复核"],
-                    source_note="本地演示规则，待法律内容负责人复核。",
+                    source_note="本地演示规则，待内容复核人员校验。",
                     review_status="pending_review",
                 )
                 for dispute_type, requirements in categories.items()

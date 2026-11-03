@@ -114,6 +114,14 @@ export interface ConsultationResponse {
 
 export type ExtractionStatus = 'pending' | 'extracted' | 'ocr_required' | 'unsupported' | 'failed'
 
+export interface EvidenceForensicsAssessment {
+  image_type: 'camera_photo' | 'screenshot' | 'document' | 'unknown'
+  suspicious: boolean
+  reasons: string[]
+  checks: Record<string, boolean>
+  disclaimer: string
+}
+
 export interface EvidenceItem {
   id: number
   case_id: number

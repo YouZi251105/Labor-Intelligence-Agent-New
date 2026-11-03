@@ -92,7 +92,7 @@ def test_admin_can_review_rules_and_query_audit_logs() -> None:
             headers=auth(admin_token),
             json={
                 "review_status": "approved",
-                "source_note": "法律内容负责人演示复核",
+            "source_note": "内容复核人员演示校验",
             },
         )
         audit = client.get(

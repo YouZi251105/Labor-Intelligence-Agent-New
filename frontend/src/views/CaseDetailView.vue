@@ -239,6 +239,12 @@
             <div class="evidence-list__main">
               <strong>{{ item.filename }}</strong>
               <span>{{ dictionary.categoryLabels[item.category] || item.category }} · {{ formatFileSize(item.file_size) }}</span>
+              <span v-if="evidenceForensics(item)" class="status-tag status-tag--success">
+                真实性初筛通过
+              </span>
+              <small v-if="evidenceForensics(item)" class="muted-text">
+                {{ evidenceForensics(item)?.disclaimer }}
+              </small>
               <small class="evidence-list__time">上传于 {{ new Date(item.created_at).toLocaleString('zh-CN') }}</small>
             </div>
             <div class="evidence-list__side">
@@ -471,9 +477,6 @@
           <small v-else-if="activeRequest.status === 'pending'" class="muted-text">
             预计受理时限：{{ slaHours }} 小时内 · 受理后按所选时段开始回复
           </small>
-          <p v-if="activeRequest.status === 'rejected' && activeRequest.reject_reason" class="lawyer-slot-warning">
-            律师说明：{{ activeRequest.reject_reason }}
-          </p>
           <small class="muted-text">
             期望时间：{{ requestTimeText(activeRequest) }} · 提交于
             {{ new Date(activeRequest.created_at).toLocaleString('zh-CN') }}
@@ -495,7 +498,25 @@
             </button>
           </div>
         </template>
-        <form v-else class="lawyer-request-form" @submit.prevent="createRequest">
+        <div v-else-if="latestTerminalRequest" class="lawyer-request-status">
+          <div class="lawyer-request-status">
+            <span class="status-tag">
+              {{ requestStatusLabel(latestTerminalRequest.status) }}
+            </span>
+            <span v-if="latestTerminalRequest.priority === 'urgent'" class="status-tag status-tag--warning">
+              加急
+            </span>
+          </div>
+          <p class="pre-line">{{ latestTerminalRequest.reason }}</p>
+          <p v-if="latestTerminalRequest.reject_reason" class="lawyer-slot-warning">
+            律师说明：{{ latestTerminalRequest.reject_reason }}
+          </p>
+          <small class="muted-text">
+            期望时间：{{ requestTimeText(latestTerminalRequest) }} · 提交于
+            {{ new Date(latestTerminalRequest.created_at).toLocaleString('zh-CN') }}
+          </small>
+        </div>
+        <form v-if="!activeRequest" class="lawyer-request-form" @submit.prevent="createRequest">
           <div class="lawyer-form-block">
             <span class="lawyer-form-block__title">1 · 描述问题</span>
             <textarea
@@ -710,6 +731,7 @@ import type {
   DocumentItem,
   EvidenceAssessmentResponse,
   EvidenceExtractionResponse,
+  EvidenceForensicsAssessment,
   EvidenceItem,
   EvidenceResponse,
   LawyerRequestItem,
@@ -722,6 +744,7 @@ import type {
 import { formatFileSize } from '../utils/format'
 import { useAuthStore } from '../stores/auth'
 import { useDictionaryStore } from '../stores/dictionary'
+import { splitLawyerRequests } from '../utils/lawyerRequests'
 import { confirmAction, notifySuccess } from '../utils/dialogs'
 
 const route = useRoute()
@@ -786,6 +809,15 @@ const priorityOptions = [
   { value: 'urgent' as const, label: '加急' },
 ]
 
+function evidenceForensics(item: EvidenceItem): EvidenceForensicsAssessment | null {
+  const value = item.assessment.forensics
+  if (!value || typeof value !== 'object') return null
+  const result = value as Partial<EvidenceForensicsAssessment>
+  return typeof result.suspicious === 'boolean'
+    ? (result as EvidenceForensicsAssessment)
+    : null
+}
+
 function localIso(day: Date) {
   const y = day.getFullYear()
   const m = String(day.getMonth() + 1).padStart(2, '0')
@@ -830,12 +862,9 @@ const reviewConclusionLabels: Record<string, { title: string; description: strin
   },
 }
 
-const activeRequest = computed(
-  () =>
-    lawyerRequests.value.find((item) =>
-      ['pending', 'accepted', 'in_session'].includes(item.status),
-    ) ?? null,
-)
+const requestState = computed(() => splitLawyerRequests(lawyerRequests.value))
+const activeRequest = computed(() => requestState.value.active)
+const latestTerminalRequest = computed(() => requestState.value.terminal)
 const selectedSessionId = ref<number | null>(null)
 const caseSessionsSorted = computed(() => {
   const rank = (item: ConsultationSessionItem) => (item.status === 'active' ? 0 : 1)

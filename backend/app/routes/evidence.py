@@ -30,7 +30,8 @@ from app.services.evidence import (
     save_upload,
     validate_signature,
 )
-from app.services.extraction import ExtractionResult, extract_text_from_bytes
+from app.services.evidence_forensics import analyze_image
+from app.services.extraction import IMAGE_EXTENSIONS, ExtractionResult, extract_text_from_bytes
 from app.services.jobs import dispatch_evidence_extraction
 from app.services.storage import get_storage
 
@@ -90,6 +91,21 @@ async def upload_case_evidence(
     if duplicate is not None:
         raise HTTPException(status_code=409, detail="该材料已经上传")
 
+    extension = Path(filename).suffix.lower()
+    forensics = None
+    if extension in IMAGE_EXTENSIONS:
+        forensics = analyze_image(filename, content)
+        if forensics.suspicious:
+            reasons = "；".join(forensics.reasons)
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"图片真实性初筛未通过：{reasons}。"
+                    f"{forensics.disclaimer}"
+                    "请上传未经拼接或涂抹的原始图片；如确有合理脱敏需要，请通过人工协助提交。"
+                ),
+            )
+
     try:
         stored_path, digest = save_upload(case_id, filename, content)
     except ValueError as exc:
@@ -114,7 +130,22 @@ async def upload_case_evidence(
         screening_status=(
             "accepted" if extraction.status == "extracted" else "needs_review"
         ),
-        assessment={"extraction": extraction.as_assessment()},
+        assessment={
+            "extraction": extraction.as_assessment(),
+            **(
+                {
+                    "forensics": {
+                        "image_type": forensics.image_type,
+                        "suspicious": forensics.suspicious,
+                        "reasons": forensics.reasons,
+                        "checks": forensics.checks,
+                        "disclaimer": forensics.disclaimer,
+                    }
+                }
+                if forensics is not None
+                else {}
+            ),
+        },
     )
     session.add(evidence)
     await session.flush()
@@ -124,6 +155,14 @@ async def upload_case_evidence(
     )
     assessment = assess_case_evidence(case, all_evidence)
     assessment["extraction"] = extraction.as_assessment()
+    if forensics is not None:
+        assessment["forensics"] = {
+            "image_type": forensics.image_type,
+            "suspicious": forensics.suspicious,
+            "reasons": forensics.reasons,
+            "checks": forensics.checks,
+            "disclaimer": forensics.disclaimer,
+        }
     evidence.assessment = assessment
     case.stage = "evidence"
     session.add(
@@ -135,6 +174,19 @@ async def upload_case_evidence(
             metadata_json={"category": category, "sha256": digest},
         )
     )
+    if forensics is not None:
+        session.add(
+            AuditLog(
+                actor_id=user.id,
+                action="evidence.forensics_screened",
+                object_type="evidence",
+                object_id=evidence.id,
+                metadata_json={
+                    "image_type": forensics.image_type,
+                    "suspicious": forensics.suspicious,
+                },
+            )
+        )
     session.add(
         AuditLog(
             actor_id=user.id,

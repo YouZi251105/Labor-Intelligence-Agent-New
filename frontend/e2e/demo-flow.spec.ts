@@ -416,6 +416,92 @@ test('admin can compose workflow blocks by drag and drop', async ({
   await expect(page.locator('.workflow-block')).toHaveCount(initialBlocks + 1)
 })
 
+test('worker can read a rejected lawyer request reason', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+  const userToken = await page.evaluate(() => localStorage.getItem('lia_token'))
+  expect(userToken).toBeTruthy()
+
+  const created = await page.request.post(`${API_BASE_URL}/api/v1/cases`, {
+    headers: { Authorization: `Bearer ${userToken}` },
+    data: {
+      title: `律师拒绝原因-${Date.now()}`,
+      dispute_type: 'wage',
+      location: '上海市',
+      facts: '公司拖欠工资，希望预约律师。',
+    },
+  })
+  expect(created.ok()).toBeTruthy()
+  const caseId = (await created.json()).id as number
+
+  const request = await page.request.post(`${API_BASE_URL}/api/v1/lawyer-service/requests`, {
+    headers: { Authorization: `Bearer ${userToken}` },
+    data: {
+      case_id: caseId,
+      reason: '需要律师判断材料是否齐全',
+    },
+  })
+  expect(request.ok()).toBeTruthy()
+  const requestId = (await request.json()).id as number
+
+  const lawyerLogin = await page.request.post(`${API_BASE_URL}/api/v1/auth/login`, {
+    data: { username: 'lawyer', password: 'Lawyer123!' },
+  })
+  expect(lawyerLogin.ok()).toBeTruthy()
+  const lawyerToken = (await lawyerLogin.json()).access_token as string
+  const rejected = await page.request.patch(
+    `${API_BASE_URL}/api/v1/lawyer-service/requests/${requestId}`,
+    {
+      headers: { Authorization: `Bearer ${lawyerToken}` },
+      data: { accept: false, reject_reason: '近期时段已排满，请改约' },
+    },
+  )
+  expect(rejected.ok()).toBeTruthy()
+
+  await page.goto(`/cases/${caseId}`)
+  await page.getByRole('button', { name: '律师协助', exact: true }).click()
+  await expect(page.getByText('律师说明：近期时段已排满，请改约')).toBeVisible()
+})
+
+test('worker can see image authenticity screening status', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+  const userToken = await page.evaluate(() => localStorage.getItem('lia_token'))
+  expect(userToken).toBeTruthy()
+
+  const created = await page.request.post(`${API_BASE_URL}/api/v1/cases`, {
+    headers: { Authorization: `Bearer ${userToken}` },
+    data: {
+      title: `图片真实性初筛-${Date.now()}`,
+      dispute_type: 'wage',
+      location: '上海市',
+      facts: '上传聊天记录截图作为证据。',
+    },
+  })
+  expect(created.ok()).toBeTruthy()
+  const caseId = (await created.json()).id as number
+
+  const uploaded = await page.request.post(
+    `${API_BASE_URL}/api/v1/cases/${caseId}/evidence`,
+    {
+      headers: { Authorization: `Bearer ${userToken}` },
+      multipart: {
+        file: {
+          name: '聊天记录.png',
+          mimeType: 'image/png',
+          buffer: Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=',
+            'base64',
+          ),
+        },
+      },
+    },
+  )
+  expect(uploaded.ok()).toBeTruthy()
+
+  await page.goto(`/cases/${caseId}`)
+  await page.getByRole('button', { name: '证据材料', exact: true }).click()
+  await expect(page.getByText('真实性初筛通过', { exact: true })).toBeVisible()
+})
+
 test('admin navigation group collapses and remembers its state', async ({ page }, testInfo) => {
   await login(page, 'admin', 'Admin123!')
   const openNavigation = page.getByRole('button', { name: '打开导航' })

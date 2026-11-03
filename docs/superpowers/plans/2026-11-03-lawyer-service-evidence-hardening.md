@@ -30,11 +30,11 @@
 - Consumes: `LawyerRequest`, `ConsultationSession`, `CaseReview`, `Case.assigned_lawyer_id`.
 - Produces: `in_session` request status after the first successful message; `completed` status after closing; `404` for a lawyer cancelling another user's request; `409` when a non-owner lawyer submits a review for an already assigned case.
 
-- [ ] Add failing tests for first-message status transition, session close, cancellation authorization, review assignment conflict, and case deletion with lawyer-service records.
-- [ ] Run the focused tests and confirm the expected failures.
-- [ ] Implement the minimal route changes.
-- [ ] Run the focused tests and the complete backend suite.
-- [ ] Commit the backend fix.
+- [x] Add failing tests for first-message status transition, session close, cancellation authorization, review assignment conflict, and case deletion with lawyer-service records.
+- [x] Run the focused tests and confirm the expected failures.
+- [x] Implement the minimal route changes.
+- [x] Run the focused tests and the complete backend suite.
+- [x] Commit the backend fix.
 
 ### Task 2: User-Facing Rejection and Session Status
 
@@ -47,11 +47,11 @@
 - Consumes: lawyer request `status`, `reject_reason`, `created_at`.
 - Produces: a visible terminal-request summary so rejected and cancelled requests retain their reason; the active form remains available for a new request.
 
-- [ ] Add a Playwright assertion for a rejected request reason remaining visible after the request becomes terminal.
-- [ ] Run the focused Playwright test and confirm it fails.
-- [ ] Add the terminal-request presentation without changing the backend contract.
-- [ ] Run frontend unit tests, typecheck, build, and the focused E2E test.
-- [ ] Commit the frontend fix.
+- [x] Add a Playwright assertion for a rejected request reason remaining visible after the request becomes terminal.
+- [x] Run the focused Playwright test and confirm it fails.
+- [x] Add the terminal-request presentation without changing the backend contract.
+- [x] Run frontend unit tests, typecheck, build, and the focused E2E test.
+- [x] Commit the frontend fix.
 
 ### Task 3: Evidence Image Authenticity Screening
 
@@ -69,11 +69,11 @@
 - Consumes: `analyze_image(filename, content) -> ForensicsResult`.
 - Produces: accepted image evidence contains `assessment.forensics = {image_type, suspicious, reasons, checks, disclaimer}`; a suspicious image upload returns `422` with a `detail` string and is not stored.
 
-- [ ] Add failing API tests for accepted image metadata and rejected suspicious images.
-- [ ] Run the focused tests and confirm the expected failures.
-- [ ] Invoke screening before storage and persist accepted results.
-- [ ] Add a visible image screening status in the evidence card.
-- [ ] Update the contract and product boundary documents.
-- [ ] Run backend, frontend, typecheck, build, and relevant E2E tests.
-- [ ] Commit the evidence-screening feature.
+- [x] Add failing API tests for accepted image metadata and rejected suspicious images.
+- [x] Run the focused tests and confirm the expected failures.
+- [x] Invoke screening before storage and persist accepted results.
+- [x] Add a visible image screening status in the evidence card.
+- [x] Update the contract and product boundary documents.
+- [x] Run backend, frontend, typecheck, build, and relevant E2E tests.
+- [x] Commit the evidence-screening feature.
 
