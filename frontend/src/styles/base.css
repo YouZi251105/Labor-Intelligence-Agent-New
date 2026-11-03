@@ -1112,6 +1112,65 @@ summary:focus-visible {
   letter-spacing: 0.08em;
 }
 
+.consult-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.consult-chat__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.consult-chat__time {
+  display: block;
+  margin-top: 6px;
+  color: var(--lia-text-muted);
+  font-size: 10px;
+}
+
+.consult-chat__closed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--lia-text-muted);
+  font-size: 12px;
+}
+
+.consult-chat__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lawyer-request-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.lawyer-review-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-item {
+  cursor: pointer;
+}
+
+.session-item--active {
+  border-color: var(--lia-primary, #b4574e);
+  box-shadow: inset 3px 0 0 var(--lia-primary, #b4574e);
+}
+
 .markdown-body {
   min-width: 0;
   color: var(--lia-text-secondary);

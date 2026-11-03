@@ -408,6 +408,112 @@
         <SafeMarkdown class="document-preview" :content="selectedDocument.content" />
       </div>
     </section>
+
+    <section v-else-if="activeTab === 'lawyer'" class="detail-grid">
+      <div class="detail-card">
+        <span class="eyebrow">人工介入</span>
+        <h2>预约律师协助</h2>
+        <p>复杂问题可预约律师人工介入；律师受理后进入专属咨询对话，记录会留存供双方随时查看。</p>
+        <template v-if="activeRequest">
+          <div class="lawyer-request-status">
+            <span class="status-tag" :class="{ 'status-tag--warning': activeRequest.priority === 'urgent' }">
+              {{ requestStatusLabel(activeRequest.status) }}
+            </span>
+            <span v-if="activeRequest.priority === 'urgent'" class="status-tag status-tag--warning">加急</span>
+          </div>
+          <p class="pre-line">{{ activeRequest.reason }}</p>
+          <small class="muted-text">
+            期望时间：{{ activeRequest.preferred_time || '不限' }} · 提交于
+            {{ new Date(activeRequest.created_at).toLocaleString('zh-CN') }}
+          </small>
+          <div
+            v-if="activeRequest.status === 'pending' || activeRequest.status === 'accepted'"
+            class="form-actions"
+          >
+            <button class="secondary-action" type="button" :disabled="cancellingRequest" @click="cancelRequest">
+              {{ cancellingRequest ? '取消中...' : '取消预约' }}
+            </button>
+          </div>
+        </template>
+        <form v-else @submit.prevent="createRequest">
+          <label>
+            说明你的问题
+            <textarea
+              v-model="requestForm.reason"
+              rows="4"
+              required
+              placeholder="例如：公司拒不支付赔偿，材料已备齐，想请律师判断是否可以申请仲裁。"
+            />
+          </label>
+          <label>
+            期望时间（可选）
+            <input v-model="requestForm.preferred_time" placeholder="例如：工作日晚上 8 点后" />
+          </label>
+          <label>
+            紧急程度
+            <select v-model="requestForm.priority">
+              <option value="normal">一般</option>
+              <option value="urgent">加急</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button
+              class="primary-action primary-action--compact"
+              type="submit"
+              :disabled="creatingRequest || !requestForm.reason.trim()"
+            >
+              {{ creatingRequest ? '提交中...' : '提交预约' }}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div v-if="caseSession" class="detail-card detail-card--wide">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">律师咨询</span>
+            <h2>与律师的对话</h2>
+          </div>
+          <span class="status-tag" :class="{ 'status-tag--success': caseSession.status === 'active' }">
+            {{ caseSession.status === 'active' ? '进行中' : '已结束' }}
+          </span>
+        </div>
+        <ConsultationChat :session="caseSession" sender-role="user" @closed="onSessionClosed" />
+      </div>
+
+      <div class="detail-card">
+        <span class="eyebrow">主动介入</span>
+        <h2>立案前人工复核</h2>
+        <p v-if="!caseReview">
+          案件准备仲裁或网上立案前，可申请律师复核最终材料，判断是否具备立案条件，避免盲目走流程。
+        </p>
+        <button
+          v-if="!caseReview"
+          class="secondary-action"
+          type="button"
+          :disabled="requestingReview"
+          @click="requestReview"
+        >
+          {{ requestingReview ? '申请中...' : '申请立案前复核' }}
+        </button>
+        <div v-else class="lawyer-review-result">
+          <span
+            class="status-tag"
+            :class="caseReview.status === 'reviewed' ? 'status-tag--success' : 'status-tag--warning'"
+          >
+            {{ caseReview.status === 'reviewed' ? '复核完成' : '复核进行中，律师会尽快处理' }}
+          </span>
+          <template v-if="caseReview.status === 'reviewed' && caseReview.conclusion">
+            <strong>{{ reviewConclusionLabels[caseReview.conclusion].title }}</strong>
+            <p>{{ reviewConclusionLabels[caseReview.conclusion].description }}</p>
+            <p v-if="caseReview.comment" class="pre-line">律师意见：{{ caseReview.comment }}</p>
+            <small class="muted-text">
+              复核时间：{{ new Date(caseReview.reviewed_at ?? caseReview.created_at).toLocaleString('zh-CN') }}
+            </small>
+          </template>
+        </div>
+      </div>
+    </section>
   </section>
 
   <div v-else class="loading-block"><span class="spinner-dot" /> 正在加载案件...</div>
@@ -423,15 +529,19 @@ import {
   Scale,
   ShieldCheck,
   Upload,
+  UserCheck,
 } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { API_BASE_URL, apiRequest, TOKEN_KEY } from '../api/http'
+import { API_BASE_URL, ApiError, apiRequest, TOKEN_KEY } from '../api/http'
+import ConsultationChat from '../components/ConsultationChat.vue'
 import SafeMarkdown from '../components/SafeMarkdown.vue'
 import type {
   CaseItem,
+  CaseReviewItem,
   ConsultationResponse,
+  ConsultationSessionItem,
   ContractFileReviewResponse,
   ContractReviewResponse,
   DocumentItem,
@@ -439,11 +549,13 @@ import type {
   EvidenceExtractionResponse,
   EvidenceItem,
   EvidenceResponse,
+  LawyerRequestItem,
   MessageItem,
   WorkflowOption,
   WorkflowResponse,
 } from '../types/api'
 import { formatFileSize } from '../utils/format'
+import { useAuthStore } from '../stores/auth'
 import { useDictionaryStore } from '../stores/dictionary'
 import { confirmAction, notifySuccess } from '../utils/dialogs'
 
@@ -480,13 +592,162 @@ const editContent = ref('')
 const savingRevision = ref(false)
 const exportingFormat = ref('')
 
-const tabs = [
-  { key: 'overview', label: '案件概览', icon: Scale },
-  { key: 'chat', label: '咨询记录', icon: MessageSquareText },
-  { key: 'evidence', label: '证据材料', icon: Upload },
-  { key: 'contract', label: '合同审查', icon: FileText },
-  { key: 'documents', label: '法律文书', icon: FilePlus2 },
-]
+const lawyerRequests = ref<LawyerRequestItem[]>([])
+const caseSessions = ref<ConsultationSessionItem[]>([])
+const caseReview = ref<CaseReviewItem | null>(null)
+const creatingRequest = ref(false)
+const cancellingRequest = ref(false)
+const requestingReview = ref(false)
+const requestForm = reactive({
+  reason: '',
+  preferred_time: '',
+  priority: 'normal',
+})
+
+const requestStatusLabels: Record<string, string> = {
+  pending: '待律师受理',
+  accepted: '律师已受理',
+  rejected: '律师未受理',
+  in_session: '咨询中',
+  completed: '已完成',
+  cancelled: '已取消',
+}
+const reviewConclusionLabels: Record<string, { title: string; description: string }> = {
+  ready_to_file: {
+    title: '材料齐备，可以立案',
+    description: '律师认为当前材料和事实足以进入仲裁或诉讼程序。',
+  },
+  need_more: {
+    title: '需要补充材料后再立案',
+    description: '还有关键材料缺失，建议按律师意见补充后再申请。',
+  },
+  not_recommended: {
+    title: '暂不建议立案',
+    description: '当前条件下立案风险较高，建议先协商或采取其他方式维权。',
+  },
+}
+
+const activeRequest = computed(
+  () =>
+    lawyerRequests.value.find((item) =>
+      ['pending', 'accepted', 'in_session'].includes(item.status),
+    ) ?? null,
+)
+const caseSession = computed(() => caseSessions.value[0] ?? null)
+
+function requestStatusLabel(status: string) {
+  return requestStatusLabels[status] ?? status
+}
+
+async function fetchReview(): Promise<CaseReviewItem | null> {
+  try {
+    return await apiRequest<CaseReviewItem>(`/lawyer-service/cases/${caseId}/review`)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
+}
+
+async function loadLawyerService() {
+  if (auth.user?.role !== 'user') return
+  try {
+    const [requests, sessions] = await Promise.all([
+      apiRequest<LawyerRequestItem[]>('/lawyer-service/requests'),
+      apiRequest<ConsultationSessionItem[]>('/lawyer-service/sessions'),
+    ])
+    lawyerRequests.value = requests.filter((item) => item.case_id === caseId)
+    caseSessions.value = sessions.filter((item) => item.case_id === caseId)
+    caseReview.value = await fetchReview()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '律师服务数据加载失败'
+  }
+}
+
+async function createRequest() {
+  const reason = requestForm.reason.trim()
+  if (!reason) return
+  creatingRequest.value = true
+  error.value = ''
+  try {
+    const created = await apiRequest<LawyerRequestItem>('/lawyer-service/requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        case_id: caseId,
+        reason,
+        preferred_time: requestForm.preferred_time.trim(),
+        priority: requestForm.priority,
+      }),
+    })
+    lawyerRequests.value.unshift(created)
+    requestForm.reason = ''
+    requestForm.preferred_time = ''
+    requestForm.priority = 'normal'
+    notifySuccess('预约已提交，律师会尽快处理')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '预约提交失败'
+  } finally {
+    creatingRequest.value = false
+  }
+}
+
+async function cancelRequest() {
+  if (!activeRequest.value) return
+  const confirmed = await confirmAction('确认取消该律师服务预约？', {
+    title: '取消预约',
+    confirmText: '确认取消',
+  })
+  if (!confirmed) return
+  cancellingRequest.value = true
+  error.value = ''
+  try {
+    await apiRequest(`/lawyer-service/requests/${activeRequest.value.id}/cancel`, {
+      method: 'POST',
+    })
+    await loadLawyerService()
+    notifySuccess('预约已取消')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '预约取消失败'
+  } finally {
+    cancellingRequest.value = false
+  }
+}
+
+function onSessionClosed(closed: ConsultationSessionItem) {
+  const index = caseSessions.value.findIndex((item) => item.id === closed.id)
+  if (index >= 0) caseSessions.value[index] = closed
+  void loadLawyerService()
+}
+
+async function requestReview() {
+  requestingReview.value = true
+  error.value = ''
+  try {
+    caseReview.value = await apiRequest<CaseReviewItem>(`/lawyer-service/cases/${caseId}/review`, {
+      method: 'POST',
+    })
+    notifySuccess('复核申请已提交，律师会尽快处理')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '复核申请失败'
+  } finally {
+    requestingReview.value = false
+  }
+}
+
+const tabs = computed(() => {
+  const base = [
+    { key: 'overview', label: '案件概览', icon: Scale },
+    { key: 'chat', label: '咨询记录', icon: MessageSquareText },
+    { key: 'evidence', label: '证据材料', icon: Upload },
+    { key: 'contract', label: '合同审查', icon: FileText },
+    { key: 'documents', label: '法律文书', icon: FilePlus2 },
+  ]
+  if (auth.user?.role === 'user') {
+    base.push({ key: 'lawyer', label: '律师协助', icon: UserCheck })
+  }
+  return base
+})
+const auth = useAuthStore()
 const dictionary = useDictionaryStore()
 const documentOptions = [
   { type: 'settlement', label: '协商和解协议' },
@@ -909,5 +1170,6 @@ async function exportDocument(documentItem: DocumentItem, format: 'docx' | 'pdf'
 onMounted(async () => {
   await dictionary.load()
   await loadAll()
+  await loadLawyerService()
 })
 </script>

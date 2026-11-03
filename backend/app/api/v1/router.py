@@ -13,6 +13,7 @@ from app.routes import (
     evidence_rules,
     help,
     lawyer,
+    lawyer_service,
     meta,
     profile,
     simulations,
@@ -33,6 +34,7 @@ api_router.include_router(simulations.router)
 api_router.include_router(documents.router)
 api_router.include_router(workflow.router)
 api_router.include_router(lawyer.router)
+api_router.include_router(lawyer_service.router)
 api_router.include_router(collaboration.router)
 api_router.include_router(collaboration.admin_router)
 api_router.include_router(admin_rule_packages.router)

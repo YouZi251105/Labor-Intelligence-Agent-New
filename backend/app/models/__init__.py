@@ -13,12 +13,21 @@ from app.models.collaboration import (
 from app.models.document import Document, DocumentEvidence
 from app.models.evidence import Evidence
 from app.models.lawyer import LawyerProfile
+from app.models.lawyer_service import (
+    CaseReview,
+    ConsultationMessage,
+    ConsultationSession,
+    LawyerRequest,
+)
 from app.models.rule_package import RulePackage
 from app.models.user import User
 
 __all__ = [
     "AuditLog",
     "Case",
+    "CaseReview",
+    "ConsultationMessage",
+    "ConsultationSession",
     "Conversation",
     "Document",
     "DocumentEvidence",
@@ -26,6 +35,7 @@ __all__ = [
     "HelpResource",
     "LawyerProfile",
     "LawyerOpinion",
+    "LawyerRequest",
     "Message",
     "RevenueLedger",
     "RuleConfig",

@@ -1804,6 +1804,544 @@
         ]
       }
     },
+    "/api/v1/lawyer-service/requests": {
+      "get": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "List Requests",
+        "operationId": "list_requests_api_v1_lawyer_service_requests_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LawyerRequestRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Requests Api V1 Lawyer Service Requests Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Create Request",
+        "operationId": "create_request_api_v1_lawyer_service_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LawyerRequestCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LawyerRequestRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lawyer-service/requests/{request_id}": {
+      "patch": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Act Request",
+        "operationId": "act_request_api_v1_lawyer_service_requests__request_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LawyerRequestAction"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LawyerRequestRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/requests/{request_id}/cancel": {
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Cancel Request",
+        "operationId": "cancel_request_api_v1_lawyer_service_requests__request_id__cancel_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LawyerRequestRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/sessions": {
+      "get": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "List Sessions",
+        "operationId": "list_sessions_api_v1_lawyer_service_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConsultationSessionRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Sessions Api V1 Lawyer Service Sessions Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lawyer-service/sessions/{session_id}/messages": {
+      "get": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "List Messages",
+        "operationId": "list_messages_api_v1_lawyer_service_sessions__session_id__messages_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsultationMessageRead"
+                  },
+                  "title": "Response List Messages Api V1 Lawyer Service Sessions  Session Id  Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Send Message",
+        "operationId": "send_message_api_v1_lawyer_service_sessions__session_id__messages_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultationMessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultationMessageRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/sessions/{session_id}/close": {
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Close Session",
+        "operationId": "close_session_api_v1_lawyer_service_sessions__session_id__close_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultationSessionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/cases/{case_id}/review": {
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Request Review",
+        "operationId": "request_review_api_v1_lawyer_service_cases__case_id__review_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseReviewRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Get Review",
+        "operationId": "get_review_api_v1_lawyer_service_cases__case_id__review_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseReviewRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/reviews/{review_id}/submit": {
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Submit Review",
+        "operationId": "submit_review_api_v1_lawyer_service_reviews__review_id__submit_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseReviewSubmit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseReviewRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/todos": {
+      "get": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Lawyer Todos",
+        "operationId": "lawyer_todos_api_v1_lawyer_service_todos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Lawyer Todos Api V1 Lawyer Service Todos Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/lawyer/opinions": {
       "get": {
         "tags": [
@@ -4200,6 +4738,101 @@
         ],
         "title": "CaseRead"
       },
+      "CaseReviewRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "lawyer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lawyer Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conclusion"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "case_id",
+          "lawyer_id",
+          "status",
+          "conclusion",
+          "comment",
+          "created_at",
+          "reviewed_at"
+        ],
+        "title": "CaseReviewRead"
+      },
+      "CaseReviewSubmit": {
+        "properties": {
+          "conclusion": {
+            "type": "string",
+            "enum": [
+              "ready_to_file",
+              "need_more",
+              "not_recommended"
+            ],
+            "title": "Conclusion"
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Comment",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "conclusion"
+        ],
+        "title": "CaseReviewSubmit"
+      },
       "CompletenessAssessment": {
         "properties": {
           "status": {
@@ -4249,6 +4882,55 @@
         ],
         "title": "CompletenessAssessment"
       },
+      "ConsultationMessageCreate": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "ConsultationMessageCreate"
+      },
+      "ConsultationMessageRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "sender_role": {
+            "type": "string",
+            "title": "Sender Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "sender_role",
+          "content",
+          "created_at"
+        ],
+        "title": "ConsultationMessageRead"
+      },
       "ConsultationResponse": {
         "properties": {
           "case": {
@@ -4288,6 +4970,70 @@
           "demo_mode"
         ],
         "title": "ConsultationResponse"
+      },
+      "ConsultationSessionRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "lawyer_id": {
+            "type": "integer",
+            "title": "Lawyer Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "request_id",
+          "case_id",
+          "user_id",
+          "lawyer_id",
+          "status",
+          "created_at",
+          "closed_at"
+        ],
+        "title": "ConsultationSessionRead"
       },
       "ContractFileReviewResponse": {
         "properties": {
@@ -5082,6 +5828,147 @@
           "created_at"
         ],
         "title": "LawyerOpinionRead"
+      },
+      "LawyerRequestAction": {
+        "properties": {
+          "accept": {
+            "type": "boolean",
+            "title": "Accept"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accept"
+        ],
+        "title": "LawyerRequestAction"
+      },
+      "LawyerRequestCreate": {
+        "properties": {
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "preferred_time": {
+            "type": "string",
+            "maxLength": 160,
+            "title": "Preferred Time",
+            "default": ""
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "urgent"
+            ],
+            "title": "Priority",
+            "default": "normal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "reason"
+        ],
+        "title": "LawyerRequestCreate"
+      },
+      "LawyerRequestRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "lawyer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lawyer Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "preferred_time": {
+            "type": "string",
+            "title": "Preferred Time"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "case_id",
+          "user_id",
+          "lawyer_id",
+          "reason",
+          "preferred_time",
+          "priority",
+          "status",
+          "created_at",
+          "updated_at",
+          "accepted_at",
+          "completed_at"
+        ],
+        "title": "LawyerRequestRead"
       },
       "LawyerStatusUpdate": {
         "properties": {

@@ -519,3 +519,71 @@ export interface DictionaryResponse {
   stages: DictionaryStage[]
   evidence_categories: DictionaryEvidenceCategory[]
 }
+
+export type LawyerRequestStatus =
+  | 'pending'
+  | 'accepted'
+  | 'rejected'
+  | 'in_session'
+  | 'completed'
+  | 'cancelled'
+
+export interface LawyerRequestItem {
+  id: number
+  case_id: number
+  user_id: number
+  lawyer_id: number | null
+  reason: string
+  preferred_time: string
+  priority: 'normal' | 'urgent'
+  status: LawyerRequestStatus
+  created_at: string
+  updated_at: string
+  accepted_at: string | null
+  completed_at: string | null
+}
+
+export interface ConsultationSessionItem {
+  id: number
+  request_id: number | null
+  case_id: number
+  user_id: number
+  lawyer_id: number
+  status: 'active' | 'closed'
+  created_at: string
+  closed_at: string | null
+}
+
+export interface ConsultationMessageItem {
+  id: number
+  session_id: number
+  sender_role: 'user' | 'lawyer'
+  content: string
+  created_at: string
+}
+
+export type CaseReviewConclusion = 'ready_to_file' | 'need_more' | 'not_recommended'
+
+export interface CaseReviewItem {
+  id: number
+  case_id: number
+  lawyer_id: number | null
+  status: 'pending' | 'reviewed'
+  conclusion: CaseReviewConclusion | null
+  comment: string
+  created_at: string
+  reviewed_at: string | null
+}
+
+export interface LawyerTodoCase {
+  id: number
+  title: string
+  dispute_type: string
+  stage: string
+}
+
+export interface LawyerTodosResponse {
+  requests: LawyerRequestItem[]
+  reviews: CaseReviewItem[]
+  cases: Record<string, LawyerTodoCase>
+}

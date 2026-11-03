@@ -209,28 +209,167 @@
         </div>
       </div>
     </section>
+
+    <section v-else-if="activeTab === 'todos'" class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">待受理预约</span>
+            <h2>{{ todoRequests.length }} 条待处理</h2>
+          </div>
+        </div>
+        <div class="ledger-list">
+          <article v-for="request in todoRequests" :key="request.id">
+            <div>
+              <strong>#{{ request.case_id }} · {{ todoCaseTitle(request.case_id) }}</strong>
+              <span class="pre-line">{{ request.reason }}</span>
+              <small>
+                期望时间：{{ request.preferred_time || '不限' }} ·
+                {{ new Date(request.created_at).toLocaleString('zh-CN') }}
+              </small>
+            </div>
+            <div class="ledger-list__actions">
+              <span v-if="request.priority === 'urgent'" class="status-tag status-tag--warning">加急</span>
+              <button
+                type="button"
+                :disabled="actingRequestId === request.id"
+                @click="actTodoRequest(request, true)"
+              >
+                {{ actingRequestId === request.id ? '处理中...' : '受理并开始对话' }}
+              </button>
+              <button
+                type="button"
+                :disabled="actingRequestId === request.id"
+                @click="actTodoRequest(request, false)"
+              >
+                拒绝
+              </button>
+            </div>
+          </article>
+          <p v-if="!todoRequests.length" class="muted-text">暂无待受理预约。</p>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">待复核案件</span>
+            <h2>{{ todoReviews.length }} 件待复核</h2>
+          </div>
+        </div>
+        <div class="ledger-list">
+          <article v-for="review in todoReviews" :key="review.id">
+            <div>
+              <strong>#{{ review.case_id }} · {{ todoCaseTitle(review.case_id) }}</strong>
+              <small>申请于 {{ new Date(review.created_at).toLocaleString('zh-CN') }}</small>
+              <div class="form-grid">
+                <label class="form-grid__wide">
+                  <span>复核结论</span>
+                  <select v-model="reviewForm(review.id).conclusion">
+                    <option value="ready_to_file">材料齐备，可以立案</option>
+                    <option value="need_more">需要补充材料后再立案</option>
+                    <option value="not_recommended">暂不建议立案</option>
+                  </select>
+                </label>
+                <label class="form-grid__wide">
+                  <span>复核意见</span>
+                  <textarea
+                    v-model="reviewForm(review.id).comment"
+                    rows="3"
+                    placeholder="向用户说明结论依据和下一步建议。"
+                  />
+                </label>
+              </div>
+            </div>
+            <div class="ledger-list__actions">
+              <button
+                class="primary-action primary-action--compact"
+                type="button"
+                :disabled="submittingReviewId === review.id"
+                @click="submitReview(review)"
+              >
+                {{ submittingReviewId === review.id ? '提交中...' : '提交复核结论' }}
+              </button>
+            </div>
+          </article>
+          <p v-if="!todoReviews.length" class="muted-text">暂无待复核案件。</p>
+        </div>
+      </div>
+    </section>
+
+    <section v-else-if="activeTab === 'sessions'" class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">咨询会话</span>
+            <h2>{{ sessions.length }} 个会话</h2>
+          </div>
+        </div>
+        <div class="ledger-list">
+          <article
+            v-for="item in sessions"
+            :key="item.id"
+            class="session-item"
+            :class="{ 'session-item--active': activeSessionId === item.id }"
+            @click="activeSessionId = item.id"
+          >
+            <div>
+              <strong>#{{ item.case_id }} · {{ sessionCaseTitle(item) }}</strong>
+              <small>开始于 {{ new Date(item.created_at).toLocaleString('zh-CN') }}</small>
+            </div>
+            <span class="status-tag" :class="{ 'status-tag--success': item.status === 'active' }">
+              {{ item.status === 'active' ? '进行中' : '已结束' }}
+            </span>
+          </article>
+          <p v-if="!sessions.length" class="muted-text">暂无咨询会话，受理预约后会自动创建。</p>
+        </div>
+      </div>
+      <div v-if="activeSession" class="detail-card detail-card--wide">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">对话窗口</span>
+            <h2>#{{ activeSession.case_id }} · {{ sessionCaseTitle(activeSession) }}</h2>
+          </div>
+        </div>
+        <ConsultationChat
+          :key="activeSession.id"
+          :session="activeSession"
+          sender-role="lawyer"
+          @closed="onSessionClosed"
+        />
+      </div>
+    </section>
   </section>
 </template>
 
 <script setup lang="ts">
 import {
   ArrowRight,
+  BellRing,
   BriefcaseBusiness,
   Clock3,
   FileText,
   MapPin,
+  MessagesSquare,
   MessageSquareText,
   WalletCards,
 } from '@lucide/vue'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
+import ConsultationChat from '../components/ConsultationChat.vue'
 import SafeMarkdown from '../components/SafeMarkdown.vue'
 import { useDictionaryStore } from '../stores/dictionary'
+import { notifySuccess } from '../utils/dialogs'
 import type {
   CaseItem,
+  CaseReviewItem,
+  ConsultationSessionItem,
   LawyerOpinion,
+  LawyerRequestItem,
+  LawyerTodoCase,
+  LawyerTodosResponse,
   RevenueLedger,
   ServiceRecord,
 } from '../types/api'
@@ -259,8 +398,114 @@ const revenueForm = reactive({
   note: '',
 })
 
+const todoRequests = ref<LawyerRequestItem[]>([])
+const todoReviews = ref<CaseReviewItem[]>([])
+const todoCases = ref<Record<string, LawyerTodoCase>>({})
+const sessions = ref<ConsultationSessionItem[]>([])
+const sessionTitles = ref<Record<number, string>>({})
+const activeSessionId = ref(0)
+const actingRequestId = ref<number | null>(null)
+const submittingReviewId = ref<number | null>(null)
+const reviewForms = reactive<Record<number, { conclusion: string; comment: string }>>({})
+
+const activeSession = computed(
+  () => sessions.value.find((item) => item.id === activeSessionId.value) ?? null,
+)
+
+function todoCaseTitle(caseId: number) {
+  return todoCases.value[String(caseId)]?.title ?? `案件 ${caseId}`
+}
+
+function sessionCaseTitle(item: ConsultationSessionItem) {
+  return sessionTitles.value[item.case_id] ?? `案件 ${item.case_id}`
+}
+
+function reviewForm(reviewId: number) {
+  let form = reviewForms[reviewId]
+  if (!form) {
+    form = { conclusion: 'ready_to_file', comment: '' }
+    reviewForms[reviewId] = form
+  }
+  return form
+}
+
+async function loadSessionCaseTitles() {
+  const ids = [...new Set(sessions.value.map((item) => item.case_id))]
+  await Promise.all(
+    ids.map(async (id) => {
+      if (sessionTitles.value[id]) return
+      try {
+        const item = await apiRequest<CaseItem>(`/cases/${id}`)
+        sessionTitles.value[id] = item.title
+      } catch {
+        sessionTitles.value[id] = `案件 ${id}`
+      }
+    }),
+  )
+}
+
+async function refreshLawyerService() {
+  const [todoData, sessionData] = await Promise.all([
+    apiRequest<LawyerTodosResponse>('/lawyer-service/todos'),
+    apiRequest<ConsultationSessionItem[]>('/lawyer-service/sessions'),
+  ])
+  todoRequests.value = todoData.requests
+  todoReviews.value = todoData.reviews
+  todoCases.value = todoData.cases
+  sessions.value = sessionData
+  if (!activeSessionId.value && sessions.value.length) {
+    activeSessionId.value = sessions.value[0].id
+  }
+  await loadSessionCaseTitles()
+}
+
+async function actTodoRequest(request: LawyerRequestItem, accept: boolean) {
+  actingRequestId.value = request.id
+  error.value = ''
+  try {
+    await apiRequest<LawyerRequestItem>(`/lawyer-service/requests/${request.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accept }),
+    })
+    notifySuccess(accept ? '已受理，可在咨询会话中回复' : '已拒绝该预约')
+    await refreshLawyerService()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '预约处理失败'
+  } finally {
+    actingRequestId.value = null
+  }
+}
+
+async function submitReview(review: CaseReviewItem) {
+  const form = reviewForm(review.id)
+  submittingReviewId.value = review.id
+  error.value = ''
+  try {
+    await apiRequest<CaseReviewItem>(`/lawyer-service/reviews/${review.id}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conclusion: form.conclusion, comment: form.comment.trim() }),
+    })
+    notifySuccess('复核结论已提交')
+    await refreshLawyerService()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '复核提交失败'
+  } finally {
+    submittingReviewId.value = null
+  }
+}
+
+function onSessionClosed(closed: ConsultationSessionItem) {
+  const index = sessions.value.findIndex((item) => item.id === closed.id)
+  if (index >= 0) sessions.value[index] = closed
+  void refreshLawyerService()
+}
+
 const tabs = [
   { key: 'cases', label: '案件', icon: BriefcaseBusiness },
+  { key: 'todos', label: '待办', icon: BellRing },
+  { key: 'sessions', label: '咨询会话', icon: MessagesSquare },
   { key: 'services', label: '服务记录', icon: FileText },
   { key: 'opinions', label: '律师意见', icon: MessageSquareText },
   { key: 'revenue', label: '收益台账', icon: WalletCards },
@@ -308,6 +553,7 @@ async function loadAll() {
       serviceForm.case_id = caseData[0].id
       opinionCaseId.value = caseData[0].id
     }
+    await refreshLawyerService()
   } catch (err) {
     error.value = err instanceof Error ? err.message : '律师数据加载失败'
   }
