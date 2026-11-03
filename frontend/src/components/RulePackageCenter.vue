@@ -33,11 +33,60 @@
           <Download :size="16" />
           导出当前 Excel
         </button>
+        <button
+          v-if="selectedPackage"
+          type="button"
+          class="secondary-action"
+          @click="exportSelectedWord"
+        >
+          <FileText :size="16" />
+          下载 Word 复核稿
+        </button>
+        <button
+          type="button"
+          class="secondary-action"
+          @click="aiOpen = !aiOpen"
+        >
+          <Sparkles :size="16" />
+          AI 生成草稿
+        </button>
       </div>
     </header>
 
     <p v-if="error" class="inline-error">{{ error }}</p>
     <p v-if="success" class="form-success">{{ success }}</p>
+
+    <section v-if="aiOpen" class="ai-rule-panel">
+      <div>
+        <span class="eyebrow">AI 辅助配置</span>
+        <h3>描述需要的流程规则</h3>
+        <p>AI 会以当前内置规则包为基础生成草稿，生成后仍需人工校验和法学复核。</p>
+      </div>
+      <textarea
+        v-model="aiInstruction"
+        rows="4"
+        placeholder="例如：增加工伤咨询分支，先判断是否完成工伤认定，再分别引导申请待遇或转律师复核。"
+      />
+      <div class="ai-rule-panel__actions">
+        <button
+          type="button"
+          class="primary-action primary-action--compact"
+          :disabled="aiGenerating || aiInstruction.trim().length < 10"
+          @click="generateAIDraft"
+        >
+          <Sparkles :size="16" />
+          {{ aiGenerating ? '生成中...' : '生成规则草稿' }}
+        </button>
+        <button
+          type="button"
+          class="secondary-action"
+          :disabled="aiGenerating"
+          @click="aiOpen = false"
+        >
+          取消
+        </button>
+      </div>
+    </section>
 
     <div v-if="loading" class="admin-loading-skeleton" aria-label="规则包加载中">
       <span />
@@ -90,6 +139,9 @@
 
         <p v-if="selectedPackage && !isEditable" class="rule-package-readonly-note">
           当前版本已锁定，可查看流程和参与复核，但不能修改。
+        </p>
+        <p v-else-if="selectedPackage" class="rule-package-drag-hint">
+          草稿支持从左侧拖拽积木到画布，并可拖动积木调整位置。
         </p>
 
         <WorkflowBlockDesigner
@@ -203,10 +255,12 @@ import {
   CheckCircle2,
   Download,
   FileSpreadsheet,
+  FileText,
   RefreshCw,
   Rocket,
   Save,
   Send,
+  Sparkles,
   Upload,
   XCircle,
 } from '@lucide/vue'
@@ -230,6 +284,9 @@ const busy = ref(false)
 const error = ref('')
 const success = ref('')
 const visualContent = ref<Record<string, unknown> | null>(null)
+const aiOpen = ref(false)
+const aiGenerating = ref(false)
+const aiInstruction = ref('')
 
 const isEditable = computed(
   () =>
@@ -303,6 +360,57 @@ async function exportSelectedExcel() {
     success.value = '当前规则包已导出为 Excel。'
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Excel 导出失败'
+  }
+}
+
+async function exportSelectedWord() {
+  if (!selectedPackage.value) return
+  error.value = ''
+  success.value = ''
+  try {
+    const blob = await apiFile(
+      `/admin/rule-packages/${selectedPackage.value.id}/export.docx`,
+      {
+        accept:
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      },
+    )
+    saveBlob(
+      `workflow-rule-package-${selectedPackage.value.version}-review.docx`,
+      blob,
+    )
+    success.value = 'Word 复核稿已导出。'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Word 复核稿导出失败'
+  }
+}
+
+async function generateAIDraft() {
+  const instruction = aiInstruction.value.trim()
+  if (instruction.length < 10) {
+    error.value = '请至少填写 10 个字的规则要求'
+    return
+  }
+  aiGenerating.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const response = await apiRequest<RulePackageDetail>(
+      '/admin/rule-packages/ai-draft',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction }),
+      },
+    )
+    await loadPackages(response.id)
+    aiOpen.value = false
+    aiInstruction.value = ''
+    success.value = `AI 已生成草稿 ${response.version}，请继续校验和复核。`
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'AI 规则草稿生成失败'
+  } finally {
+    aiGenerating.value = false
   }
 }
 

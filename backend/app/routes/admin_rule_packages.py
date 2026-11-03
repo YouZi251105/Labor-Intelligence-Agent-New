@@ -12,6 +12,7 @@ from app.models.audit import AuditLog
 from app.models.rule_package import RulePackage
 from app.models.user import User
 from app.schemas.rule_package import (
+    RulePackageAIGenerateRequest,
     RulePackageContentRequest,
     RulePackageDetail,
     RulePackageExcelErrorResponse,
@@ -20,6 +21,12 @@ from app.schemas.rule_package import (
     RulePackageValidationResponse,
     RulePackageValidationSummary,
 )
+from app.services.rule_package_ai import (
+    RulePackageAIError,
+    RulePackageAIUnavailableError,
+    generate_rule_package_draft,
+)
+from app.services.rule_package_document import export_rule_package_review_docx
 from app.services.rule_package_excel import (
     RulePackageExcelError,
     export_rule_package_excel,
@@ -37,6 +44,9 @@ AdminUser = require_roles("admin")
 AdminRequired = Annotated[User, Depends(AdminUser)]
 EXCEL_MEDIA_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+DOCX_MEDIA_TYPE = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
 MAX_EXCEL_BYTES = 5 * 1024 * 1024
 
@@ -142,6 +152,40 @@ async def import_rule_package_from_excel(
 
 
 @router.post(
+    "/ai-draft",
+    response_model=RulePackageDetail,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        422: {
+            "model": RulePackageExcelErrorResponse,
+            "description": "AI 输出未通过规则包结构校验",
+        },
+        503: {"description": "AI 服务未配置或暂时不可用"},
+    },
+)
+async def generate_rule_package_from_ai(
+    payload: RulePackageAIGenerateRequest,
+    session: DbSession,
+    admin: AdminRequired,
+) -> RulePackage:
+    try:
+        package_model = await generate_rule_package_draft(payload.instruction)
+    except RulePackageAIUnavailableError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except RulePackageAIError as error:
+        raise HTTPException(
+            status_code=422,
+            detail={"errors": error.errors},
+        ) from error
+    return await _create_draft(
+        session,
+        admin,
+        package_model,
+        package_model.model_dump(mode="json"),
+    )
+
+
+@router.post(
     "/import",
     response_model=RulePackageDetail,
     status_code=status.HTTP_201_CREATED,
@@ -176,6 +220,30 @@ async def export_rule_package(
     return _excel_response(
         export_rule_package_excel(package.content),
         f"workflow-rule-package-{safe_version or package.id}.xlsx",
+    )
+
+
+@router.get("/{package_id}/export.docx", response_class=Response)
+async def export_rule_package_review(
+    package_id: int,
+    session: DbSession,
+    _: AdminRequired,
+) -> Response:
+    package = await _get_package(session, package_id)
+    safe_version = "".join(
+        character if character.isalnum() or character in ".-_" else "-"
+        for character in package.version
+    )
+    return Response(
+        content=export_rule_package_review_docx(package.content),
+        media_type=DOCX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="workflow-rule-package-'
+                f'{safe_version or package.id}-review.docx"'
+            ),
+            "Cache-Control": "no-store",
+        },
     )
 
 

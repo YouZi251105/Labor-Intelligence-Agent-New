@@ -2413,6 +2413,55 @@
         ]
       }
     },
+    "/api/v1/admin/rule-packages/ai-draft": {
+      "post": {
+        "tags": [
+          "admin-rule-packages"
+        ],
+        "summary": "Generate Rule Package From Ai",
+        "operationId": "generate_rule_package_from_ai_api_v1_admin_rule_packages_ai_draft_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulePackageAIGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulePackageDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "AI 输出未通过规则包结构校验",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulePackageExcelErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AI 服务未配置或暂时不可用"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/rule-packages/import": {
       "post": {
         "tags": [
@@ -2466,6 +2515,46 @@
         ],
         "summary": "Export Rule Package",
         "operationId": "export_rule_package_api_v1_admin_rule_packages__package_id__export_xlsx_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "package_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Package Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/rule-packages/{package_id}/export.docx": {
+      "get": {
+        "tags": [
+          "admin-rule-packages"
+        ],
+        "summary": "Export Rule Package Review",
+        "operationId": "export_rule_package_review_api_v1_admin_rule_packages__package_id__export_docx_get",
         "security": [
           {
             "HTTPBearer": []
@@ -5426,6 +5515,21 @@
           "updated_at"
         ],
         "title": "RuleConfigRead"
+      },
+      "RulePackageAIGenerateRequest": {
+        "properties": {
+          "instruction": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 10,
+            "title": "Instruction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instruction"
+        ],
+        "title": "RulePackageAIGenerateRequest"
       },
       "RulePackageContentRequest": {
         "properties": {

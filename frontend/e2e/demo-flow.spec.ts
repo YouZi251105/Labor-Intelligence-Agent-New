@@ -319,6 +319,9 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
   await expect(page.locator('.rule-package-view-switch')).toHaveCount(0)
   await expect(page.getByText('JSON', { exact: true })).toHaveCount(0)
   await expect(page.getByText('导入 Excel', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'AI 生成草稿' }).click()
+  await expect(page.getByRole('heading', { name: '描述需要的流程规则' })).toBeVisible()
+  await page.getByRole('button', { name: '取消', exact: true }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '下载 Excel 模板' }).click()
   const download = await downloadPromise
@@ -341,16 +344,73 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
   await expect(page.locator('.workflow-designer__palette')).toHaveCount(0)
   await expect(page.locator('.workflow-block')).toHaveCount(6)
   await expect(page.locator('.workflow-designer input').first()).toBeDisabled()
+  const wordDownloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: '下载 Word 复核稿' }).click()
+  const wordDownload = await wordDownloadPromise
+  expect(wordDownload.suggestedFilename()).toMatch(/review\.docx$/)
   await page.getByRole('button', { name: '校验内容' }).click()
 
   await expect(page.getByText('结构校验通过')).toBeVisible()
   await expect(page.locator('.rule-package-summary')).toContainText(
     'cn-labor-workflow',
   )
+  await page.evaluate(() => {
+    window.scrollTo(0, 0)
+    document.querySelector<HTMLElement>('.page')?.scrollTo(0, 0)
+  })
   await page.screenshot({
     path: `../docs/screenshots/admin-rule-packages-${testInfo.project.name}.png`,
     fullPage: true,
   })
+})
+
+test('admin can compose workflow blocks by drag and drop', async ({
+  page,
+}, testInfo) => {
+  await login(page, 'admin', 'Admin123!')
+  const token = await page.evaluate(() => localStorage.getItem('lia_token'))
+  expect(token).toBeTruthy()
+  const version = `drag-${testInfo.project.name}-${Date.now()}`
+  const template = await page.request.get(
+    `${API_BASE_URL}/api/v1/admin/rule-packages/template`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  expect(template.ok()).toBeTruthy()
+  const content = await template.json()
+  content.version = version
+  content.review_status = 'draft'
+  const imported = await page.request.post(
+    `${API_BASE_URL}/api/v1/admin/rule-packages/import`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { content },
+    },
+  )
+  expect(imported.ok()).toBeTruthy()
+
+  await page.goto('/admin/packages')
+  const packageItem = page
+    .locator('.rule-package-list__item')
+    .filter({ hasText: version })
+  await expect(packageItem).toBeVisible()
+  await packageItem.click()
+  await expect(page.locator('.workflow-designer__palette')).toBeVisible()
+  await expect(
+    page.getByText('草稿支持从左侧拖拽积木到画布', { exact: false }),
+  ).toBeVisible()
+
+  const initialBlocks = await page.locator('.workflow-block').count()
+  const stageBlock = page
+    .locator('.workflow-palette__item')
+    .filter({ hasText: '阶段块' })
+  if (testInfo.project.name === 'desktop') {
+    await stageBlock.dragTo(page.locator('.workflow-designer__canvas'), {
+      targetPosition: { x: 160, y: 560 },
+    })
+  } else {
+    await stageBlock.click()
+  }
+  await expect(page.locator('.workflow-block')).toHaveCount(initialBlocks + 1)
 })
 
 test('admin navigation group collapses and remembers its state', async ({ page }, testInfo) => {

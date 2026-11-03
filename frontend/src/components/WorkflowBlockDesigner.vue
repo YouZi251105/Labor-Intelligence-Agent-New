@@ -244,7 +244,7 @@ interface DesignerContent {
   nodes: Record<string, NodeRule>
   designer?: {
     version: 1
-    blocks: BlockRule[]
+    blocks: BlockRule[] | Record<string, BlockRule>
   }
 }
 
@@ -295,7 +295,11 @@ watch(
   { immediate: true, deep: true },
 )
 
-const designerBlocks = computed(() => content.value?.designer?.blocks ?? [])
+const designerBlocks = computed<BlockRule[]>(() => {
+  const blocks = content.value?.designer?.blocks
+  if (!blocks) return []
+  return Array.isArray(blocks) ? blocks : Object.values(blocks)
+})
 const selectedBlock = computed(() =>
   designerBlocks.value.find((item) => item.id === selectedBlockId.value),
 )
@@ -326,8 +330,11 @@ function normalizeContent(value: Record<string, unknown>): DesignerContent {
   normalized.stages ??= []
   normalized.designer ??= { version: 1, blocks: [] }
   normalized.designer.blocks ??= []
+  const blockValues = Array.isArray(normalized.designer.blocks)
+    ? normalized.designer.blocks
+    : Object.values(normalized.designer.blocks)
   const existing = new Map(
-    normalized.designer.blocks.map((block) => [block.id, block]),
+    blockValues.map((block) => [block.id, block]),
   )
   normalized.designer.blocks = Object.entries(normalized.nodes).map(
     ([nodeId, node], index) => {
@@ -403,7 +410,7 @@ function addBlock(type: BlockType, x: number, y: number) {
     options: [],
   }
   content.value.nodes[id] = node
-  content.value.designer?.blocks.push({
+  mutableBlocks().push({
     id,
     block_type: type,
     position: { x, y },
@@ -512,7 +519,7 @@ function removeBlock(blockId: string) {
   if (!content.value || blockId === content.value.start_node) return
   delete content.value.nodes[blockId]
   if (content.value.designer) {
-    content.value.designer.blocks = content.value.designer.blocks.filter(
+    content.value.designer.blocks = mutableBlocks().filter(
       (item) => item.id !== blockId,
     )
   }
@@ -540,5 +547,13 @@ function blockTypeLabel(type: BlockType) {
 
 function stageLabel(stage: string) {
   return content.value?.stages.find((item) => item.key === stage)?.label ?? stage
+}
+
+function mutableBlocks(): BlockRule[] {
+  if (!content.value?.designer) return []
+  if (!Array.isArray(content.value.designer.blocks)) {
+    content.value.designer.blocks = Object.values(content.value.designer.blocks)
+  }
+  return content.value.designer.blocks
 }
 </script>

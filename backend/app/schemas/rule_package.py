@@ -37,6 +37,10 @@ class RulePackageContentRequest(BaseModel):
     content: dict[str, Any]
 
 
+class RulePackageAIGenerateRequest(BaseModel):
+    instruction: str = Field(min_length=10, max_length=5_000)
+
+
 class RulePackageValidationSummary(BaseModel):
     package_id: str
     version: str

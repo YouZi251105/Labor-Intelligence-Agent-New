@@ -3743,6 +3743,52 @@ summary:focus-visible {
   font-size: 12px;
 }
 
+.rule-package-drag-hint {
+  margin: 0;
+  border: 1px solid #d7e3ec;
+  border-radius: 7px;
+  background: #f3f8fb;
+  color: var(--lia-text-secondary);
+  padding: 9px 11px;
+  font-size: 12px;
+}
+
+.ai-rule-panel {
+  display: grid;
+  gap: 11px;
+  border: 1px solid #d8c6c6;
+  border-radius: 8px;
+  background: #fffafa;
+  padding: 14px;
+}
+
+.ai-rule-panel h3 {
+  margin: 4px 0 5px;
+}
+
+.ai-rule-panel p {
+  margin: 0;
+  color: var(--lia-text-muted);
+  font-size: 12px;
+}
+
+.ai-rule-panel textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--lia-border-strong);
+  border-radius: 7px;
+  background: #fff;
+  padding: 10px 11px;
+  font: inherit;
+  line-height: 1.6;
+}
+
+.ai-rule-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .workflow-designer__palette,
 .workflow-designer__inspector {
   border: 1px solid var(--lia-border);

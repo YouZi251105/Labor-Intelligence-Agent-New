@@ -17,14 +17,15 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function apiFile(
   path: string,
-  init: RequestInit & { auth?: boolean } = {},
+  init: RequestInit & { auth?: boolean; accept?: string } = {},
 ): Promise<Blob> {
-  const { auth = true, ...requestInit } = init
+  const {
+    auth = true,
+    accept = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ...requestInit
+  } = init
   const headers = new Headers(requestInit.headers)
-  headers.set(
-    'Accept',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
+  headers.set('Accept', accept)
   if (auth) {
     const token = localStorage.getItem(TOKEN_KEY)
     if (token) headers.set('Authorization', `Bearer ${token}`)

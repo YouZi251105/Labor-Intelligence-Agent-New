@@ -179,8 +179,10 @@ file
 | POST | `/admin/rule-packages/validate` | 校验规则包结构和引用 | 管理员 |
 | POST | `/admin/rule-packages/import` | 从 JSON 导入草稿（系统维护接口） | 管理员 |
 | POST | `/admin/rule-packages/import-excel` | 从 Excel 导入新草稿版本 | 管理员 |
+| POST | `/admin/rule-packages/ai-draft` | AI 辅助生成规则包草稿 | 管理员 |
 | GET/PUT | `/admin/rule-packages/{id}` | 查看或编辑草稿 | 管理员 |
 | GET | `/admin/rule-packages/{id}/export.xlsx` | 导出指定版本为 Excel | 管理员 |
+| GET | `/admin/rule-packages/{id}/export.docx` | 导出指定版本为 Word 复核稿 | 管理员 |
 | POST | `/admin/rule-packages/{id}/submit` | 提交复核 | 管理员 |
 | POST | `/admin/rule-packages/{id}/review` | 批准或驳回 | 管理员 |
 | POST | `/admin/rule-packages/{id}/publish` | 发布规则包 | 管理员 |
