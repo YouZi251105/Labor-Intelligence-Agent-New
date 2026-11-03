@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
 from app.core.config import get_settings
 from app.models.audit import AuditLog
+from app.models.document import DocumentEvidence
 from app.models.evidence import Evidence
 from app.routes.cases import get_accessible_case, get_worker_owned_case
 from app.schemas.evidence import (
@@ -237,6 +238,10 @@ async def download_evidence(
 @router.delete(
     "/{case_id}/evidence/{evidence_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        404: {"description": "材料不存在或不属于当前案件"},
+        409: {"description": "材料已纳入法律文书，不能直接删除"},
+    },
 )
 async def delete_case_evidence(
     case_id: int,
@@ -248,6 +253,17 @@ async def delete_case_evidence(
     evidence = await session.get(Evidence, evidence_id)
     if evidence is None or evidence.case_id != case_id:
         raise HTTPException(status_code=404, detail="材料不存在")
+
+    document_reference = await session.scalar(
+        select(DocumentEvidence.id)
+        .where(DocumentEvidence.evidence_id == evidence_id)
+        .limit(1)
+    )
+    if document_reference is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="该材料已纳入法律文书，不能直接删除",
+        )
 
     stored_key = evidence.stored_path
     filename = evidence.filename

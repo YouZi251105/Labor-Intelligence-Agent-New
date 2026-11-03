@@ -359,6 +359,11 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
 import { useDictionaryStore } from '../stores/dictionary'
+import {
+  confirmAction,
+  notifySuccess,
+  promptForPassword,
+} from '../utils/dialogs'
 import RulePackageCenter from '../components/RulePackageCenter.vue'
 import type {
   AdminDashboardData,
@@ -679,7 +684,9 @@ async function assignCase(caseId: number) {
 }
 
 async function resetPassword(userItem: AdminUserSummary) {
-  const newPassword = window.prompt(`为 ${userItem.username} 设置新密码（至少 8 位）`)
+  const newPassword = await promptForPassword(
+    `为 ${userItem.username} 设置新密码`,
+  )
   if (!newPassword) return
   try {
     await apiRequest(`/admin/users/${userItem.id}/reset-password`, {
@@ -687,7 +694,7 @@ async function resetPassword(userItem: AdminUserSummary) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ new_password: newPassword }),
     })
-    window.alert('密码已重置')
+    notifySuccess('密码已重置')
   } catch (err) {
     error.value = err instanceof Error ? err.message : '密码重置失败'
   }
@@ -696,7 +703,15 @@ async function resetPassword(userItem: AdminUserSummary) {
 async function updateUserStatus(userItem: AdminUserSummary) {
   const nextStatus = !userItem.is_active
   const actionLabel = nextStatus ? '恢复' : '停用'
-  if (!window.confirm(`确认${actionLabel}账号 ${userItem.username} 吗？`)) return
+  const confirmed = await confirmAction(
+    `确认${actionLabel}账号 ${userItem.username} 吗？`,
+    {
+      title: `${actionLabel}账号`,
+      confirmText: actionLabel,
+      danger: !nextStatus,
+    },
+  )
+  if (!confirmed) return
   try {
     const updated = await apiRequest<User>(`/admin/users/${userItem.id}/status`, {
       method: 'PATCH',
@@ -704,6 +719,7 @@ async function updateUserStatus(userItem: AdminUserSummary) {
       body: JSON.stringify({ is_active: nextStatus }),
     })
     userItem.is_active = updated.is_active
+    notifySuccess(`账号已${actionLabel}`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : '账号状态更新失败'
   }

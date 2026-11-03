@@ -105,6 +105,7 @@ import { useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
 import { useDictionaryStore } from '../stores/dictionary'
+import { confirmAction, notifySuccess } from '../utils/dialogs'
 import type { CaseItem } from '../types/api'
 
 const router = useRouter()
@@ -174,10 +175,19 @@ async function toggleArchive(item: CaseItem) {
 
 async function removeCase(item: CaseItem) {
   error.value = ''
-  if (!window.confirm('确定删除该案件？删除后不可恢复。')) return
+  const confirmed = await confirmAction(
+    `确定删除案件“${item.title}”？删除后不可恢复。`,
+    {
+      title: '删除案件',
+      confirmText: '删除',
+      danger: true,
+    },
+  )
+  if (!confirmed) return
   try {
     await apiRequest<void>(`/cases/${item.id}`, { method: 'DELETE' })
     await loadCases()
+    notifySuccess('案件已删除')
   } catch (err) {
     error.value = err instanceof Error ? err.message : '删除失败'
   }

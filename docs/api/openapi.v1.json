@@ -967,6 +967,12 @@
           "204": {
             "description": "Successful Response"
           },
+          "404": {
+            "description": "材料不存在或不属于当前案件"
+          },
+          "409": {
+            "description": "材料已纳入法律文书，不能直接删除"
+          },
           "422": {
             "description": "Validation Error",
             "content": {

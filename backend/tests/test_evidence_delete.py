@@ -62,3 +62,42 @@ def test_delete_evidence_removes_record_and_file() -> None:
             headers=auth_headers(token),
         )
         assert download.status_code == 404
+
+
+def test_delete_evidence_linked_to_document_returns_conflict() -> None:
+    with TestClient(app) as client:
+        token = login_demo(client)
+        case_id = create_case(client, token, "已入文书材料删除")
+        upload = client.post(
+            f"/api/v1/cases/{case_id}/evidence",
+            headers=auth_headers(token),
+            files={
+                "file": (
+                    "工资流水.txt",
+                    "9月工资5000元，尚未支付。".encode(),
+                    "text/plain",
+                )
+            },
+        )
+        assert upload.status_code == 201
+        evidence_id = upload.json()["id"]
+
+        document = client.post(
+            f"/api/v1/cases/{case_id}/documents",
+            headers=auth_headers(token),
+            json={"doc_type": "arbitration"},
+        )
+        assert document.status_code == 201
+
+        deleted = client.delete(
+            f"/api/v1/cases/{case_id}/evidence/{evidence_id}",
+            headers=auth_headers(token),
+        )
+        listing = client.get(
+            f"/api/v1/cases/{case_id}/evidence",
+            headers=auth_headers(token),
+        )
+
+    assert deleted.status_code == 409
+    assert deleted.json()["detail"] == "该材料已纳入法律文书，不能直接删除"
+    assert evidence_id in [item["id"] for item in listing.json()["items"]]

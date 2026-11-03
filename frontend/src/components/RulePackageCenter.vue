@@ -213,6 +213,7 @@ import {
 import { computed, onMounted, ref } from 'vue'
 
 import { apiFile, apiRequest } from '../api/http'
+import { confirmAction } from '../utils/dialogs'
 import WorkflowBlockDesigner from './WorkflowBlockDesigner.vue'
 import type {
   RulePackageDetail,
@@ -413,7 +414,15 @@ async function publishPackage() {
 }
 
 async function retirePackage() {
-  if (!window.confirm('确认停用当前规则包版本？')) return
+  const confirmed = await confirmAction(
+    `确认停用规则包版本 ${selectedPackage.value?.version ?? ''}？`,
+    {
+      title: '停用规则包',
+      confirmText: '停用',
+      danger: true,
+    },
+  )
+  if (!confirmed) return
   await runPackageAction('retire', '规则包已停用。')
 }
 

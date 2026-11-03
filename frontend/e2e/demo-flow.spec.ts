@@ -420,6 +420,45 @@ test('evidence upload shows error for unsupported file type', async ({ page }, t
   await expect(page.getByText(/不支持的文件类型/)).toBeVisible()
 })
 
+test('evidence deletion uses in-app confirmation and can be cancelled', async ({
+  page,
+}, testInfo) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, `证据删除-${testInfo.project.name}`, true)
+  await page.goto(`/cases/${caseId}`)
+  await page.getByRole('button', { name: '证据材料' }).click()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: '待删除工资记录.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('9月工资5000元，公司尚未支付。'),
+  })
+
+  const evidenceRow = page
+    .locator('.evidence-list article')
+    .filter({ hasText: '待删除工资记录.txt' })
+  await expect(evidenceRow).toBeVisible()
+  await evidenceRow.getByRole('button', { name: '删除', exact: true }).click()
+
+  const dialog = page.locator('.el-message-box')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText('删除材料', { exact: true })).toBeVisible()
+  await page.waitForTimeout(250)
+  await page.screenshot({
+    path: `../docs/screenshots/evidence-delete-confirm-${testInfo.project.name}.png`,
+    fullPage: false,
+  })
+  await dialog.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect(evidenceRow).toBeVisible()
+
+  await evidenceRow.getByRole('button', { name: '删除', exact: true }).click()
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: '删除', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect(evidenceRow).toHaveCount(0)
+  await expect(page.getByText('材料已删除')).toBeVisible()
+})
+
 test('image evidence shows OCR-required status without OCR engine', async ({ page }, testInfo) => {
   await login(page, 'demo', 'Demo123!')
   const caseId = await createDemoCase(page, `异常-图片OCR-${testInfo.project.name}`, true)

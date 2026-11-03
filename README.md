@@ -11,7 +11,7 @@
 - 浅色法律风格视觉基线。
 - 统一红白法律品牌视觉，覆盖登录页、侧边栏和 favicon。
 - 多轮 AI 咨询、案件上下文和本地演示规则。
-- 证据上传、PDF/DOCX 提取、四性评估和材料缺口提示。
+- 证据上传、上传时间与在线预览、确认删除、PDF/DOCX 提取、四性评估和材料缺口提示。
 - 合同文本风险审查和文件提取审查。
 - 协商和解协议、仲裁申请书和民事起诉状草稿，支持 TXT/DOCX/PDF 导出。
 - 律师意见、服务记录、收益台账和管理员分配。
@@ -46,6 +46,8 @@
 
 ![案件工作台](docs/screenshots/case-workspace-desktop.png)
 
+![证据删除站内确认](docs/screenshots/evidence-delete-confirm-desktop.png)
+
 ![运营数据大屏](docs/screenshots/admin-dashboard-desktop.png)
 
 ![管理后台](docs/screenshots/admin-desktop.png)
@@ -63,6 +65,7 @@
 - [登录页](docs/screenshots/login-mobile.png)
 - [咨询工作台](docs/screenshots/workspace-mobile.png)
 - [案件工作台](docs/screenshots/case-workspace-mobile.png)
+- [证据删除站内确认](docs/screenshots/evidence-delete-confirm-mobile.png)
 - [完善个人资料](docs/screenshots/profile-required-mobile.png)
 - [运营数据大屏](docs/screenshots/admin-dashboard-mobile.png)
 - [管理后台](docs/screenshots/admin-mobile.png)

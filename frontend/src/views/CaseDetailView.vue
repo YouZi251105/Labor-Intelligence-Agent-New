@@ -445,6 +445,7 @@ import type {
 } from '../types/api'
 import { formatFileSize } from '../utils/format'
 import { useDictionaryStore } from '../stores/dictionary'
+import { confirmAction, notifySuccess } from '../utils/dialogs'
 
 const route = useRoute()
 const router = useRouter()
@@ -759,16 +760,27 @@ async function downloadEvidence(item: EvidenceItem) {
 }
 
 async function deleteEvidence(item: EvidenceItem) {
+  const confirmed = await confirmAction(
+    `确认删除材料“${item.filename}”？删除后不可恢复。`,
+    {
+      title: '删除材料',
+      confirmText: '删除',
+      danger: true,
+    },
+  )
+  if (!confirmed) return
   deletingId.value = item.id
   error.value = ''
   try {
     await apiRequest(`/cases/${caseId}/evidence/${item.id}`, { method: 'DELETE' })
+    if (preview.value?.filename === item.filename) closePreview()
     const evidenceData = await apiRequest<EvidenceResponse>(`/cases/${caseId}/evidence`)
     evidenceItems.value = evidenceData.items
     evidenceAssessment.value = evidenceData.assessment
     evidenceRulesAssessment.value = await apiRequest<EvidenceAssessmentResponse>(
       `/cases/${caseId}/evidence-assessment`,
     )
+    notifySuccess('材料已删除')
   } catch (err) {
     error.value = err instanceof Error ? err.message : '删除失败'
   } finally {

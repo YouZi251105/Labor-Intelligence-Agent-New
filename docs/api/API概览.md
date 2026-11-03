@@ -103,6 +103,7 @@ Content-Type: application/json
 | POST | `/cases/{case_id}/evidence` | multipart 上传材料 |
 | POST | `/cases/{case_id}/evidence/{evidence_id}/extract` | 重新提取文本 |
 | GET | `/cases/{case_id}/evidence/{evidence_id}/download` | 下载原始材料 |
+| DELETE | `/cases/{case_id}/evidence/{evidence_id}` | 删除未入文书的材料 |
 | GET | `/cases/{case_id}/evidence-assessment` | 证据四性评估 |
 | POST | `/cases/{case_id}/contract-review` | 合同文本审查 |
 | POST | `/cases/{case_id}/contract-review/file` | 合同文件提取审查 |

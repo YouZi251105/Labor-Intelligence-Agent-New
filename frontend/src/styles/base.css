@@ -2197,6 +2197,36 @@ summary:focus-visible {
   cursor: pointer;
 }
 
+.lia-confirm-dialog {
+  --el-messagebox-width: min(440px, calc(100vw - 32px));
+  --el-messagebox-border-radius: 8px;
+  --el-messagebox-padding-primary: 18px;
+}
+
+.lia-confirm-dialog .el-message-box__title {
+  color: var(--lia-text);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.lia-confirm-dialog .el-message-box__message {
+  color: var(--lia-text-secondary);
+  line-height: 1.7;
+}
+
+.lia-confirm-dialog .lia-confirm-dialog__danger {
+  --el-button-bg-color: var(--lia-danger);
+  --el-button-border-color: var(--lia-danger);
+  --el-button-hover-bg-color: #b42330;
+  --el-button-hover-border-color: #b42330;
+  --el-button-active-bg-color: #971b27;
+  --el-button-active-border-color: #971b27;
+}
+
+.el-message {
+  border-radius: 7px;
+}
+
 .extract-pending {
   border-color: var(--lia-border-strong);
   background: var(--lia-surface-soft);
