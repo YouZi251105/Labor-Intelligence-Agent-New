@@ -46,6 +46,24 @@
         >
           <span class="chat-message__role">{{ message.role === 'user' ? '你' : '劳务通' }}</span>
           <SafeMarkdown :content="message.content" />
+          <div
+            v-if="message.role === 'assistant' && followUpOptions(message).length"
+            class="follow-up-options"
+          >
+            <span class="follow-up-options__label">猜你想问</span>
+            <button
+              v-for="option in followUpOptions(message)"
+              :key="option.id"
+              type="button"
+              class="follow-up-option"
+              :data-kind="option.kind"
+              :disabled="sending"
+              @click="handleFollowUp(option)"
+            >
+              {{ option.label }}
+              <ArrowUpRight :size="14" />
+            </button>
+          </div>
         </article>
 
         <div v-if="sending" class="chat-message chat-message--assistant">
@@ -70,14 +88,14 @@
           :autosize="{ minRows: 2, maxRows: 6 }"
           resize="none"
           placeholder="描述情况，例如：我在工地干了三个月，没有签合同，老板一直不发工资……"
-          @keydown.enter.exact.prevent="sendMessage"
+          @keydown.enter.exact.prevent="sendMessage()"
         />
         <div class="composer__footer">
           <span>
             <ShieldCheck :size="15" />
             AI 建议仅供参考，关键判断支持人工复核
           </span>
-          <ElButton type="primary" :loading="sending" :disabled="!input.trim()" @click="sendMessage">
+          <ElButton type="primary" :loading="sending" :disabled="!input.trim()" @click="sendMessage()">
             发送问题
             <ArrowUpRight :size="17" />
           </ElButton>
@@ -176,10 +194,12 @@ import { useWorkspaceStore } from '../stores/workspace'
 import type {
   CaseItem,
   ConsultationResponse,
+  FollowUpOption,
   HistoryCaseSummary,
   MessageItem,
   TopicsResponse,
 } from '../types/api'
+import { followUpOptions } from '../utils/followUps'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -234,8 +254,8 @@ async function loadInitialCase() {
   }
 }
 
-async function sendMessage() {
-  const content = input.value.trim()
+async function sendMessage(contentOverride?: string) {
+  const content = (contentOverride ?? input.value).trim()
   if (!content || sending.value) return
   sending.value = true
   error.value = ''
@@ -271,6 +291,16 @@ async function sendMessage() {
   } finally {
     sending.value = false
   }
+}
+
+function handleFollowUp(option: FollowUpOption) {
+  if (sending.value) return
+  if (option.kind === 'fill') {
+    input.value = option.message
+    document.querySelector<HTMLElement>('.composer textarea')?.focus()
+    return
+  }
+  void sendMessage(option.message)
 }
 
 onMounted(async () => {

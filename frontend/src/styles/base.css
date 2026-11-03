@@ -1117,6 +1117,60 @@ summary:focus-visible {
   letter-spacing: 0.08em;
 }
 
+.follow-up-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  border-top: 1px solid var(--lia-border);
+  padding-top: 10px;
+}
+
+.follow-up-options__label {
+  flex-basis: 100%;
+  color: var(--lia-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.follow-up-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  border: 1px solid #d9c8c6;
+  border-radius: 8px;
+  background: var(--lia-surface);
+  color: var(--lia-text-secondary);
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.follow-up-option[data-kind='fill'] {
+  border-style: dashed;
+  background: #fbf8f5;
+}
+
+.follow-up-option:hover:not(:disabled) {
+  border-color: var(--lia-primary);
+  color: var(--lia-primary);
+}
+
+.follow-up-option:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--lia-primary) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.follow-up-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .consult-chat {
   display: flex;
   flex-direction: column;

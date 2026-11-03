@@ -156,6 +156,34 @@ test('workspace stays usable at 100 percent zoom', async ({ page }) => {
   }
 })
 
+test('worker can continue with a clickable AI follow-up option', async ({ page }) => {
+  await login(page, 'demo', 'Demo123!')
+  const caseId = await createDemoCase(page, 'AI 追问选项')
+  await page.goto('/')
+  await expect(page.locator('.workspace-header h1')).toHaveText('AI 追问选项')
+
+  const firstResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith(`/api/v1/cases/${caseId}/consultations`),
+  )
+  await page.getByPlaceholder(/描述情况/).fill('公司拖欠两个月工资，还没有告诉我具体金额。')
+  await page.getByRole('button', { name: '发送问题', exact: true }).click()
+  expect((await firstResponse).ok()).toBeTruthy()
+
+  const sendOption = page.locator('.follow-up-option[data-kind="send"]').first()
+  await expect(sendOption).toBeVisible()
+  const assistantCount = await page.locator('.chat-message--assistant').count()
+  const secondResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith(`/api/v1/cases/${caseId}/consultations`),
+  )
+  await sendOption.click()
+  expect((await secondResponse).ok()).toBeTruthy()
+  await expect(page.locator('.chat-message--assistant')).toHaveCount(assistantCount + 1)
+})
+
 test('simulation and help pages use one scroll layer at 100 percent zoom', async ({ page }) => {
   await login(page, 'demo', 'Demo123!')
 

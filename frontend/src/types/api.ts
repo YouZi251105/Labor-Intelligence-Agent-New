@@ -86,6 +86,13 @@ export interface MessageItem {
   created_at: string
 }
 
+export interface FollowUpOption {
+  id: string
+  label: string
+  message: string
+  kind: 'send' | 'fill'
+}
+
 export interface ConsultationResponse {
   case: CaseItem
   user_message: MessageItem
@@ -107,6 +114,7 @@ export interface ConsultationResponse {
     risk_flags: string[]
     citations: string[]
     demo_mode: boolean
+    follow_up_options: FollowUpOption[]
   }
   suggested_next_step: string
   demo_mode: boolean

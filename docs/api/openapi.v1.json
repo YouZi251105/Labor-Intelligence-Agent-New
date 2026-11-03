@@ -6542,6 +6542,38 @@
         ],
         "title": "EvidenceRead"
       },
+      "FollowUpOptionRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "send",
+              "fill"
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "message",
+          "kind"
+        ],
+        "title": "FollowUpOptionRead"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -8283,6 +8315,13 @@
           "demo_mode": {
             "type": "boolean",
             "title": "Demo Mode"
+          },
+          "follow_up_options": {
+            "items": {
+              "$ref": "#/components/schemas/FollowUpOptionRead"
+            },
+            "type": "array",
+            "title": "Follow Up Options"
           }
         },
         "type": "object",
@@ -8296,7 +8335,8 @@
           "evidence_gaps",
           "risk_flags",
           "citations",
-          "demo_mode"
+          "demo_mode",
+          "follow_up_options"
         ],
         "title": "StructuredAIResult"
       },

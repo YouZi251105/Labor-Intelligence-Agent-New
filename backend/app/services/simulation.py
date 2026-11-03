@@ -1,5 +1,9 @@
 import re
 
+import httpx
+
+from app.core.config import get_settings
+
 ROLE_LABELS = {
     "boss": "单位负责人",
     "hr": "人事",
@@ -49,7 +53,62 @@ def score_simulation_message(content: str) -> dict[str, object]:
     }
 
 
-def generate_simulation_reply(
+async def generate_simulation_reply(
+    role_type: str,
+    scenario: str,
+    content: str,
+    turn_count: int,
+    client: httpx.AsyncClient | None = None,
+) -> str:
+    label = ROLE_LABELS[role_type]
+    settings = get_settings()
+    if settings.qianwen_api_key:
+        prompt = (
+            f"你是劳动纠纷沟通训练中的“{label}”角色。"
+            f"训练场景：{scenario}。当前是第 {turn_count} 轮。"
+            "根据用户发言给出 60 至 180 字的角色化回复。"
+            "保持角色立场，但不得威胁、辱骂、承诺裁判结果，也不得编造法条。"
+            "只输出角色回复正文。"
+        )
+        try:
+            if client is None:
+                async with httpx.AsyncClient(timeout=30) as owned_client:
+                    response = await owned_client.post(
+                        "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {settings.qianwen_api_key}"},
+                        json={
+                            "model": settings.qianwen_model,
+                            "messages": [
+                                {"role": "system", "content": prompt},
+                                {"role": "user", "content": content},
+                            ],
+                            "temperature": 0.5,
+                        },
+                    )
+            else:
+                response = await client.post(
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.qianwen_api_key}"},
+                    json={
+                        "model": settings.qianwen_model,
+                        "messages": [
+                            {"role": "system", "content": prompt},
+                            {"role": "user", "content": content},
+                        ],
+                        "temperature": 0.5,
+                    },
+                )
+            response.raise_for_status()
+            reply = str(response.json()["choices"][0]["message"]["content"]).strip()
+            if reply:
+                return reply
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
+            pass
+
+    return _build_template_reply(role_type, scenario, content, turn_count)
+
+
+def _build_template_reply(
     role_type: str,
     scenario: str,
     content: str,

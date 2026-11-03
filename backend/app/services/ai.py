@@ -1,5 +1,7 @@
-from dataclasses import dataclass
-from typing import Any
+import json
+import re
+from dataclasses import asdict, dataclass
+from typing import Any, Literal
 
 import httpx
 
@@ -19,6 +21,97 @@ class AIResult:
     risk_flags: list[str]
     citations: list[str]
     summary: str
+    follow_up_options: list["FollowUpOption"]
+
+
+@dataclass(frozen=True)
+class FollowUpOption:
+    id: str
+    label: str
+    message: str
+    kind: Literal["send", "fill"]
+
+
+FOLLOW_UP_PATTERN = re.compile(
+    r"\s*<FOLLOW_UPS>\s*(\[.*?\])\s*</FOLLOW_UPS>\s*",
+    re.DOTALL,
+)
+
+
+def parse_qwen_follow_ups(content: str) -> tuple[str, list[str]]:
+    """Remove the model-only follow-up block and return validated questions."""
+    match = FOLLOW_UP_PATTERN.search(content)
+    if match is None:
+        return content.strip(), []
+    try:
+        raw_options = json.loads(match.group(1))
+    except (TypeError, json.JSONDecodeError):
+        raw_options = []
+    options = [
+        value.strip()
+        for value in raw_options
+        if isinstance(value, str) and value.strip()
+    ][:4]
+    clean = FOLLOW_UP_PATTERN.sub("", content).strip()
+    return clean, options
+
+
+def build_follow_up_options(
+    context: str,
+    required_information: list[str],
+    next_step: str,
+    model_suggestions: list[str] | None = None,
+) -> list[FollowUpOption]:
+    """Combine missing-information prompts with model or local next questions."""
+    options: list[FollowUpOption] = []
+    seen_messages: set[str] = set()
+    missing = [
+        item
+        for item in required_information
+        if not _information_present(item, context)
+    ]
+    fill_target = missing[0] if missing else "新的关键事实"
+    fill_message = (
+        "我再补充新的关键事实："
+        if fill_target == "新的关键事实"
+        else f"关于{fill_target}，我的情况是："
+    )
+    options.append(
+        FollowUpOption(
+            id="missing-info-1",
+            label=f"补充：{fill_target}",
+            message=fill_message,
+            kind="fill",
+        )
+    )
+    seen_messages.add(fill_message)
+    seen_labels = {options[0].label}
+
+    suggestions = model_suggestions or [
+        "请根据我的情况，列出现有材料还可能缺少哪些关键材料。",
+        f"{next_step} 请进一步说明我应该先协商、投诉还是申请仲裁。",
+        "我需要律师帮我复核现有材料和办理路径。",
+    ]
+    for index, suggestion in enumerate(suggestions, start=1):
+        normalized = suggestion.strip()
+        if not normalized or normalized in seen_messages:
+            continue
+        label = _follow_up_label(normalized, index)
+        if label in seen_labels:
+            continue
+        options.append(
+            FollowUpOption(
+                id=f"suggestion-{index}",
+                label=label,
+                message=normalized,
+                kind="send",
+            )
+        )
+        seen_messages.add(normalized)
+        seen_labels.add(label)
+        if len(options) >= 4:
+            break
+    return options
 
 
 def classify_message(text: str) -> dict[str, Any]:
@@ -99,6 +192,7 @@ def structured_result(result: AIResult) -> dict[str, Any]:
         "risk_flags": result.risk_flags,
         "citations": result.citations,
         "demo_mode": result.demo_mode,
+        "follow_up_options": [asdict(item) for item in result.follow_up_options],
     }
 
 
@@ -147,16 +241,20 @@ async def generate_ai_reply(
         "service_breach": ["劳务合同", "解除沟通记录", "结算凭证"],
     }.get(dispute_type, ["聊天记录", "合同", "工资记录", "其他事实材料"])
     risk_flags = ["注意仲裁时效和材料完整性，关键判断建议人工复核。"]
+    follow_up_context = f"{case.facts}\n{text}"
 
     if settings.qianwen_api_key:
         try:
-            context = "\n".join(
+            history_context = "\n".join(
                 f"{item.role}: {item.content}" for item in history[-8:]
             )
             prompt = (
                 "你是劳务通的法律咨询助手。请先识别问题类别，再给出简洁建议。"
-                "不得保证结果，不得编造法条。案件事实："
-                f"{case.facts}\n历史对话：{context}\n用户新消息：{text}"
+                "不得保证结果，不得编造法条。回答后另起一行输出 2 至 4 个"
+                "用户可以继续点击追问的问题，格式必须是："
+                '<FOLLOW_UPS>["问题1","问题2","问题3"]</FOLLOW_UPS>。'
+                "问题要简短、具体，不重复用户原问题。案件事实："
+                f"{case.facts}\n历史对话：{history_context}\n用户新消息：{text}"
             )
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
@@ -173,8 +271,11 @@ async def generate_ai_reply(
                 )
                 response.raise_for_status()
                 content = response.json()["choices"][0]["message"]["content"]
+            clean_content, model_suggestions = parse_qwen_follow_ups(content)
+            if not clean_content:
+                raise ValueError("Qwen returned an empty reply")
             return AIResult(
-                reply=content,
+                reply=clean_content,
                 classification=classification,
                 suggested_next_step=next_step,
                 demo_mode=False,
@@ -182,7 +283,13 @@ async def generate_ai_reply(
                 evidence_gaps=evidence_gaps,
                 risk_flags=risk_flags,
                 citations=[],
-                summary=content[:180],
+                summary=clean_content[:180],
+                follow_up_options=build_follow_up_options(
+                    follow_up_context,
+                    required_information,
+                    next_step,
+                    model_suggestions,
+                ),
             )
         except (httpx.HTTPError, KeyError, TypeError, ValueError):
             pass
@@ -197,4 +304,45 @@ async def generate_ai_reply(
         risk_flags=risk_flags,
         citations=[],
         summary=f"初步判断为{classification['dispute_label']}，需要补充信息和材料后继续处理。",
+        follow_up_options=build_follow_up_options(
+            follow_up_context,
+            required_information,
+            next_step,
+        ),
     )
+
+
+def _information_present(label: str, context: str) -> bool:
+    if label in context:
+        return True
+    if any(keyword in label for keyword in ("金额", "工资标准", "欠款", "损失")):
+        return bool(re.search(r"\d+(?:\.\d+)?\s*(?:元|万|千|块)", context))
+    if any(
+        keyword in label
+        for keyword in ("时间", "起止", "入职", "解除", "受伤")
+    ):
+        return bool(
+            re.search(
+                r"(?:\d{4}年|\d{1,2}月|\d+\s*(?:天|个月|年)|"
+                r"今天|昨天|上周|去年|上个月)",
+                context,
+            )
+        )
+    if any(keyword in label for keyword in ("主体", "委托方")):
+        return bool(re.search(r"公司|老板|单位|包工头|雇主|委托方", context))
+    return False
+
+
+def _follow_up_label(message: str, index: int) -> str:
+    labels = {
+        "律师": "需要人工复核",
+        "人工复核": "需要人工复核",
+        "协商": "下一步怎么走",
+        "投诉": "下一步怎么走",
+        "仲裁": "下一步怎么走",
+        "材料": "现有材料够不够",
+    }
+    for keyword, label in labels.items():
+        if keyword in message:
+            return label
+    return f"继续追问 {index}"
