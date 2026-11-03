@@ -358,6 +358,13 @@ h2 {
   padding-bottom: 14px;
 }
 
+.workspace-header__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
 .workspace-header h1 {
   margin-bottom: 4px;
   font-size: clamp(22px, 2vw, 28px);
@@ -1075,6 +1082,41 @@ summary:focus-visible {
   font-size: 12px;
 }
 
+.intervention-recommendation {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  border: 1px solid #e4c6b5;
+  border-radius: 8px;
+  background: #fff8f1;
+  padding: 11px 13px;
+  color: var(--lia-warning);
+}
+
+.intervention-recommendation > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.intervention-recommendation strong {
+  display: block;
+  font-size: 13px;
+}
+
+.intervention-recommendation p {
+  margin: 2px 0 0;
+  color: var(--lia-text-secondary);
+  font-size: 12px;
+}
+
+.intervention-recommendation--urgent {
+  border-color: #e1b6b6;
+  background: #fff4f4;
+  color: var(--lia-danger);
+}
+
 .chat-message-list {
   display: flex;
   min-height: 0;
@@ -1115,6 +1157,60 @@ summary:focus-visible {
   font-size: 11px;
   font-weight: 750;
   letter-spacing: 0.08em;
+}
+
+.follow-up-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  border-top: 1px solid var(--lia-border);
+  padding-top: 10px;
+}
+
+.follow-up-options__label {
+  flex-basis: 100%;
+  color: var(--lia-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.follow-up-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  border: 1px solid #d9c8c6;
+  border-radius: 8px;
+  background: var(--lia-surface);
+  color: var(--lia-text-secondary);
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.follow-up-option[data-kind='fill'] {
+  border-style: dashed;
+  background: #fbf8f5;
+}
+
+.follow-up-option:hover:not(:disabled) {
+  border-color: var(--lia-primary);
+  color: var(--lia-primary);
+}
+
+.follow-up-option:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--lia-primary) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.follow-up-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .consult-chat {

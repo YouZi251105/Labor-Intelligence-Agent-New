@@ -7,9 +7,21 @@
           <h1>{{ activeCase ? activeCase.title : '先说说你遇到了什么问题' }}</h1>
           <p>先描述你的情况，系统会一步步帮你梳理。</p>
         </div>
-        <div class="connection" :class="`connection--${workspace.connection}`">
-          <span class="connection__dot" />
-          {{ connectionLabel }}
+        <div class="workspace-header__actions">
+          <button
+            v-if="auth.user?.role === 'user'"
+            class="secondary-action secondary-action--compact"
+            type="button"
+            :disabled="!activeCase"
+            @click="openLawyerIntervention"
+          >
+            <ShieldCheck :size="16" />
+            申请律师介入
+          </button>
+          <div class="connection" :class="`connection--${workspace.connection}`">
+            <span class="connection__dot" />
+            {{ connectionLabel }}
+          </div>
         </div>
       </header>
 
@@ -21,6 +33,29 @@
         <button class="text-link" type="button" @click="router.push(`/cases/${activeCase.id}`)">
           打开案件工作台
           <ArrowRight :size="16" />
+        </button>
+      </div>
+
+      <div
+        v-if="auth.user?.role === 'user' && interventionRecommendation?.recommended"
+        class="intervention-recommendation"
+        :class="`intervention-recommendation--${interventionRecommendation.level}`"
+      >
+        <ShieldAlert :size="19" />
+        <div>
+          <strong>建议律师介入</strong>
+          <p>{{ interventionRecommendation.reasons.join('；') }}</p>
+        </div>
+        <button
+          class="primary-action primary-action--compact"
+          type="button"
+          @click="
+            interventionRecommendation.action === 'filing_review'
+              ? openFilingReview()
+              : openLawyerIntervention()
+          "
+        >
+          {{ interventionRecommendation.action === 'filing_review' ? '申请复核' : '预约律师' }}
         </button>
       </div>
 
@@ -46,6 +81,24 @@
         >
           <span class="chat-message__role">{{ message.role === 'user' ? '你' : '劳务通' }}</span>
           <SafeMarkdown :content="message.content" />
+          <div
+            v-if="message.role === 'assistant' && followUpOptions(message).length"
+            class="follow-up-options"
+          >
+            <span class="follow-up-options__label">猜你想问</span>
+            <button
+              v-for="option in followUpOptions(message)"
+              :key="option.id"
+              type="button"
+              class="follow-up-option"
+              :data-kind="option.kind"
+              :disabled="sending"
+              @click="handleFollowUp(option)"
+            >
+              {{ option.label }}
+              <ArrowUpRight :size="14" />
+            </button>
+          </div>
         </article>
 
         <div v-if="sending" class="chat-message chat-message--assistant">
@@ -70,14 +123,14 @@
           :autosize="{ minRows: 2, maxRows: 6 }"
           resize="none"
           placeholder="描述情况，例如：我在工地干了三个月，没有签合同，老板一直不发工资……"
-          @keydown.enter.exact.prevent="sendMessage"
+          @keydown.enter.exact.prevent="sendMessage()"
         />
         <div class="composer__footer">
           <span>
             <ShieldCheck :size="15" />
             AI 建议仅供参考，关键判断支持人工复核
           </span>
-          <ElButton type="primary" :loading="sending" :disabled="!input.trim()" @click="sendMessage">
+          <ElButton type="primary" :loading="sending" :disabled="!input.trim()" @click="sendMessage()">
             发送问题
             <ArrowUpRight :size="17" />
           </ElButton>
@@ -162,6 +215,7 @@ import {
   Clock3,
   FileWarning,
   Scale,
+  ShieldAlert,
   ShieldCheck,
   UserRoundX,
 } from '@lucide/vue'
@@ -176,10 +230,13 @@ import { useWorkspaceStore } from '../stores/workspace'
 import type {
   CaseItem,
   ConsultationResponse,
+  FollowUpOption,
   HistoryCaseSummary,
+  InterventionRecommendation,
   MessageItem,
   TopicsResponse,
 } from '../types/api'
+import { followUpOptions } from '../utils/followUps'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -191,6 +248,7 @@ const sending = ref(false)
 const error = ref('')
 const suggestedNextStep = ref('')
 const evidenceGaps = ref<string[]>([])
+const interventionRecommendation = ref<InterventionRecommendation | null>(null)
 const historyCases = ref<HistoryCaseSummary[]>([])
 const topicSummary = ref<TopicsResponse>({ topics: [], total: 0 })
 
@@ -228,14 +286,19 @@ async function loadInitialCase() {
     const metadata = messages.value.at(-1)?.metadata_json ?? {}
     suggestedNextStep.value = String(metadata.suggested_next_step ?? '')
     const structured = metadata.structured as
-      | { evidence_gaps?: string[] }
+      | {
+          evidence_gaps?: string[]
+          intervention_recommendation?: InterventionRecommendation
+        }
       | undefined
     evidenceGaps.value = structured?.evidence_gaps ?? []
+    interventionRecommendation.value =
+      structured?.intervention_recommendation ?? null
   }
 }
 
-async function sendMessage() {
-  const content = input.value.trim()
+async function sendMessage(contentOverride?: string) {
+  const content = (contentOverride ?? input.value).trim()
   if (!content || sending.value) return
   sending.value = true
   error.value = ''
@@ -265,12 +328,54 @@ async function sendMessage() {
     messages.value.push(response.user_message, response.assistant_message)
     suggestedNextStep.value = response.suggested_next_step
     evidenceGaps.value = response.structured.evidence_gaps
+    interventionRecommendation.value =
+      response.structured.intervention_recommendation
     input.value = ''
   } catch (err) {
     error.value = err instanceof Error ? err.message : '发送失败'
   } finally {
     sending.value = false
   }
+}
+
+function handleFollowUp(option: FollowUpOption) {
+  if (sending.value) return
+  if (option.kind === 'lawyer_request') {
+    openLawyerIntervention()
+    return
+  }
+  if (option.kind === 'filing_review') {
+    openFilingReview()
+    return
+  }
+  if (option.kind === 'fill') {
+    input.value = option.message
+    document.querySelector<HTMLElement>('.composer textarea')?.focus()
+    return
+  }
+  void sendMessage(option.message)
+}
+
+function openLawyerIntervention() {
+  if (!activeCase.value) {
+    error.value = '请先发送一条咨询，系统创建案件后才能预约律师。'
+    return
+  }
+  void router.push({
+    path: `/cases/${activeCase.value.id}`,
+    query: { tab: 'lawyer', request: '1' },
+  })
+}
+
+function openFilingReview() {
+  if (!activeCase.value) {
+    error.value = '请先发送一条咨询，系统创建案件后才能申请复核。'
+    return
+  }
+  void router.push({
+    path: `/cases/${activeCase.value.id}`,
+    query: { tab: 'lawyer', review: '1' },
+  })
 }
 
 onMounted(async () => {

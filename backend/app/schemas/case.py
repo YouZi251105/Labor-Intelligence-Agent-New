@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -49,6 +49,20 @@ class MessageRead(BaseModel):
     created_at: datetime
 
 
+class FollowUpOptionRead(BaseModel):
+    id: str
+    label: str
+    message: str
+    kind: Literal["send", "fill", "lawyer_request", "filing_review"]
+
+
+class InterventionRecommendationRead(BaseModel):
+    recommended: bool
+    level: Literal["none", "suggested", "urgent"]
+    reasons: list[str]
+    action: Literal["lawyer_request", "filing_review"]
+
+
 class StructuredAIResult(BaseModel):
     intent: str
     dispute_label: str
@@ -60,6 +74,8 @@ class StructuredAIResult(BaseModel):
     risk_flags: list[str]
     citations: list[str]
     demo_mode: bool
+    follow_up_options: list[FollowUpOptionRead]
+    intervention_recommendation: InterventionRecommendationRead
 
 
 class ConsultationResponse(BaseModel):

@@ -139,3 +139,58 @@ def test_user_can_register() -> None:
     assert response.status_code == 201
     assert response.json()["user"]["role"] == "user"
     assert response.json()["access_token"]
+
+
+def test_document_can_be_marked_ready_only_after_filing_review() -> None:
+    with TestClient(app) as client:
+        user_login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "demo", "password": "Demo123!"},
+        )
+        user_token = user_login.json()["access_token"]
+        created = client.post(
+            "/api/v1/cases",
+            headers=auth_headers(user_token),
+            json={
+                "title": "正式文书复核门槛",
+                "dispute_type": "labor_pay",
+                "location": "上海市",
+                "facts": "公司拖欠工资，准备申请仲裁。",
+            },
+        )
+        case_id = created.json()["id"]
+        document = client.post(
+            f"/api/v1/cases/{case_id}/documents",
+            headers=auth_headers(user_token),
+            json={"doc_type": "arbitration"},
+        )
+        document_id = document.json()["id"]
+
+        blocked = client.post(
+            f"/api/v1/cases/{case_id}/documents/{document_id}/mark-ready",
+            headers=auth_headers(user_token),
+        )
+        assert blocked.status_code == 409
+
+        review = client.post(
+            f"/api/v1/lawyer-service/cases/{case_id}/review",
+            headers=auth_headers(user_token),
+        )
+        lawyer_login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "lawyer", "password": "Lawyer123!"},
+        )
+        lawyer_token = lawyer_login.json()["access_token"]
+        submitted = client.post(
+            f"/api/v1/lawyer-service/reviews/{review.json()['id']}/submit",
+            headers=auth_headers(lawyer_token),
+            json={"conclusion": "ready_to_file", "comment": "材料可以提交"},
+        )
+        assert submitted.status_code == 200
+
+        ready = client.post(
+            f"/api/v1/cases/{case_id}/documents/{document_id}/mark-ready",
+            headers=auth_headers(user_token),
+        )
+        assert ready.status_code == 200
+        assert ready.json()["status"] == "ready"

@@ -1,6 +1,10 @@
+import asyncio
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.simulation import generate_simulation_reply
 
 
 def auth_headers(token: str) -> dict[str, str]:
@@ -115,3 +119,70 @@ def test_simulation_rejects_unknown_role() -> None:
         )
 
     assert response.status_code == 422
+
+
+class _FakeQwenResponse:
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": "【单位负责人模拟】请把欠薪月份和金额说清楚。"
+                    }
+                }
+            ]
+        }
+
+
+class _FakeQwenClient:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args) -> None:
+        return None
+
+    async def post(self, *_args, **_kwargs) -> _FakeQwenResponse:
+        return _FakeQwenResponse()
+
+
+def test_simulation_uses_qwen_when_configured(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.simulation.get_settings",
+        lambda: SimpleNamespace(
+            qianwen_api_key="test-key",
+            qianwen_model="qwen-plus",
+        ),
+    )
+
+    reply = asyncio.run(
+        generate_simulation_reply(
+            "boss",
+            "确认拖欠工资的支付时间",
+            "请您确认9月和10月工资的支付时间。",
+            1,
+            client=_FakeQwenClient(),
+        )
+    )
+
+    assert reply == "【单位负责人模拟】请把欠薪月份和金额说清楚。"
+
+
+def test_simulation_falls_back_when_qwen_is_not_configured(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.simulation.get_settings",
+        lambda: SimpleNamespace(qianwen_api_key="", qianwen_model="qwen-plus"),
+    )
+
+    reply = asyncio.run(
+        generate_simulation_reply(
+            "boss",
+            "确认拖欠工资的支付时间",
+            "请您确认9月和10月工资的支付时间。",
+            1,
+        )
+    )
+
+    assert "【单位负责人模拟】" in reply

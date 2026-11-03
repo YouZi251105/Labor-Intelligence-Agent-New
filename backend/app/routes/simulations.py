@@ -176,7 +176,7 @@ async def send_simulation_message(
     assistant_message = SimulationMessage(
         session_id=simulation.id,
         role="assistant",
-        content=generate_simulation_reply(
+        content=await generate_simulation_reply(
             simulation.role_type,
             simulation.scenario,
             payload.content,

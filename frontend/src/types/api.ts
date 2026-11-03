@@ -86,6 +86,22 @@ export interface MessageItem {
   created_at: string
 }
 
+export interface FollowUpOption {
+  id: string
+  label: string
+  message: string
+  kind: 'send' | 'fill' | 'lawyer_request' | 'filing_review'
+}
+
+export interface InterventionRecommendation {
+  recommended: boolean
+  level: 'none' | 'suggested' | 'urgent'
+  reasons: string[]
+  action: 'lawyer_request' | 'filing_review'
+}
+
+export type ResolutionDecision = 'self_handle' | 'lawyer_assist' | 'pause'
+
 export interface ConsultationResponse {
   case: CaseItem
   user_message: MessageItem
@@ -107,6 +123,8 @@ export interface ConsultationResponse {
     risk_flags: string[]
     citations: string[]
     demo_mode: boolean
+    follow_up_options: FollowUpOption[]
+    intervention_recommendation: InterventionRecommendation
   }
   suggested_next_step: string
   demo_mode: boolean
