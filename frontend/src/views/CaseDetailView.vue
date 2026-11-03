@@ -1,7 +1,7 @@
 <template>
   <section v-if="caseItem" class="content-page case-detail-page">
     <header class="case-detail-header">
-      <button class="back-button" type="button" @click="router.push('/cases')">
+      <button class="back-button" type="button" @click="goBackToList">
         <ArrowLeft :size="18" />
       </button>
       <div class="case-detail-header__main">
@@ -18,7 +18,7 @@
           </span>
         </div>
       </div>
-      <button class="secondary-action" type="button" @click="router.push('/')">继续 AI 咨询</button>
+      <button v-if="!auth.isLawyer" class="secondary-action" type="button" @click="router.push('/')">继续 AI 咨询</button>
     </header>
 
     <nav class="tab-bar" aria-label="案件功能">
@@ -155,12 +155,13 @@
         </article>
         <p v-if="!messages.length" class="muted-text">还没有咨询记录。</p>
       </div>
-      <form class="chat-compose-inline" @submit.prevent="sendChat">
+      <form v-if="!auth.isLawyer" class="chat-compose-inline" @submit.prevent="sendChat">
         <textarea v-model="chatInput" rows="3" placeholder="继续补充事实，系统会带上当前案件上下文。" />
         <button class="primary-action primary-action--compact" type="submit" :disabled="chatSending">
           {{ chatSending ? '发送中...' : '发送' }}
         </button>
       </form>
+      <p v-else class="muted-text">你以承办律师身份查看咨询记录，仅当事人可以继续对话。</p>
     </section>
 
     <section v-else-if="activeTab === 'evidence'" class="detail-grid">
@@ -168,7 +169,7 @@
         <span class="eyebrow">材料上传</span>
         <h2>证据整理</h2>
         <p>演示版支持图片、PDF、TXT、DOC 和 DOCX，单文件不超过 20MB。</p>
-        <label class="upload-zone">
+        <label v-if="!auth.isLawyer" class="upload-zone">
           <Upload :size="24" />
           <strong>{{ uploading ? '正在上传...' : '选择证据材料' }}</strong>
           <span>上传后会自动分类并生成材料缺口提示</span>
@@ -326,7 +327,7 @@
     </section>
 
     <section v-else-if="activeTab === 'documents'" class="detail-grid">
-      <div class="detail-card">
+      <div v-if="!auth.isLawyer" class="detail-card">
         <span class="eyebrow">文书生成</span>
         <h2>生成案件草稿</h2>
         <p>系统会根据已确认的案件事实和证据目录生成文本草稿。</p>
@@ -651,6 +652,7 @@ import { confirmAction, notifySuccess } from '../utils/dialogs'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const caseId = Number(route.params.id)
 const caseItem = ref<CaseItem | null>(null)
 const messages = ref<MessageItem[]>([])
@@ -863,6 +865,10 @@ function requestStatusLabel(status: string) {
   return requestStatusLabels[status] ?? status
 }
 
+function goBackToList() {
+  router.push(auth.isLawyer ? '/lawyer' : '/cases')
+}
+
 async function fetchReview(): Promise<CaseReviewItem | null> {
   try {
     return await apiRequest<CaseReviewItem>(`/lawyer-service/cases/${caseId}/review`)
@@ -988,7 +994,6 @@ const tabs = computed(() => {
   }
   return base
 })
-const auth = useAuthStore()
 const dictionary = useDictionaryStore()
 const documentOptions = [
   { type: 'settlement', label: '协商和解协议' },
