@@ -259,7 +259,7 @@ def test_admin_can_export_word_review_document() -> None:
     )
     text = paragraph_text + "\n" + table_text
     assert "劳务通规则包复核稿" in paragraph_text
-    assert "法学复核意见" in paragraph_text
+    assert "人工复核意见" in paragraph_text
     assert "cn-labor-workflow" not in text
     assert "pending_review" not in text
     assert "待复核" in text

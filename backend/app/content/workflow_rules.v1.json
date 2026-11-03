@@ -4,7 +4,7 @@
   "version": "2026.11.0-draft.1",
   "jurisdiction": "CN",
   "review_status": "pending_review",
-  "disclaimer": "当前流程和期限提示为待法学复核的演示规则，仅用于帮助理解办理路径，不构成正式法律意见。",
+  "disclaimer": "当前流程和期限提示为待人工复核的演示规则，仅用于帮助理解办理路径，不构成正式法律意见。",
   "start_node": "intake",
   "stages": [
     {
@@ -60,7 +60,7 @@
               "id": "intake-procedure-period",
               "title": "程序期限规则待复核",
               "description": "系统会结合纠纷类型、发生地和关键日期提示仲裁、工伤或起诉期限。",
-              "basis": "具体依据待法学负责人确认",
+              "basis": "具体依据待人工复核人员确认",
               "start_event": "关键事实发生日期",
               "calculation": "manual_review_required",
               "review_status": "pending_review"
@@ -85,7 +85,7 @@
               "id": "lawyer-intake-period",
               "title": "紧急期限需人工确认",
               "description": "如存在即将届满的仲裁、工伤认定或起诉期限，应立即联系律师。",
-              "basis": "具体依据待法学负责人确认",
+              "basis": "具体依据待人工复核人员确认",
               "start_event": "争议发生或权利受侵害日期",
               "calculation": "manual_review_required",
               "review_status": "pending_review"
@@ -116,7 +116,7 @@
               "id": "evidence-arbitration-period",
               "title": "仲裁时效待复核",
               "description": "进入程序路径前需要确认仲裁时效、起算点和中止中断情形。",
-              "basis": "具体依据待法学负责人确认",
+              "basis": "具体依据待人工复核人员确认",
               "start_event": "当事人知道或应当知道权利受侵害之日",
               "calculation": "manual_review_required",
               "review_status": "pending_review"
@@ -141,7 +141,7 @@
               "id": "lawyer-evidence-period",
               "title": "期限和证据风险需人工确认",
               "description": "律师需要复核关键期限、证据原始性和是否需要补充取证。",
-              "basis": "具体依据待法学负责人确认",
+              "basis": "具体依据待人工复核人员确认",
               "start_event": "争议发生或证据形成日期",
               "calculation": "manual_review_required",
               "review_status": "pending_review"
@@ -186,7 +186,7 @@
               "id": "procedure-review-period",
               "title": "程序期限需要人工确认",
               "description": "选择协商、监察、仲裁或诉讼前，应核对期限、管辖和前置程序。",
-              "basis": "具体依据待法学负责人确认",
+              "basis": "具体依据待人工复核人员确认",
               "start_event": "权利受侵害或程序节点发生日期",
               "calculation": "manual_review_required",
               "review_status": "pending_review"

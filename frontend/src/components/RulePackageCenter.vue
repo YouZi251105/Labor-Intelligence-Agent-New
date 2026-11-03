@@ -60,7 +60,7 @@
       <div>
         <span class="eyebrow">AI 辅助配置</span>
         <h3>描述需要的流程规则</h3>
-        <p>AI 会以当前内置规则包为基础生成草稿，生成后仍需人工校验和法学复核。</p>
+        <p>AI 会以当前内置规则包为基础生成草稿，生成后仍需人工复核校验。</p>
       </div>
       <textarea
         v-model="aiInstruction"

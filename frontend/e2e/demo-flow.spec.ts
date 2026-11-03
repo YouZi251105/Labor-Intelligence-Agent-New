@@ -321,6 +321,9 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
   await expect(page.getByText('导入 Excel', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'AI 生成草稿' }).click()
   await expect(page.getByRole('heading', { name: '描述需要的流程规则' })).toBeVisible()
+  await expect(
+    page.getByText('AI 会以当前内置规则包为基础生成草稿，生成后仍需人工复核校验。'),
+  ).toBeVisible()
   await page.getByRole('button', { name: '取消', exact: true }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '下载 Excel 模板' }).click()

@@ -87,14 +87,14 @@ def export_rule_package_review_docx(content: dict[str, Any]) -> bytes:
                     f"法律依据：{deadline.get('basis', '') or '待确认'}"
                 )
 
-    document.add_heading("四、法学复核意见", level=1)
+    document.add_heading("四、人工复核意见", level=1)
     document.add_paragraph("复核结论：□ 通过  □ 需修改  □ 不通过")
     document.add_paragraph("复核意见：")
     for _ in range(5):
         document.add_paragraph("_" * 72)
     document.add_paragraph("复核人：________________    复核日期：________________")
     document.add_paragraph(
-        "说明：本复核稿由系统依据规则包内容自动生成，仅用于法学内容复核、"
+        "说明：本复核稿由系统依据规则包内容自动生成，仅用于人工复核校验、"
         "版本比对和归档，不构成正式法律意见。"
     )
 
