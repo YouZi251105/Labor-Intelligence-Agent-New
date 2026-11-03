@@ -9,44 +9,100 @@
 
 from typing import Any
 
+# 纠纷分类采用两级法定口径：劳动争议与劳务纠纷。
+# 分类名称来源由人工复核人员提供；此模块只负责数据结构与展示映射，
+# 不自行确认法律内容正确性。
 DISPUTE_TYPES: list[dict[str, Any]] = [
     {
-        "value": "wage",
-        "label": "欠薪",
-        "keywords": ["工资", "欠薪", "拖欠", "工钱", "不发", "讨薪"],
+        "value": "labor_confirmation",
+        "label": "确认劳动关系争议",
+        "group": "labor",
+        "keywords": ["确认劳动关系", "事实劳动关系", "劳动关系认定", "算不算员工"],
     },
     {
-        "value": "termination",
-        "label": "违法解除",
-        "keywords": ["辞退", "开除", "解雇", "裁员", "解除"],
+        "value": "labor_contract",
+        "label": "劳动合同订立、履行、变更、解除、终止争议",
+        "group": "labor",
+        "keywords": ["劳动合同", "合同", "续签", "试用期", "变更岗位", "双倍工资", "终止"],
     },
     {
-        "value": "contract",
-        "label": "劳动合同",
-        "keywords": ["合同", "没签", "双倍工资", "试用期"],
+        "value": "labor_termination",
+        "label": "除名、辞退、辞职、自动离职争议",
+        "group": "labor",
+        "keywords": ["辞退", "开除", "解雇", "除名", "辞职", "自动离职", "裁员", "劝退"],
     },
     {
-        "value": "overtime",
-        "label": "加班费",
-        "keywords": ["加班", "加班费", "工时"],
+        "value": "labor_benefits",
+        "label": "工作时间、休息休假、社会保险、福利、培训、劳动保护争议",
+        "group": "labor",
+        "keywords": [
+            "工时",
+            "休假",
+            "年假",
+            "社保",
+            "社会保险",
+            "公积金",
+            "福利",
+            "培训",
+            "劳动保护",
+        ],
     },
     {
-        "value": "injury",
-        "label": "工伤待遇",
-        "keywords": ["工伤", "受伤", "医疗费", "伤残"],
+        "value": "labor_pay",
+        "label": "劳动报酬、加班费、工伤医疗费、经济补偿、赔偿金争议",
+        "group": "labor",
+        "keywords": [
+            "工资",
+            "欠薪",
+            "拖欠",
+            "讨薪",
+            "加班",
+            "加班费",
+            "工伤",
+            "医疗费",
+            "经济补偿",
+            "赔偿金",
+            "伤残",
+        ],
     },
-    {
-        "value": "insurance",
-        "label": "社会保险",
-        "keywords": ["社保", "保险", "公积金"],
-    },
+    {"value": "labor_other", "label": "其他法定劳动争议", "group": "labor", "keywords": []},
     {
         "value": "service_pay",
-        "label": "劳务报酬",
-        "keywords": ["劳务费", "劳务报酬", "包工头"],
+        "label": "劳务费拖欠纠纷",
+        "group": "service",
+        "keywords": ["劳务费", "劳务报酬", "包工头", "结算", "工钱"],
     },
-    {"value": "general", "label": "一般劳动纠纷", "keywords": []},
+    {
+        "value": "service_quality",
+        "label": "劳务成果、质量纠纷",
+        "group": "service",
+        "keywords": ["劳务成果", "质量", "验收", "返工"],
+    },
+    {
+        "value": "service_injury",
+        "label": "提供劳务致人、自身损害赔偿纠纷",
+        "group": "service",
+        "keywords": ["劳务损害", "人身损害", "提供劳务受伤", "受伤赔偿"],
+    },
+    {
+        "value": "service_breach",
+        "label": "劳务合同解除、违约责任、违约金纠纷",
+        "group": "service",
+        "keywords": ["劳务合同", "违约", "违约金", "解除劳务"],
+    },
 ]
+
+# 旧枚举值 -> 新枚举值，用于数据库迁移与历史数据兼容。
+DISPUTE_TYPE_MIGRATIONS: dict[str, str] = {
+    "general": "labor_other",
+    "wage": "labor_pay",
+    "overtime": "labor_pay",
+    "injury": "labor_pay",
+    "insurance": "labor_benefits",
+    "contract": "labor_contract",
+    "termination": "labor_termination",
+    "service_pay": "service_pay",
+}
 
 # 与规则包 workflow_rules.v1.json 中的 stages 保持一致。
 STAGES: list[dict[str, Any]] = [

@@ -61,7 +61,7 @@ def test_topics_only_expose_aggregated_dispute_counts() -> None:
             headers=auth(token),
             json={
                 "title": "匿名聚合测试",
-                "dispute_type": "overtime",
+                "dispute_type": "labor_pay",
                 "facts": "这一段不应出现在公共话题中的原始案情。",
             },
         )
@@ -78,7 +78,7 @@ def test_topics_only_expose_aggregated_dispute_counts() -> None:
     assert "原始案情" not in serialized
     assert "case_id" not in serialized
     assert "user_id" not in serialized
-    assert any(item["dispute_type"] == "overtime" for item in topics.json()["topics"])
+    assert any(item["dispute_type"] == "labor_pay" for item in topics.json()["topics"])
 
 
 def test_admin_can_review_rules_and_query_audit_logs() -> None:

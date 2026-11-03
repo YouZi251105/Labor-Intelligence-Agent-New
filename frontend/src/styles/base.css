@@ -1019,6 +1019,11 @@ summary:focus-visible {
 .status-tag {
   display: inline-flex;
   align-items: center;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
   border: 1px solid var(--lia-border);
   border-radius: 999px;
   background: var(--lia-surface-soft);

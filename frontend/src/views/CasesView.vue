@@ -21,9 +21,16 @@
         <label>
           <span>纠纷类型</span>
           <select v-model="form.dispute_type">
-            <option v-for="item in dictionary.disputes" :key="item.value" :value="item.value">
-              {{ item.label }}
-            </option>
+            <optgroup label="劳动争议">
+              <option v-for="item in dictionary.laborDisputes" :key="item.value" :value="item.value">
+                {{ item.label }}
+              </option>
+            </optgroup>
+            <optgroup label="劳务纠纷">
+              <option v-for="item in dictionary.serviceDisputes" :key="item.value" :value="item.value">
+                {{ item.label }}
+              </option>
+            </optgroup>
           </select>
         </label>
         <label>
@@ -121,7 +128,7 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 const form = reactive({
   title: '',
-  dispute_type: 'general',
+  dispute_type: 'labor_other',
   location: '',
   facts: '',
 })

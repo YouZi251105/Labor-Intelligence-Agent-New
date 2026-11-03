@@ -248,7 +248,7 @@ async function sendMessage() {
         body: JSON.stringify({
           title: content.slice(0, 30),
           facts: content,
-          dispute_type: 'general',
+          dispute_type: 'labor_other',
         }),
       })
     }

@@ -497,6 +497,7 @@ export interface UserProfileItem {
 export interface DictionaryDisputeType {
   value: string
   label: string
+  group: 'labor' | 'service'
   keywords: string[]
 }
 
