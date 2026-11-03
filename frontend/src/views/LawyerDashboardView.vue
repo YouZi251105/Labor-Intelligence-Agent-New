@@ -265,114 +265,19 @@
           </div>
         </div>
         <div class="ledger-list">
-          <article
-            v-for="review in todoReviews"
-            :key="review.id"
-            class="review-item"
-            :class="{ 'review-item--open': expandedReviewId === review.id }"
-          >
-            <div class="review-item__head">
-              <div>
-                <strong>#{{ review.case_id }} · {{ todoCaseTitle(review.case_id) }}</strong>
-                <small>申请于 {{ new Date(review.created_at).toLocaleString('zh-CN') }}</small>
-              </div>
+          <article v-for="review in todoReviews" :key="review.id">
+            <div>
+              <strong>#{{ review.case_id }} · {{ todoCaseTitle(review.case_id) }}</strong>
+              <small>申请于 {{ new Date(review.created_at).toLocaleString('zh-CN') }}</small>
+            </div>
+            <div class="ledger-list__actions">
               <button
                 class="secondary-action"
                 type="button"
-                @click="toggleReview(review.id)"
+                @click="openReviewModal(review.id)"
               >
-                {{ expandedReviewId === review.id ? '收起' : '查看材料并复核' }}
+                查看材料并复核
               </button>
-            </div>
-            <div v-if="expandedReviewId === review.id" class="review-item__body">
-              <p v-if="briefLoadingId === review.id" class="muted-text">正在加载案件材料…</p>
-              <div v-else-if="reviewBriefs[review.id]" class="review-brief">
-                <div class="review-brief__section">
-                  <span class="review-brief__title">案件概要</span>
-                  <div class="review-brief__meta">
-                    <span class="status-tag">
-                      {{ dictionary.disputeLabels[reviewBriefs[review.id]!.case.dispute_type] || '待识别' }}
-                    </span>
-                    <span class="status-tag">
-                      {{ dictionary.stageLabels[reviewBriefs[review.id]!.case.stage] || reviewBriefs[review.id]!.case.stage }}
-                    </span>
-                    <small>{{ reviewBriefs[review.id]!.case.location || '地点未填写' }}</small>
-                  </div>
-                  <p class="pre-line">{{ reviewBriefs[review.id]!.case.facts }}</p>
-                  <p v-if="reviewBriefs[review.id]!.case.summary" class="review-brief__summary">
-                    {{ reviewBriefs[review.id]!.case.summary }}
-                  </p>
-                </div>
-                <div class="review-brief__section">
-                  <span class="review-brief__title">
-                    证据材料（{{ reviewBriefs[review.id]!.evidence.items.length }} 件）
-                  </span>
-                  <p v-if="!reviewBriefs[review.id]!.evidence.items.length" class="review-brief__gap">
-                    该案件暂无证据材料，复核时请重点确认。
-                  </p>
-                  <ul v-else class="review-brief__list">
-                    <li v-for="ev in reviewBriefs[review.id]!.evidence.items" :key="ev.id">
-                      <strong>{{ ev.filename }}</strong>
-                      <span>{{ evidenceCategoryLabel(ev.category) }}</span>
-                      <small>{{ screeningLabels[ev.screening_status] || ev.screening_status }}</small>
-                    </li>
-                  </ul>
-                  <p
-                    v-if="reviewBriefs[review.id]!.evidence.assessment.missing_labels.length"
-                    class="review-brief__gap"
-                  >
-                    材料缺口：{{ reviewBriefs[review.id]!.evidence.assessment.missing_labels.join('、') }}
-                  </p>
-                </div>
-                <div class="review-brief__section">
-                  <span class="review-brief__title">
-                    法律文书（{{ reviewBriefs[review.id]!.documents.length }} 份）
-                  </span>
-                  <p v-if="!reviewBriefs[review.id]!.documents.length" class="muted-text">
-                    尚无法律文书。
-                  </p>
-                  <ul v-else class="review-brief__list">
-                    <li v-for="doc in reviewBriefs[review.id]!.documents" :key="doc.id">
-                      <strong>{{ docTypeLabels[doc.doc_type] || doc.doc_type }}</strong>
-                      <span>{{ doc.title }}</span>
-                      <small>{{ doc.status === 'draft' ? '草稿' : doc.status }}</small>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <div class="review-item__field">
-                <span>复核结论</span>
-                <div class="lawyer-slot-picker__options">
-                  <button
-                    v-for="option in reviewConclusionOptions"
-                    :key="option.value"
-                    type="button"
-                    class="lawyer-slot-chip"
-                    :class="{ 'lawyer-slot-chip--active': reviewForm(review.id).conclusion === option.value }"
-                    @click="reviewForm(review.id).conclusion = option.value"
-                  >
-                    {{ option.label }}
-                  </button>
-                </div>
-              </div>
-              <div class="review-item__field">
-                <span>复核意见</span>
-                <textarea
-                  v-model="reviewForm(review.id).comment"
-                  rows="4"
-                  placeholder="向用户说明结论依据和下一步建议。"
-                />
-              </div>
-              <div class="form-actions">
-                <button
-                  class="primary-action primary-action--compact"
-                  type="button"
-                  :disabled="submittingReviewId === review.id || !reviewForm(review.id).conclusion"
-                  @click="submitReview(review)"
-                >
-                  {{ submittingReviewId === review.id ? '提交中...' : '提交复核结论' }}
-                </button>
-              </div>
             </div>
           </article>
           <p v-if="!todoReviews.length" class="muted-text">暂无待复核案件。</p>
@@ -422,6 +327,108 @@
         />
       </div>
     </section>
+
+    <div v-if="modalReview" class="review-modal" @click.self="closeReviewModal">
+      <div class="review-modal__card">
+        <div class="review-modal__head">
+          <div>
+            <span class="eyebrow">立案前复核</span>
+            <h3>#{{ modalReview.case_id }} · {{ todoCaseTitle(modalReview.case_id) }}</h3>
+          </div>
+          <button class="secondary-action" type="button" @click="closeReviewModal">关闭</button>
+        </div>
+        <div class="review-modal__body">
+          <p v-if="briefLoadingId === modalReview.id" class="muted-text">正在加载案件材料…</p>
+          <div v-else-if="reviewBriefs[modalReview.id]" class="review-brief">
+            <div class="review-brief__section">
+              <span class="review-brief__title">案件概要</span>
+              <div class="review-brief__meta">
+                <span class="status-tag">
+                  {{ dictionary.disputeLabels[reviewBriefs[modalReview.id]!.case.dispute_type] || '待识别' }}
+                </span>
+                <span class="status-tag">
+                  {{ dictionary.stageLabels[reviewBriefs[modalReview.id]!.case.stage] || reviewBriefs[modalReview.id]!.case.stage }}
+                </span>
+                <small>{{ reviewBriefs[modalReview.id]!.case.location || '地点未填写' }}</small>
+              </div>
+              <p class="pre-line">{{ reviewBriefs[modalReview.id]!.case.facts }}</p>
+              <p v-if="reviewBriefs[modalReview.id]!.case.summary" class="review-brief__summary">
+                {{ reviewBriefs[modalReview.id]!.case.summary }}
+              </p>
+            </div>
+            <div class="review-brief__section">
+              <span class="review-brief__title">
+                证据材料（{{ reviewBriefs[modalReview.id]!.evidence.items.length }} 件）
+              </span>
+              <p v-if="!reviewBriefs[modalReview.id]!.evidence.items.length" class="review-brief__gap">
+                该案件暂无证据材料，复核时请重点确认。
+              </p>
+              <ul v-else class="review-brief__list">
+                <li v-for="ev in reviewBriefs[modalReview.id]!.evidence.items" :key="ev.id">
+                  <strong>{{ ev.filename }}</strong>
+                  <span>{{ evidenceCategoryLabel(ev.category) }}</span>
+                  <small>{{ screeningLabels[ev.screening_status] || ev.screening_status }}</small>
+                </li>
+              </ul>
+              <p
+                v-if="reviewBriefs[modalReview.id]!.evidence.assessment.missing_labels.length"
+                class="review-brief__gap"
+              >
+                材料缺口：{{ reviewBriefs[modalReview.id]!.evidence.assessment.missing_labels.join('、') }}
+              </p>
+            </div>
+            <div class="review-brief__section">
+              <span class="review-brief__title">
+                法律文书（{{ reviewBriefs[modalReview.id]!.documents.length }} 份）
+              </span>
+              <p v-if="!reviewBriefs[modalReview.id]!.documents.length" class="muted-text">
+                尚无法律文书。
+              </p>
+              <ul v-else class="review-brief__list">
+                <li v-for="doc in reviewBriefs[modalReview.id]!.documents" :key="doc.id">
+                  <strong>{{ docTypeLabels[doc.doc_type] || doc.doc_type }}</strong>
+                  <span>{{ doc.title }}</span>
+                  <small>{{ doc.status === 'draft' ? '草稿' : doc.status }}</small>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="review-item__field">
+            <span>复核结论</span>
+            <div class="lawyer-slot-picker__options">
+              <button
+                v-for="option in reviewConclusionOptions"
+                :key="option.value"
+                type="button"
+                class="lawyer-slot-chip"
+                :class="{ 'lawyer-slot-chip--active': reviewForm(modalReview.id).conclusion === option.value }"
+                @click="reviewForm(modalReview.id).conclusion = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+          <div class="review-item__field">
+            <span>复核意见</span>
+            <textarea
+              v-model="reviewForm(modalReview.id).comment"
+              rows="4"
+              placeholder="向用户说明结论依据和下一步建议。"
+            />
+          </div>
+        </div>
+        <div class="review-modal__foot">
+          <button
+            class="primary-action primary-action--compact"
+            type="button"
+            :disabled="submittingReviewId === modalReview.id || !reviewForm(modalReview.id).conclusion"
+            @click="submitReview(modalReview)"
+          >
+            {{ submittingReviewId === modalReview.id ? '提交中...' : '提交复核结论' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -508,18 +515,25 @@ const sessionTitles = ref<Record<number, string>>({})
 const activeSessionId = ref(0)
 const actingRequestId = ref<number | null>(null)
 const submittingReviewId = ref<number | null>(null)
-const expandedReviewId = ref<number | null>(null)
+const reviewModalId = ref<number | null>(null)
 const reviewForms = reactive<Record<number, { conclusion: string; comment: string }>>({})
 const reviewBriefs = reactive<Record<number, ReviewCaseBrief | null>>({})
 const briefLoadingId = ref<number | null>(null)
 
-async function toggleReview(reviewId: number) {
-  if (expandedReviewId.value === reviewId) {
-    expandedReviewId.value = null
-    return
-  }
-  expandedReviewId.value = reviewId
-  if (reviewBriefs[reviewId]) return
+const modalReview = computed(
+  () => todoReviews.value.find((review) => review.id === reviewModalId.value) ?? null,
+)
+
+function openReviewModal(reviewId: number) {
+  reviewModalId.value = reviewId
+  if (!reviewBriefs[reviewId]) void loadReviewBrief(reviewId)
+}
+
+function closeReviewModal() {
+  reviewModalId.value = null
+}
+
+async function loadReviewBrief(reviewId: number) {
   briefLoadingId.value = reviewId
   try {
     reviewBriefs[reviewId] = await apiRequest<ReviewCaseBrief>(
@@ -648,7 +662,7 @@ async function submitReview(review: CaseReviewItem) {
       body: JSON.stringify({ conclusion: form.conclusion, comment: form.comment.trim() }),
     })
     notifySuccess('复核结论已提交')
-    expandedReviewId.value = null
+    reviewModalId.value = null
     reviewBriefs[review.id] = null
     await refreshLawyerService()
   } catch (err) {
