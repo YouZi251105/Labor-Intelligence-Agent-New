@@ -1122,7 +1122,7 @@ summary:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 420px;
+  max-height: 480px;
   overflow-y: auto;
   padding: 4px 2px;
 }
@@ -1721,7 +1721,22 @@ summary:focus-visible {
   font-size: 13px;
 }
 
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--lia-border);
+  border-radius: 12px;
+  background: var(--lia-surface);
   cursor: pointer;
 }
 

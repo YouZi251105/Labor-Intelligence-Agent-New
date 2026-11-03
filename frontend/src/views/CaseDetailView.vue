@@ -44,7 +44,7 @@
         <span>
           {{ activeRequest.status === 'accepted' ? '律师已受理你的预约' : '正在与律师咨询中' }}，可以在「律师协助」页签继续对话。
         </span>
-        <button class="primary-action primary-action--compact" type="button" @click="activeTab = 'lawyer'">
+        <button class="primary-action primary-action--compact" type="button" @click="enterLawyerAssist">
           进入对话
         </button>
       </div>
@@ -422,6 +422,21 @@
     </section>
 
     <section v-else-if="activeTab === 'lawyer'" class="detail-grid">
+      <template v-if="selectedSession">
+        <div class="detail-card detail-card--wide">
+          <div class="detail-section-heading">
+            <div>
+              <span class="eyebrow">律师咨询</span>
+              <h2>与律师的对话</h2>
+            </div>
+            <button class="secondary-action" type="button" @click="backToSessionList">
+              返回会话列表
+            </button>
+          </div>
+          <ConsultationChat :session="selectedSession" sender-role="user" @closed="onSessionClosed" />
+        </div>
+      </template>
+      <template v-else>
       <div class="detail-card">
         <span class="eyebrow">被动介入</span>
         <h2>预约律师协助</h2>
@@ -467,6 +482,14 @@
             v-if="activeRequest.status === 'pending' || activeRequest.status === 'accepted'"
             class="form-actions"
           >
+            <button
+              v-if="activeCaseSession"
+              class="primary-action primary-action--compact"
+              type="button"
+              @click="openSession(activeCaseSession.id)"
+            >
+              进入对话
+            </button>
             <button class="secondary-action" type="button" :disabled="cancellingRequest" @click="cancelRequest">
               {{ cancellingRequest ? '取消中...' : '取消预约' }}
             </button>
@@ -539,6 +562,35 @@
           </div>
         </form>
       </div>
+      <div class="detail-card">
+        <span class="eyebrow">咨询会话</span>
+        <h2>与律师的沟通记录</h2>
+        <p class="muted-text">
+          律师受理预约后会自动创建专属会话；对话记录结束后仍保留在这里，随时可查看。
+        </p>
+        <div class="session-list">
+          <article
+            v-for="item in caseSessionsSorted"
+            :key="item.id"
+            class="session-item"
+            :class="{ 'session-item--active': item.status === 'active' }"
+          >
+            <div>
+              <strong>{{ item.status === 'active' ? '进行中的会话' : '已结束的会话' }}</strong>
+              <small>
+                创建于 {{ new Date(item.created_at).toLocaleString('zh-CN') }}
+                <template v-if="item.closed_at">
+                  · 结束于 {{ new Date(item.closed_at).toLocaleString('zh-CN') }}
+                </template>
+              </small>
+            </div>
+            <button class="secondary-action" type="button" @click="openSession(item.id)">
+              {{ item.status === 'active' ? '进入对话' : '查看记录' }}
+            </button>
+          </article>
+          <p v-if="!caseSessionsSorted.length" class="muted-text">暂无咨询会话。</p>
+        </div>
+      </div>
 
       <div class="detail-card">
         <span class="eyebrow">主动介入</span>
@@ -597,19 +649,7 @@
           </small>
         </template>
       </div>
-
-      <div v-if="caseSession" class="detail-card detail-card--wide">
-        <div class="detail-section-heading">
-          <div>
-            <span class="eyebrow">律师咨询</span>
-            <h2>与律师的对话</h2>
-          </div>
-          <span class="status-tag" :class="{ 'status-tag--success': caseSession.status === 'active' }">
-            {{ caseSession.status === 'active' ? '进行中' : '已结束' }}
-          </span>
-        </div>
-        <ConsultationChat :session="caseSession" sender-role="user" @closed="onSessionClosed" />
-      </div>
+      </template>
     </section>
   </section>
 
@@ -772,7 +812,32 @@ const activeRequest = computed(
       ['pending', 'accepted', 'in_session'].includes(item.status),
     ) ?? null,
 )
-const caseSession = computed(() => caseSessions.value[0] ?? null)
+const selectedSessionId = ref<number | null>(null)
+const caseSessionsSorted = computed(() => {
+  const rank = (item: ConsultationSessionItem) => (item.status === 'active' ? 0 : 1)
+  return [...caseSessions.value].sort(
+    (a, b) => rank(a) - rank(b) || (a.created_at < b.created_at ? 1 : -1),
+  )
+})
+const selectedSession = computed(
+  () => caseSessions.value.find((item) => item.id === selectedSessionId.value) ?? null,
+)
+const activeCaseSession = computed(
+  () => caseSessions.value.find((item) => item.status === 'active') ?? null,
+)
+
+function openSession(sessionId: number) {
+  selectedSessionId.value = sessionId
+}
+
+function backToSessionList() {
+  selectedSessionId.value = null
+}
+
+function enterLawyerAssist() {
+  activeTab.value = 'lawyer'
+  if (activeCaseSession.value) selectedSessionId.value = activeCaseSession.value.id
+}
 
 type ProgressState = 'done' | 'current' | 'todo'
 interface ProgressStep {
