@@ -411,7 +411,7 @@
 
     <section v-else-if="activeTab === 'lawyer'" class="detail-grid">
       <div class="detail-card">
-        <span class="eyebrow">人工介入</span>
+        <span class="eyebrow">被动介入</span>
         <h2>预约律师协助</h2>
         <p>复杂问题可预约律师人工介入；律师受理后进入专属咨询对话，记录会留存供双方随时查看。</p>
         <template v-if="activeRequest">
@@ -421,6 +421,19 @@
             </span>
             <span v-if="activeRequest.priority === 'urgent'" class="status-tag status-tag--warning">加急</span>
           </div>
+          <ol class="lawyer-progress">
+            <li
+              v-for="step in requestProgress"
+              :key="step.label"
+              class="lawyer-progress__step"
+              :class="`lawyer-progress__step--${step.state}`"
+            >
+              <span class="lawyer-progress__dot">
+                <CircleCheck v-if="step.state === 'done'" :size="12" />
+              </span>
+              <small>{{ step.label }}</small>
+            </li>
+          </ol>
           <p class="pre-line">{{ activeRequest.reason }}</p>
           <small class="muted-text">
             期望时间：{{ activeRequest.preferred_time || '不限' }} · 提交于
@@ -468,19 +481,6 @@
         </form>
       </div>
 
-      <div v-if="caseSession" class="detail-card detail-card--wide">
-        <div class="detail-section-heading">
-          <div>
-            <span class="eyebrow">律师咨询</span>
-            <h2>与律师的对话</h2>
-          </div>
-          <span class="status-tag" :class="{ 'status-tag--success': caseSession.status === 'active' }">
-            {{ caseSession.status === 'active' ? '进行中' : '已结束' }}
-          </span>
-        </div>
-        <ConsultationChat :session="caseSession" sender-role="user" @closed="onSessionClosed" />
-      </div>
-
       <div class="detail-card">
         <span class="eyebrow">主动介入</span>
         <h2>立案前人工复核</h2>
@@ -496,22 +496,40 @@
         >
           {{ requestingReview ? '申请中...' : '申请立案前复核' }}
         </button>
-        <div v-else class="lawyer-review-result">
-          <span
-            class="status-tag"
-            :class="caseReview.status === 'reviewed' ? 'status-tag--success' : 'status-tag--warning'"
-          >
-            {{ caseReview.status === 'reviewed' ? '复核完成' : '复核进行中，律师会尽快处理' }}
-          </span>
-          <template v-if="caseReview.status === 'reviewed' && caseReview.conclusion">
-            <strong>{{ reviewConclusionLabels[caseReview.conclusion].title }}</strong>
-            <p>{{ reviewConclusionLabels[caseReview.conclusion].description }}</p>
-            <p v-if="caseReview.comment" class="pre-line">律师意见：{{ caseReview.comment }}</p>
-            <small class="muted-text">
-              复核时间：{{ new Date(caseReview.reviewed_at ?? caseReview.created_at).toLocaleString('zh-CN') }}
-            </small>
-          </template>
+        <div v-else-if="!reviewVerdict" class="lawyer-review-result">
+          <span class="status-tag status-tag--warning">复核进行中，律师会尽快处理</span>
+          <small class="muted-text">
+            申请于 {{ new Date(caseReview.created_at).toLocaleString('zh-CN') }}
+          </small>
         </div>
+        <template v-else>
+          <div class="review-verdict" :class="`review-verdict--${reviewVerdict.tone}`">
+            <component :is="reviewVerdict.icon" :size="20" />
+            <div>
+              <strong>{{ reviewVerdict.labels.title }}</strong>
+              <p>{{ reviewVerdict.labels.description }}</p>
+            </div>
+          </div>
+          <p v-if="reviewVerdict.comment" class="pre-line lawyer-review-comment">
+            律师意见：{{ reviewVerdict.comment }}
+          </p>
+          <small class="muted-text">
+            复核时间：{{ new Date(reviewVerdict.at).toLocaleString('zh-CN') }}
+          </small>
+        </template>
+      </div>
+
+      <div v-if="caseSession" class="detail-card detail-card--wide">
+        <div class="detail-section-heading">
+          <div>
+            <span class="eyebrow">律师咨询</span>
+            <h2>与律师的对话</h2>
+          </div>
+          <span class="status-tag" :class="{ 'status-tag--success': caseSession.status === 'active' }">
+            {{ caseSession.status === 'active' ? '进行中' : '已结束' }}
+          </span>
+        </div>
+        <ConsultationChat :session="caseSession" sender-role="user" @closed="onSessionClosed" />
       </div>
     </section>
   </section>
@@ -522,12 +540,15 @@
 <script setup lang="ts">
 import {
   ArrowLeft,
+  CircleCheck,
+  CircleX,
   Clock3,
   FilePlus2,
   FileText,
   MessageSquareText,
   Scale,
   ShieldCheck,
+  TriangleAlert,
   Upload,
   UserCheck,
 } from '@lucide/vue'
@@ -634,6 +655,54 @@ const activeRequest = computed(
     ) ?? null,
 )
 const caseSession = computed(() => caseSessions.value[0] ?? null)
+
+type ProgressState = 'done' | 'current' | 'todo'
+interface ProgressStep {
+  label: string
+  state: ProgressState
+}
+
+const requestProgress = computed<ProgressStep[]>(() => {
+  const status = activeRequest.value?.status
+  const labels = ['提交预约', '律师受理', '咨询对话', '预约完成']
+  const reached =
+    status === 'completed'
+      ? 4
+      : status === 'in_session'
+        ? 3
+        : status === 'accepted'
+          ? 2
+          : status === 'pending'
+            ? 1
+            : 0
+  const terminal = status === 'rejected' || status === 'cancelled'
+  return labels.map((label, index) => ({
+    label,
+    state: (index < reached
+      ? 'done'
+      : index === reached && !terminal
+        ? 'current'
+        : 'todo') as ProgressState,
+  }))
+})
+
+const reviewVerdict = computed(() => {
+  const review = caseReview.value
+  if (!review || review.status !== 'reviewed' || !review.conclusion) return null
+  const map = {
+    ready_to_file: { icon: CircleCheck, tone: 'success' },
+    need_more: { icon: TriangleAlert, tone: 'warning' },
+    not_recommended: { icon: CircleX, tone: 'danger' },
+  } as const
+  const meta = map[review.conclusion]
+  return {
+    icon: meta.icon,
+    tone: meta.tone,
+    labels: reviewConclusionLabels[review.conclusion],
+    comment: review.comment,
+    at: review.reviewed_at ?? review.created_at,
+  }
+})
 
 function requestStatusLabel(status: string) {
   return requestStatusLabels[status] ?? status

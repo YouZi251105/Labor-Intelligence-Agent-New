@@ -1156,6 +1156,134 @@ summary:focus-visible {
   margin-bottom: 10px;
 }
 
+.lawyer-progress {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 14px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.lawyer-progress__step {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.lawyer-progress__step::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: calc(50% + 13px);
+  left: calc(-50% + 13px);
+  height: 2px;
+  background: var(--lia-border);
+}
+
+.lawyer-progress__step:first-child::before {
+  display: none;
+}
+
+.lawyer-progress__step--done::before {
+  background: var(--lia-primary);
+}
+
+.lawyer-progress__dot {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--lia-border);
+  border-radius: 999px;
+  background: var(--lia-surface);
+  color: #fff;
+}
+
+.lawyer-progress__step--done .lawyer-progress__dot {
+  border-color: var(--lia-primary);
+  background: var(--lia-primary);
+}
+
+.lawyer-progress__step--current .lawyer-progress__dot {
+  border-color: var(--lia-primary);
+  box-shadow: 0 0 0 3px var(--lia-primary-soft);
+}
+
+.lawyer-progress__step--current .lawyer-progress__dot::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lia-primary);
+}
+
+.lawyer-progress__step small {
+  color: var(--lia-text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.lawyer-progress__step--done small,
+.lawyer-progress__step--current small {
+  color: var(--lia-text);
+  font-weight: 650;
+}
+
+.review-verdict {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.review-verdict svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.review-verdict strong {
+  display: block;
+  font-size: 13px;
+}
+
+.review-verdict p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.review-verdict--success {
+  background: var(--lia-success-soft);
+  color: var(--lia-success);
+}
+
+.review-verdict--warning {
+  background: var(--lia-warning-soft);
+  color: var(--lia-warning);
+}
+
+.review-verdict--danger {
+  background: var(--lia-danger-soft, #fbeae9);
+  color: var(--lia-danger);
+}
+
+.lawyer-review-comment {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--lia-border);
+  border-radius: 10px;
+  background: var(--lia-surface-soft);
+  color: var(--lia-text);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .lawyer-review-result {
   display: flex;
   flex-direction: column;
