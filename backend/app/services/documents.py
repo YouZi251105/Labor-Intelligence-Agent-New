@@ -20,15 +20,34 @@ DOC_TITLES = {
 }
 
 CLAIMS = {
-    "wage": "请求裁决被申请人支付拖欠的劳动报酬。",
-    "termination": "请求裁决被申请人支付违法解除劳动合同赔偿金。",
-    "contract": "请求裁决被申请人支付未签订书面劳动合同期间的二倍工资差额。",
-    "overtime": "请求裁决被申请人支付加班费。",
-    "injury": "请求依法确认工伤待遇并支付相关费用。",
-    "insurance": "请求依法处理社会保险补缴或损失赔偿事项。",
+    "labor_confirmation": "请求依法确认申请人与被申请人之间存在劳动关系。",
+    "labor_contract": "请求裁决被申请人支付未签订书面劳动合同期间的二倍工资差额。",
+    "labor_termination": "请求裁决被申请人支付违法解除劳动合同赔偿金。",
+    "labor_benefits": "请求依法处理工作时间、休息休假、社会保险及劳动保护相关事项。",
+    "labor_pay": "请求裁决被申请人支付拖欠的劳动报酬、加班费或经济补偿。",
+    "labor_other": "请求依法处理双方劳动纠纷。",
     "service_pay": "请求判令被告支付拖欠的劳务报酬。",
-    "general": "请求依法处理双方劳动纠纷。",
+    "service_quality": "请求依法处理劳务成果与质量相关争议。",
+    "service_injury": "请求判令被告承担提供劳务受害的赔偿责任。",
+    "service_breach": "请求判令被告承担劳务合同违约责任。",
 }
+
+# 旧纠纷枚举 -> 新纠纷枚举，保证迁移前生成的案件继续可生成文书。
+LEGACY_DISPUTE_TYPES = {
+    "general": "labor_other",
+    "wage": "labor_pay",
+    "overtime": "labor_pay",
+    "injury": "labor_pay",
+    "insurance": "labor_benefits",
+    "contract": "labor_contract",
+    "termination": "labor_termination",
+}
+
+
+def apply_package_claims(claims: dict[str, str]) -> None:
+    """用字典包内容重建文书请求事项映射（字典服务发布后调用）。"""
+    CLAIMS.clear()
+    CLAIMS.update(claims)
 
 
 def generate_document(
@@ -37,6 +56,9 @@ def generate_document(
     doc_type: str,
 ) -> tuple[str, str]:
     title = DOC_TITLES[doc_type]
+    from app.services.dictionary import get_runtime_migrations
+
+    claim_key = get_runtime_migrations().get(case.dispute_type, case.dispute_type)
     evidence_lines = "\n".join(
         f"{index + 1}. {item.filename}（{item.category}）"
         for index, item in enumerate(evidence_items)
@@ -48,7 +70,7 @@ def generate_document(
             "甲方：待确认\n"
             "乙方：待确认\n\n"
             f"一、纠纷概况\n{case.facts or case.summary}\n\n"
-            f"二、协商事项\n{CLAIMS.get(case.dispute_type, CLAIMS['general'])}\n\n"
+            f"二、协商事项\n{CLAIMS.get(claim_key, CLAIMS['labor_other'])}\n\n"
             "三、履行方式\n双方应明确支付金额、支付时间和违约责任。\n\n"
             "四、确认\n本协议为系统生成的演示草稿，签署前应由双方及律师确认。\n"
         )
@@ -58,7 +80,7 @@ def generate_document(
             "申请人：待确认\n"
             "被申请人：待确认\n\n"
             "请求事项\n"
-            f"{CLAIMS.get(case.dispute_type, CLAIMS['general'])}\n\n"
+            f"{CLAIMS.get(claim_key, CLAIMS['labor_other'])}\n\n"
             "事实与理由\n"
             f"{case.facts or case.summary}\n"
             f"案件地点：{case.location or '待确认'}\n\n"

@@ -21,7 +21,7 @@ def test_demo_end_to_end_flow() -> None:
             headers=auth_headers(token),
             json={
                 "title": "工地欠薪咨询",
-                "dispute_type": "wage",
+                "dispute_type": "labor_pay",
                 "location": "上海市",
                 "facts": "在工地工作三个月，没有签合同，老板拖欠工资。",
             },
@@ -36,7 +36,7 @@ def test_demo_end_to_end_flow() -> None:
         )
         assert consultation.status_code == 200
         payload = consultation.json()
-        assert payload["classification"]["dispute_type"] == "wage"
+        assert payload["classification"]["dispute_type"] == "labor_pay"
         assert payload["assistant_message"]
 
         messages = client.get(

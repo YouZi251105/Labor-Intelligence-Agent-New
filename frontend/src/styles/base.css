@@ -1019,6 +1019,11 @@ summary:focus-visible {
 .status-tag {
   display: inline-flex;
   align-items: center;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
   border: 1px solid var(--lia-border);
   border-radius: 999px;
   background: var(--lia-surface-soft);
@@ -4901,4 +4906,72 @@ summary:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   管理端字典管理（DictionaryAdminPanel）
+--------------------------------------------------------------------------- */
+.dictionary-section {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border-muted, rgba(15, 23, 42, 0.08));
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.6);
+}
+
+.dictionary-section h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.dictionary-dispute-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.dictionary-dispute-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.dictionary-dispute-card__head label {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 180px;
+}
+
+.dictionary-dispute-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.dictionary-field {
+  display: grid;
+  gap: 4px;
+}
+
+.dictionary-field span,
+.dictionary-dispute-card__head label span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dictionary-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dictionary-empty {
+  display: grid;
+  gap: 8px;
+  align-content: start;
 }

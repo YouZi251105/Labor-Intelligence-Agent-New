@@ -17,7 +17,7 @@ class Case(Base):
         ForeignKey("users.id"), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(String(160))
-    dispute_type: Mapped[str] = mapped_column(String(40), default="general")
+    dispute_type: Mapped[str] = mapped_column(String(40), default="labor_other")
     legal_relationship: Mapped[str] = mapped_column(String(40), default="unknown")
     stage: Mapped[str] = mapped_column(String(40), default="intake")
     status: Mapped[str] = mapped_column(String(30), default="active")

@@ -32,7 +32,7 @@
           "meta"
         ],
         "summary": "Get Dictionary",
-        "description": "返回纠纷类型、案件阶段、证据类别的统一字典。",
+        "description": "返回纠纷类型、案件阶段、证据类别的统一字典（已发布包或内置默认）。",
         "operationId": "get_dictionary_api_v1_meta_dictionary_get",
         "responses": {
           "200": {
@@ -3644,6 +3644,293 @@
         }
       }
     },
+    "/api/v1/admin/dictionary/versions": {
+      "get": {
+        "tags": [
+          "admin-dictionary"
+        ],
+        "summary": "List Dictionary Versions",
+        "operationId": "list_dictionary_versions_api_v1_admin_dictionary_versions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DictionaryVersionSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Dictionary Versions Api V1 Admin Dictionary Versions Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "admin-dictionary"
+        ],
+        "summary": "Create Dictionary Version",
+        "operationId": "create_dictionary_version_api_v1_admin_dictionary_versions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictionaryPackageContentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryVersionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/dictionary/active": {
+      "get": {
+        "tags": [
+          "admin-dictionary"
+        ],
+        "summary": "Get Active Dictionary",
+        "operationId": "get_active_dictionary_api_v1_admin_dictionary_active_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryActiveResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/dictionary/versions/{version_id}": {
+      "get": {
+        "tags": [
+          "admin-dictionary"
+        ],
+        "summary": "Get Dictionary Version",
+        "operationId": "get_dictionary_version_api_v1_admin_dictionary_versions__version_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryVersionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin-dictionary"
+        ],
+        "summary": "Update Dictionary Version",
+        "operationId": "update_dictionary_version_api_v1_admin_dictionary_versions__version_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictionaryPackageContentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryVersionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin-dictionary"
+        ],
+        "summary": "Delete Dictionary Version",
+        "operationId": "delete_dictionary_version_api_v1_admin_dictionary_versions__version_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/dictionary/versions/{version_id}/publish": {
+      "post": {
+        "tags": [
+          "admin-dictionary"
+        ],
+        "summary": "Publish Dictionary Version",
+        "operationId": "publish_dictionary_version_api_v1_admin_dictionary_versions__version_id__publish_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryVersionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stats": {
       "get": {
         "tags": [
@@ -4868,7 +5155,7 @@
             "type": "string",
             "maxLength": 40,
             "title": "Dispute Type",
-            "default": "general"
+            "default": "labor_other"
           },
           "location": {
             "type": "string",
@@ -5566,6 +5853,174 @@
         ],
         "title": "DashboardTrendPoint"
       },
+      "DictionaryActiveResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "content": {
+            "$ref": "#/components/schemas/DictionaryPackageContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "content"
+        ],
+        "title": "DictionaryActiveResponse",
+        "description": "当前生效字典：已发布包或内置默认，供管理端编辑器初始化。"
+      },
+      "DictionaryCategoryItem": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Label"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "DictionaryCategoryItem"
+      },
+      "DictionaryDisputeItem": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Label"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group",
+            "default": "labor"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords"
+          },
+          "required_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Categories"
+          },
+          "core_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Core Categories"
+          },
+          "claim_text": {
+            "type": "string",
+            "title": "Claim Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "DictionaryDisputeItem"
+      },
+      "DictionaryPackageContent": {
+        "properties": {
+          "disputes": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryDisputeItem"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Disputes"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryStageItem"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Stages"
+          },
+          "evidence_categories": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryCategoryItem"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Evidence Categories"
+          },
+          "migrations": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Migrations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "disputes",
+          "stages",
+          "evidence_categories"
+        ],
+        "title": "DictionaryPackageContent"
+      },
+      "DictionaryPackageContentRequest": {
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/DictionaryPackageContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "DictionaryPackageContentRequest"
+      },
       "DictionaryResponse": {
         "properties": {
           "disputes": {
@@ -5598,6 +6053,152 @@
         ],
         "title": "DictionaryResponse"
       },
+      "DictionaryStageItem": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "DictionaryStageItem"
+      },
+      "DictionaryVersionDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "checksum": {
+            "type": "string",
+            "title": "Checksum"
+          },
+          "created_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "content": {
+            "$ref": "#/components/schemas/DictionaryPackageContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "status",
+          "checksum",
+          "created_at",
+          "content"
+        ],
+        "title": "DictionaryVersionDetail"
+      },
+      "DictionaryVersionSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "checksum": {
+            "type": "string",
+            "title": "Checksum"
+          },
+          "created_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "status",
+          "checksum",
+          "created_at"
+        ],
+        "title": "DictionaryVersionSummary"
+      },
       "DisputeTypeDict": {
         "properties": {
           "value": {
@@ -5607,6 +6208,11 @@
           "label": {
             "type": "string",
             "title": "Label"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group",
+            "default": "labor"
           },
           "keywords": {
             "items": {

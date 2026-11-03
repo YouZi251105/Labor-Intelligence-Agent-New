@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class CaseCreate(BaseModel):
     title: str = Field(default="新的劳动纠纷咨询", min_length=2, max_length=160)
-    dispute_type: str = Field(default="general", max_length=40)
+    dispute_type: str = Field(default="labor_other", max_length=40)
     location: str = Field(default="", max_length=120)
     facts: str = Field(default="", max_length=10_000)
 

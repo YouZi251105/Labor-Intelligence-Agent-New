@@ -282,6 +282,8 @@
 
     <RulePackageCenter v-else-if="activeTab === '规则包'" />
 
+    <DictionaryAdminPanel v-else-if="activeTab === '字典'" />
+
     <section v-else-if="activeTab === '材料'" class="detail-card">
       <span class="eyebrow">材料管理</span>
       <h2>{{ materials.length }} 份材料</h2>
@@ -365,6 +367,7 @@ import {
   promptForPassword,
 } from '../utils/dialogs'
 import RulePackageCenter from '../components/RulePackageCenter.vue'
+import DictionaryAdminPanel from '../components/DictionaryAdminPanel.vue'
 import type {
   AdminDashboardData,
   AdminUserPage,
@@ -401,6 +404,7 @@ const sectionTabs: Record<string, string> = {
   cases: '案件',
   rules: '规则',
   packages: '规则包',
+  dictionary: '字典',
   materials: '材料',
   audit: '审计',
   revenue: '收益',
@@ -412,6 +416,7 @@ const sectionTitles: Record<string, string> = {
   cases: '案件分配',
   rules: '规则复核',
   packages: '规则包中心',
+  dictionary: '字典管理',
   materials: '材料管理',
   audit: '审计日志',
   revenue: '收益管理',
@@ -423,6 +428,7 @@ const sectionDescriptions: Record<string, string> = {
   cases: '查看待分配案件并指定承办律师。',
   rules: '复核证据规则和法律内容版本。',
   packages: '导入、编辑、校验、审核和发布版本化规则包。',
+  dictionary: '维护纠纷分类、识别关键词、证据要求和文书请求，发布后立即全平台生效。',
   materials: '查看材料元数据和提取状态，不展示材料正文。',
   audit: '追踪平台关键操作和敏感数据访问。',
   revenue: '核对律师服务记录和收益流转。',
@@ -495,6 +501,10 @@ const auditLabels: Record<string, string> = {
   'admin.rule_package_reviewed': '规则包审核',
   'admin.rule_package_published': '规则包发布',
   'admin.rule_package_retired': '规则包停用',
+  'admin.dictionary_version_created': '字典草稿创建',
+  'admin.dictionary_version_updated': '字典草稿编辑',
+  'admin.dictionary_version_published': '字典版本发布',
+  'admin.dictionary_version_deleted': '字典草稿删除',
   'admin.lawyer_status_changed': '律师状态变更',
   'admin.revenue_status_changed': '收益状态变更',
   'admin.user_status_changed': '账号状态变更',

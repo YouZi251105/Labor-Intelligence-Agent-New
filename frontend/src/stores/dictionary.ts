@@ -19,6 +19,12 @@ export const useDictionaryStore = defineStore('dictionary', {
     disputeLabels(state): Record<string, string> {
       return Object.fromEntries(state.disputes.map((item) => [item.value, item.label]))
     },
+    laborDisputes(state): DictionaryDisputeType[] {
+      return state.disputes.filter((item) => item.group === 'labor')
+    },
+    serviceDisputes(state): DictionaryDisputeType[] {
+      return state.disputes.filter((item) => item.group === 'service')
+    },
     stageLabels(state): Record<string, string> {
       return Object.fromEntries(state.stages.map((item) => [item.value, item.label]))
     },

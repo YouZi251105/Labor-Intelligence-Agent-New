@@ -23,26 +23,42 @@ from app.services.dictionary import CATEGORY_LABELS
 
 # 纠纷类型 -> 需要覆盖的证据类别（完整性，与演示规则一致）
 REQUIRED_CATEGORIES: dict[str, list[str]] = {
-    "wage": ["payroll", "chat", "contract"],
-    "termination": ["contract", "chat", "payroll"],
-    "contract": ["contract", "chat", "attendance"],
-    "overtime": ["attendance", "chat", "payroll"],
-    "injury": ["medical", "chat", "contract"],
-    "insurance": ["social_insurance", "payroll", "contract"],
+    "labor_confirmation": ["contract", "payroll", "chat"],
+    "labor_contract": ["contract", "chat", "attendance"],
+    "labor_termination": ["contract", "chat", "payroll"],
+    "labor_benefits": ["social_insurance", "payroll", "contract"],
+    "labor_pay": ["payroll", "chat", "contract"],
+    "labor_other": ["contract", "chat", "payroll"],
     "service_pay": ["settlement", "chat", "payroll"],
-    "general": ["contract", "chat", "payroll"],
+    "service_quality": ["settlement", "chat"],
+    "service_injury": ["medical", "chat"],
+    "service_breach": ["contract", "chat"],
 }
 
 # 纠纷类型 -> 核心证据类别（充分性，缺失时提示优先补充）
 CORE_CATEGORIES: dict[str, list[str]] = {
-    "wage": ["payroll", "chat"],
-    "termination": ["contract", "chat"],
-    "contract": ["contract", "chat"],
-    "overtime": ["attendance", "chat"],
-    "injury": ["medical", "chat"],
-    "insurance": ["social_insurance", "payroll"],
+    "labor_confirmation": ["payroll", "chat"],
+    "labor_contract": ["contract", "chat"],
+    "labor_termination": ["contract", "chat"],
+    "labor_benefits": ["social_insurance", "payroll"],
+    "labor_pay": ["payroll", "chat"],
+    "labor_other": ["contract", "chat"],
     "service_pay": ["settlement", "chat"],
-    "general": ["contract", "chat"],
+    "service_quality": ["settlement", "chat"],
+    "service_injury": ["medical", "chat"],
+    "service_breach": ["contract", "chat"],
+}
+
+# 旧纠纷枚举 -> 新纠纷枚举，保证历史案件继续参与证据评估。
+LEGACY_DISPUTE_TYPES: dict[str, str] = {
+    "general": "labor_other",
+    "wage": "labor_pay",
+    "overtime": "labor_pay",
+    "injury": "labor_pay",
+    "insurance": "labor_benefits",
+    "contract": "labor_contract",
+    "termination": "labor_termination",
+    "service_pay": "service_pay",
 }
 
 # 允许的文件 MIME 前缀（形式合法性，与上传校验边界一致）
@@ -59,6 +75,16 @@ MAX_FILE_SIZE = 20 * 1024 * 1024
 DISCLAIMER = "规则评估仅用于材料整理提示，不构成证据合法性或证明力结论。"
 
 
+def refresh_runtime_rules() -> None:
+    """从字典运行时源重建证据规则映射（字典包发布后由字典服务调用）。"""
+    from app.services.dictionary import DEFAULT_DISPUTE_RULES, get_runtime_rules
+
+    for value in DEFAULT_DISPUTE_RULES:
+        required, core = get_runtime_rules(value)
+        REQUIRED_CATEGORIES[value] = required
+        CORE_CATEGORIES[value] = core
+
+
 def assess_evidence_rules(
     dispute_type: str,
     items: list[dict[str, Any]],
@@ -70,8 +96,11 @@ def assess_evidence_rules(
 
     返回值不直接修改案件状态，仅提供结构化、可解释的提示。
     """
-    required = REQUIRED_CATEGORIES.get(dispute_type, REQUIRED_CATEGORIES["general"])
-    core = CORE_CATEGORIES.get(dispute_type, CORE_CATEGORIES["general"])
+    from app.services.dictionary import get_runtime_migrations, get_runtime_rules
+
+    normalized = get_runtime_migrations().get(dispute_type, dispute_type)
+    required, core = get_runtime_rules(normalized)
+    dispute_type = normalized
 
     present = sorted({item.get("category", "other") for item in items})
     missing = [category for category in required if category not in present]

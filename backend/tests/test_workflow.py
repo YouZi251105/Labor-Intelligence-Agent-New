@@ -21,7 +21,7 @@ def test_workflow_requires_evidence_before_procedure() -> None:
             headers=headers,
             json={
                 "title": "工作流欠薪案件",
-                "dispute_type": "wage",
+                "dispute_type": "labor_pay",
                 "location": "上海市",
                 "facts": "公司拖欠工资，目前没有书面合同。",
             },
@@ -98,7 +98,7 @@ def test_consultation_returns_structured_ai_result() -> None:
             headers=headers,
             json={
                 "title": "AI结构化测试",
-                "dispute_type": "general",
+                "dispute_type": "labor_other",
                 "facts": "公司拖欠工资。",
             },
         )
@@ -112,7 +112,7 @@ def test_consultation_returns_structured_ai_result() -> None:
 
     assert response.status_code == 200
     structured = response.json()["structured"]
-    assert structured["intent"] == "wage"
+    assert structured["intent"] == "labor_pay"
     assert structured["demo_mode"] is True
     assert structured["suggested_next_step"]
     assert structured["required_information"]
@@ -130,7 +130,7 @@ def test_workflow_exposes_reviewed_rule_package_and_multiple_paths() -> None:
             headers=headers,
             json={
                 "title": "决策树多路径测试",
-                "dispute_type": "wage",
+                "dispute_type": "labor_pay",
                 "facts": "公司拖欠工资。",
             },
         )
@@ -169,7 +169,7 @@ def test_option_id_transition_persists_decision_path() -> None:
             headers=headers,
             json={
                 "title": "决策路径持久化测试",
-                "dispute_type": "wage",
+                "dispute_type": "labor_pay",
                 "facts": "需要先咨询律师。",
             },
         )

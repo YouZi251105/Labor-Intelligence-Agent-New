@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class DisputeTypeDict(BaseModel):
     value: str
     label: str
+    group: str = "labor"
     keywords: list[str]
 
 
