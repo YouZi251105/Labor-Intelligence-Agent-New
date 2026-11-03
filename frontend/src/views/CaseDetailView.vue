@@ -437,7 +437,7 @@
         </div>
       </template>
       <template v-else>
-      <div class="detail-card">
+      <div id="lawyer-request-card" class="detail-card">
         <span class="eyebrow">被动介入</span>
         <h2>预约律师协助</h2>
         <p>复杂问题可预约律师人工介入；律师受理后进入专属咨询对话，记录会留存供双方随时查看。</p>
@@ -499,6 +499,7 @@
           <div class="lawyer-form-block">
             <span class="lawyer-form-block__title">1 · 描述问题</span>
             <textarea
+              ref="requestReasonInput"
               v-model="requestForm.reason"
               rows="6"
               required
@@ -643,6 +644,28 @@
               </button>
             </div>
             <p v-if="reviewNextStep">{{ reviewNextStep }}</p>
+            <div
+              v-if="caseReview.user_decision === 'lawyer_assist'"
+              class="form-actions"
+            >
+              <button
+                v-if="activeCaseSession"
+                class="primary-action primary-action--compact"
+                type="button"
+                @click="openSession(activeCaseSession.id)"
+              >
+                进入对话
+              </button>
+              <button
+                v-else-if="!activeRequest"
+                class="primary-action primary-action--compact"
+                type="button"
+                @click="scrollToRequestForm"
+              >
+                发起预约
+              </button>
+              <small v-else class="muted-text">预约处理中，律师受理后可进入对话。</small>
+            </div>
           </div>
           <small class="muted-text">
             复核时间：{{ new Date(reviewVerdict.at).toLocaleString('zh-CN') }}
@@ -740,6 +763,7 @@ const caseSessions = ref<ConsultationSessionItem[]>([])
 const caseReview = ref<CaseReviewItem | null>(null)
 const creatingRequest = ref(false)
 const cancellingRequest = ref(false)
+const requestReasonInput = ref<HTMLTextAreaElement | null>(null)
 const requestingReview = ref(false)
 const requestForm = reactive({
   reason: '',
@@ -930,12 +954,17 @@ const reviewNextStep = computed(() => {
     return '已选择自行办理。可在「法律文书」页签生成或下载仲裁申请书，携带证据原件前往仲裁机构办理；办理中遇到问题随时回来预约律师。'
   }
   if (decision === 'lawyer_assist') {
-    return activeRequest.value
-      ? '已选择律师协助。可在上方对话框与律师继续沟通，或按提示完成预约。'
-      : '已选择律师协助。请在上方提交预约，律师会尽快受理并与你对话。'
+    return '复核律师已自动承办你的案件，提交预约后只能由他受理；通过对话和附件即可完成后续沟通，记录全程留存。'
   }
   return ''
 })
+
+function scrollToRequestForm() {
+  document
+    .getElementById('lawyer-request-card')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  requestReasonInput.value?.focus()
+}
 
 function requestStatusLabel(status: string) {
   return requestStatusLabels[status] ?? status
