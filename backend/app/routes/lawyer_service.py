@@ -8,6 +8,8 @@ from sqlalchemy import or_, select
 from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession, require_roles
 from app.models.audit import AuditLog
 from app.models.case import Case
+from app.models.document import Document
+from app.models.evidence import Evidence
 from app.models.lawyer_service import (
     CaseReview,
     ConsultationMessage,
@@ -15,6 +17,9 @@ from app.models.lawyer_service import (
     LawyerRequest,
 )
 from app.models.user import User
+from app.schemas.case import CaseRead
+from app.schemas.document import DocumentRead
+from app.schemas.evidence import EvidenceRead
 from app.schemas.lawyer_service import (
     SLOT_LABELS,
     CaseReviewRead,
@@ -26,6 +31,7 @@ from app.schemas.lawyer_service import (
     LawyerRequestCreate,
     LawyerRequestRead,
 )
+from app.services.evidence import assess_case_evidence
 
 router = APIRouter(prefix="/lawyer-service", tags=["lawyer-service"])
 
@@ -329,6 +335,56 @@ async def get_review(
     if review is None:
         raise HTTPException(status_code=404, detail="尚无复核任务")
     return review
+
+
+@router.get("/reviews/{review_id}/case-brief")
+async def review_case_brief(
+    review_id: int,
+    session: DbSession,
+    user: LawyerRequired,
+) -> dict[str, object]:
+    """复核案件简报：律师复核时查看案件概要、证据材料与文书清单。
+
+    待分配的复核任务对所有律师开放；已分配的仅限承办律师。
+    """
+    review = await session.get(CaseReview, review_id)
+    if review is None:
+        raise HTTPException(status_code=404, detail="复核任务不存在")
+    if review.lawyer_id is not None and review.lawyer_id != user.id:
+        raise HTTPException(status_code=404, detail="复核任务不存在")
+
+    case = await session.get(Case, review.case_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail="案件不存在")
+
+    evidence_items = list(
+        await session.scalars(
+            select(Evidence)
+            .where(Evidence.case_id == case.id)
+            .order_by(Evidence.created_at.desc())
+        )
+    )
+    documents = list(
+        await session.scalars(
+            select(Document)
+            .where(Document.case_id == case.id)
+            .order_by(Document.created_at.desc())
+        )
+    )
+    return {
+        "case": CaseRead.model_validate(case).model_dump(),
+        "evidence": {
+            "items": [
+                EvidenceRead.model_validate(item).model_dump()
+                for item in evidence_items
+            ],
+            "assessment": assess_case_evidence(case, evidence_items),
+        },
+        "documents": [
+            DocumentRead.model_validate(document).model_dump()
+            for document in documents
+        ],
+    }
 
 
 @router.post("/reviews/{review_id}/submit", response_model=CaseReviewRead)

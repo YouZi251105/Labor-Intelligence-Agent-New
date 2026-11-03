@@ -279,12 +279,67 @@
               <button
                 class="secondary-action"
                 type="button"
-                @click="expandedReviewId = expandedReviewId === review.id ? null : review.id"
+                @click="toggleReview(review.id)"
               >
-                {{ expandedReviewId === review.id ? '收起' : '开始复核' }}
+                {{ expandedReviewId === review.id ? '收起' : '查看材料并复核' }}
               </button>
             </div>
             <div v-if="expandedReviewId === review.id" class="review-item__body">
+              <p v-if="briefLoadingId === review.id" class="muted-text">正在加载案件材料…</p>
+              <div v-else-if="reviewBriefs[review.id]" class="review-brief">
+                <div class="review-brief__section">
+                  <span class="review-brief__title">案件概要</span>
+                  <div class="review-brief__meta">
+                    <span class="status-tag">
+                      {{ dictionary.disputeLabels[reviewBriefs[review.id]!.case.dispute_type] || '待识别' }}
+                    </span>
+                    <span class="status-tag">
+                      {{ dictionary.stageLabels[reviewBriefs[review.id]!.case.stage] || reviewBriefs[review.id]!.case.stage }}
+                    </span>
+                    <small>{{ reviewBriefs[review.id]!.case.location || '地点未填写' }}</small>
+                  </div>
+                  <p class="pre-line">{{ reviewBriefs[review.id]!.case.facts }}</p>
+                  <p v-if="reviewBriefs[review.id]!.case.summary" class="review-brief__summary">
+                    {{ reviewBriefs[review.id]!.case.summary }}
+                  </p>
+                </div>
+                <div class="review-brief__section">
+                  <span class="review-brief__title">
+                    证据材料（{{ reviewBriefs[review.id]!.evidence.items.length }} 件）
+                  </span>
+                  <p v-if="!reviewBriefs[review.id]!.evidence.items.length" class="review-brief__gap">
+                    该案件暂无证据材料，复核时请重点确认。
+                  </p>
+                  <ul v-else class="review-brief__list">
+                    <li v-for="ev in reviewBriefs[review.id]!.evidence.items" :key="ev.id">
+                      <strong>{{ ev.filename }}</strong>
+                      <span>{{ evidenceCategoryLabel(ev.category) }}</span>
+                      <small>{{ screeningLabels[ev.screening_status] || ev.screening_status }}</small>
+                    </li>
+                  </ul>
+                  <p
+                    v-if="reviewBriefs[review.id]!.evidence.assessment.missing_labels.length"
+                    class="review-brief__gap"
+                  >
+                    材料缺口：{{ reviewBriefs[review.id]!.evidence.assessment.missing_labels.join('、') }}
+                  </p>
+                </div>
+                <div class="review-brief__section">
+                  <span class="review-brief__title">
+                    法律文书（{{ reviewBriefs[review.id]!.documents.length }} 份）
+                  </span>
+                  <p v-if="!reviewBriefs[review.id]!.documents.length" class="muted-text">
+                    尚无法律文书。
+                  </p>
+                  <ul v-else class="review-brief__list">
+                    <li v-for="doc in reviewBriefs[review.id]!.documents" :key="doc.id">
+                      <strong>{{ docTypeLabels[doc.doc_type] || doc.doc_type }}</strong>
+                      <span>{{ doc.title }}</span>
+                      <small>{{ doc.status === 'draft' ? '草稿' : doc.status }}</small>
+                    </li>
+                  </ul>
+                </div>
+              </div>
               <div class="review-item__field">
                 <span>复核结论</span>
                 <div class="lawyer-slot-picker__options">
@@ -399,8 +454,20 @@ import type {
   LawyerTodoCase,
   LawyerTodosResponse,
   RevenueLedger,
+  ReviewCaseBrief,
   ServiceRecord,
 } from '../types/api'
+
+const docTypeLabels: Record<string, string> = {
+  settlement: '和解协议',
+  arbitration: '仲裁申请书',
+  complaint: '民事起诉状',
+}
+const screeningLabels: Record<string, string> = {
+  accepted: '已受理',
+  quarantined: '待复核',
+  needs_review: '待复核',
+}
 
 const slotLabels: Record<string, string> = {
   morning: '上午 09:00-12:00',
@@ -443,6 +510,31 @@ const actingRequestId = ref<number | null>(null)
 const submittingReviewId = ref<number | null>(null)
 const expandedReviewId = ref<number | null>(null)
 const reviewForms = reactive<Record<number, { conclusion: string; comment: string }>>({})
+const reviewBriefs = reactive<Record<number, ReviewCaseBrief | null>>({})
+const briefLoadingId = ref<number | null>(null)
+
+async function toggleReview(reviewId: number) {
+  if (expandedReviewId.value === reviewId) {
+    expandedReviewId.value = null
+    return
+  }
+  expandedReviewId.value = reviewId
+  if (reviewBriefs[reviewId]) return
+  briefLoadingId.value = reviewId
+  try {
+    reviewBriefs[reviewId] = await apiRequest<ReviewCaseBrief>(
+      `/lawyer-service/reviews/${reviewId}/case-brief`,
+    )
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '案件材料加载失败'
+  } finally {
+    briefLoadingId.value = null
+  }
+}
+
+function evidenceCategoryLabel(category: string) {
+  return dictionary.categoryLabels[category] || category
+}
 
 const reviewConclusionOptions = [
   { value: 'ready_to_file', label: '材料齐备，可以立案' },
@@ -550,6 +642,7 @@ async function submitReview(review: CaseReviewItem) {
     })
     notifySuccess('复核结论已提交')
     expandedReviewId.value = null
+    reviewBriefs[review.id] = null
     await refreshLawyerService()
   } catch (err) {
     error.value = err instanceof Error ? err.message : '复核提交失败'

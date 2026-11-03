@@ -2257,6 +2257,56 @@
         }
       }
     },
+    "/api/v1/lawyer-service/reviews/{review_id}/case-brief": {
+      "get": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Review Case Brief",
+        "description": "复核案件简报：律师复核时查看案件概要、证据材料与文书清单。\n\n待分配的复核任务对所有律师开放；已分配的仅限承办律师。",
+        "operationId": "review_case_brief_api_v1_lawyer_service_reviews__review_id__case_brief_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Review Case Brief Api V1 Lawyer Service Reviews  Review Id  Case Brief Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/lawyer-service/reviews/{review_id}/submit": {
       "post": {
         "tags": [

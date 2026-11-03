@@ -143,6 +143,12 @@ export interface EvidenceResponse {
   }
 }
 
+export interface ReviewCaseBrief {
+  case: CaseItem
+  evidence: EvidenceResponse
+  documents: DocumentItem[]
+}
+
 export interface ContractReviewResponse {
   risk_level: 'low' | 'medium' | 'high'
   findings: Array<{

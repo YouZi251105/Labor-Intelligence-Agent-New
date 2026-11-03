@@ -1420,6 +1420,28 @@ summary:focus-visible {
   line-height: 1.7;
 }
 
+.lawyer-next-step {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--lia-primary);
+  border-radius: 10px;
+  background: var(--lia-primary-soft);
+}
+
+.lawyer-next-step__title {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--lia-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lawyer-next-step p {
+  color: var(--lia-text);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
 .lawyer-review-result {
   display: flex;
   flex-direction: column;
@@ -1472,6 +1494,85 @@ summary:focus-visible {
   color: var(--lia-text-secondary);
   font-size: 12px;
   font-weight: 650;
+}
+
+.review-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--lia-border);
+  border-radius: 10px;
+  background: var(--lia-surface-soft);
+}
+
+.review-brief__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-brief__section + .review-brief__section {
+  padding-top: 12px;
+  border-top: 1px dashed var(--lia-border);
+}
+
+.review-brief__title {
+  color: var(--lia-text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.review-brief__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-brief__meta small {
+  color: var(--lia-text-muted);
+}
+
+.review-brief .pre-line {
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.review-brief__summary {
+  color: var(--lia-text-muted);
+  font-size: 12px;
+}
+
+.review-brief__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-brief__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.review-brief__list li span {
+  color: var(--lia-text-secondary);
+}
+
+.review-brief__list li small {
+  color: var(--lia-text-muted);
+}
+
+.review-brief__gap {
+  color: var(--lia-warning);
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .opinion-list {

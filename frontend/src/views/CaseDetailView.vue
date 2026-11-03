@@ -554,6 +554,10 @@
           <p v-if="reviewVerdict.comment" class="pre-line lawyer-review-comment">
             律师意见：{{ reviewVerdict.comment }}
           </p>
+          <div class="lawyer-next-step">
+            <span class="lawyer-next-step__title">下一步建议</span>
+            <p>{{ reviewNextStep }}</p>
+          </div>
           <small class="muted-text">
             复核时间：{{ new Date(reviewVerdict.at).toLocaleString('zh-CN') }}
           </small>
@@ -780,6 +784,17 @@ const reviewVerdict = computed(() => {
     comment: review.comment,
     at: review.reviewed_at ?? review.created_at,
   }
+})
+
+const reviewNextStep = computed(() => {
+  const conclusion = caseReview.value?.conclusion
+  if (conclusion === 'ready_to_file') {
+    return '材料已齐备。可在「法律文书」页签生成或下载仲裁申请书，携带材料前往仲裁机构现场立案；也可以继续在上方预约律师获得全程协助。'
+  }
+  if (conclusion === 'need_more') {
+    return '请按律师意见在「证据材料」页签补齐材料；补充完成后可联系律师确认，需要帮助时可在上方预约律师。'
+  }
+  return '暂不建议立即立案。建议先在上方预约律师进一步沟通案情，或补充相关材料后再重新申请复核。'
 })
 
 function requestStatusLabel(status: string) {

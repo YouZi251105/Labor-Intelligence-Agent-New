@@ -237,6 +237,38 @@ def test_reject_request_requires_reason() -> None:
         assert body["reject_reason"] == "近期时段已排满，请改约"
 
 
+def test_review_case_brief_accessible_to_lawyer() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        case_id = create_case(client, user_token, "复核简报测试")
+
+        created = client.post(
+            f"/api/v1/lawyer-service/cases/{case_id}/review",
+            headers=auth(user_token),
+        )
+        assert created.status_code == 201
+        review_id = created.json()["id"]
+
+        brief = client.get(
+            f"/api/v1/lawyer-service/reviews/{review_id}/case-brief",
+            headers=auth(lawyer_token),
+        )
+        assert brief.status_code == 200
+        body = brief.json()
+        assert body["case"]["id"] == case_id
+        assert body["case"]["facts"]
+        assert body["evidence"]["items"] == []
+        assert "missing_labels" in body["evidence"]["assessment"]
+        assert body["documents"] == []
+
+        forbidden = client.get(
+            f"/api/v1/lawyer-service/reviews/{review_id}/case-brief",
+            headers=auth(user_token),
+        )
+        assert forbidden.status_code == 403
+
+
 def test_duplicate_active_request_conflict() -> None:
     with TestClient(app) as client:
         user_token = login(client, "demo", "Demo123!")
