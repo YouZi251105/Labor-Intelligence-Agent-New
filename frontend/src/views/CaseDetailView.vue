@@ -435,9 +435,15 @@
             </li>
           </ol>
           <p class="pre-line">{{ activeRequest.reason }}</p>
-          <p v-if="requestExpired" class="lawyer-slot-warning">
+          <p v-if="slaExpired" class="lawyer-slot-warning">
+            已超出承诺受理时限（{{ slaHours }} 小时），律师会尽快处理；如有急事可取消后重新预约或联系平台。
+          </p>
+          <p v-else-if="requestExpired" class="lawyer-slot-warning">
             已超过期望时间，律师会尽快与你联系；如有急事可取消后重新预约加急时段。
           </p>
+          <small v-else-if="activeRequest.status === 'pending'" class="muted-text">
+            预计受理时限：{{ slaHours }} 小时内 · 受理后按所选时段开始回复
+          </small>
           <p v-if="activeRequest.status === 'rejected' && activeRequest.reject_reason" class="lawyer-slot-warning">
             律师说明：{{ activeRequest.reject_reason }}
           </p>
@@ -555,8 +561,24 @@
             律师意见：{{ reviewVerdict.comment }}
           </p>
           <div class="lawyer-next-step">
-            <span class="lawyer-next-step__title">下一步建议</span>
-            <p>{{ reviewNextStep }}</p>
+            <span class="lawyer-next-step__title">选择后续方式</span>
+            <p v-if="!caseReview.user_decision" class="muted-text">
+              复核已完成，请选择接下来由谁完成立案等正式流程（之后可以更改）。
+            </p>
+            <div class="lawyer-next-step__options">
+              <button
+                v-for="option in (['self_handle', 'lawyer_assist'] as ReviewUserDecision[])"
+                :key="option"
+                type="button"
+                class="lawyer-slot-chip"
+                :class="{ 'lawyer-slot-chip--active': caseReview.user_decision === option }"
+                :disabled="submittingDecision"
+                @click="submitDecision(option)"
+              >
+                {{ decisionLabels[option] }}
+              </button>
+            </div>
+            <p v-if="reviewNextStep">{{ reviewNextStep }}</p>
           </div>
           <small class="muted-text">
             复核时间：{{ new Date(reviewVerdict.at).toLocaleString('zh-CN') }}
@@ -618,6 +640,7 @@ import type {
   LawyerRequestItem,
   MessageItem,
   RequestSlot,
+  ReviewUserDecision,
   WorkflowOption,
   WorkflowResponse,
 } from '../types/api'
@@ -786,15 +809,54 @@ const reviewVerdict = computed(() => {
   }
 })
 
+const slaHours = computed(() => (activeRequest.value?.priority === 'urgent' ? 2 : 24))
+const slaExpired = computed(() => {
+  const request = activeRequest.value
+  if (!request || request.status !== 'pending') return false
+  const deadline = new Date(request.created_at).getTime() + slaHours.value * 3_600_000
+  return Date.now() > deadline
+})
+
+const decisionLabels: Record<ReviewUserDecision, string> = {
+  self_handle: '自己完成后续流程',
+  lawyer_assist: '需要律师协助',
+}
+const submittingDecision = ref(false)
+
+async function submitDecision(decision: ReviewUserDecision) {
+  const review = caseReview.value
+  if (!review) return
+  submittingDecision.value = true
+  error.value = ''
+  try {
+    const updated = await apiRequest<CaseReviewItem>(
+      `/lawyer-service/reviews/${review.id}/decision`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      },
+    )
+    caseReview.value = updated
+    notifySuccess(decision === 'self_handle' ? '已记录：自行办理后续流程' : '已记录：继续由律师协助')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '选择提交失败'
+  } finally {
+    submittingDecision.value = false
+  }
+}
+
 const reviewNextStep = computed(() => {
-  const conclusion = caseReview.value?.conclusion
-  if (conclusion === 'ready_to_file') {
-    return '材料已齐备。可在「法律文书」页签生成或下载仲裁申请书，携带材料前往仲裁机构现场立案；也可以继续在上方预约律师获得全程协助。'
+  const decision = caseReview.value?.user_decision
+  if (decision === 'self_handle') {
+    return '已选择自行办理。可在「法律文书」页签生成或下载仲裁申请书，携带证据原件前往仲裁机构办理；办理中遇到问题随时回来预约律师。'
   }
-  if (conclusion === 'need_more') {
-    return '请按律师意见在「证据材料」页签补齐材料；补充完成后可联系律师确认，需要帮助时可在上方预约律师。'
+  if (decision === 'lawyer_assist') {
+    return activeRequest.value
+      ? '已选择律师协助。可在上方对话框与律师继续沟通，或按提示完成预约。'
+      : '已选择律师协助。请在上方提交预约，律师会尽快受理并与你对话。'
   }
-  return '暂不建议立即立案。建议先在上方预约律师进一步沟通案情，或补充相关材料后再重新申请复核。'
+  return ''
 })
 
 function requestStatusLabel(status: string) {

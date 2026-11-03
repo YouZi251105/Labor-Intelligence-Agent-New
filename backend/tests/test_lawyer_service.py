@@ -269,6 +269,83 @@ def test_review_case_brief_accessible_to_lawyer() -> None:
         assert forbidden.status_code == 403
 
 
+def test_review_user_decision_flow() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        case_id = create_case(client, user_token, "复核后选择测试")
+
+        review = client.post(
+            f"/api/v1/lawyer-service/cases/{case_id}/review",
+            headers=auth(user_token),
+        )
+        assert review.status_code == 201
+        review_id = review.json()["id"]
+
+        early = client.post(
+            f"/api/v1/lawyer-service/reviews/{review_id}/decision",
+            headers=auth(user_token),
+            json={"decision": "self_handle"},
+        )
+        assert early.status_code == 409
+
+        submitted = client.post(
+            f"/api/v1/lawyer-service/reviews/{review_id}/submit",
+            headers=auth(lawyer_token),
+            json={"conclusion": "ready_to_file", "comment": "材料齐全"},
+        )
+        assert submitted.status_code == 200
+
+        decided = client.post(
+            f"/api/v1/lawyer-service/reviews/{review_id}/decision",
+            headers=auth(user_token),
+            json={"decision": "self_handle"},
+        )
+        assert decided.status_code == 200
+        body = decided.json()
+        assert body["user_decision"] == "self_handle"
+        assert body["user_decision_at"]
+
+        changed = client.post(
+            f"/api/v1/lawyer-service/reviews/{review_id}/decision",
+            headers=auth(user_token),
+            json={"decision": "lawyer_assist"},
+        )
+        assert changed.status_code == 200
+        assert changed.json()["user_decision"] == "lawyer_assist"
+
+        detail = client.get(
+            f"/api/v1/lawyer-service/cases/{case_id}/review",
+            headers=auth(user_token),
+        )
+        assert detail.status_code == 200
+        assert detail.json()["user_decision"] == "lawyer_assist"
+
+
+def test_todos_urgent_first() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        normal_id = create_case(client, user_token, "普通预约")
+        urgent_id = create_case(client, user_token, "加急预约")
+
+        client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": normal_id, "reason": "普通问题"},
+        )
+        client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": urgent_id, "reason": "紧急问题", "priority": "urgent"},
+        )
+
+        todos = client.get("/api/v1/lawyer-service/todos", headers=auth(lawyer_token))
+        assert todos.status_code == 200
+        request_cases = [item["case_id"] for item in todos.json()["requests"]]
+        assert request_cases.index(urgent_id) < request_cases.index(normal_id)
+
+
 def test_duplicate_active_request_conflict() -> None:
     with TestClient(app) as client:
         user_token = login(client, "demo", "Demo123!")

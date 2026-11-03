@@ -22,6 +22,7 @@ from app.schemas.document import DocumentRead
 from app.schemas.evidence import EvidenceRead
 from app.schemas.lawyer_service import (
     SLOT_LABELS,
+    CaseReviewDecision,
     CaseReviewRead,
     CaseReviewSubmit,
     ConsultationMessageCreate,
@@ -337,6 +338,31 @@ async def get_review(
     return review
 
 
+@router.post("/reviews/{review_id}/decision", response_model=CaseReviewRead)
+async def record_review_decision(
+    review_id: int,
+    payload: CaseReviewDecision,
+    session: DbSession,
+    user: CompleteWorkerProfile,
+) -> CaseReview:
+    """复核结论出来后，用户选择后续方式：自行办理或律师协助。允许变更。"""
+    review = await session.get(CaseReview, review_id)
+    if review is None:
+        raise HTTPException(status_code=404, detail="复核任务不存在")
+    case = await session.get(Case, review.case_id)
+    if case is None or case.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="复核任务不存在")
+    if review.status != "reviewed":
+        raise HTTPException(status_code=409, detail="复核完成后才能选择后续方式")
+
+    review.user_decision = payload.decision
+    review.user_decision_at = datetime.now(UTC)
+    session.add(_audit(user.id, "case.review.decision", review.id))
+    await session.commit()
+    await session.refresh(review)
+    return review
+
+
 @router.get("/reviews/{review_id}/case-brief")
 async def review_case_brief(
     review_id: int,
@@ -444,6 +470,7 @@ async def lawyer_todos(session: DbSession, user: LawyerRequired) -> dict[str, ob
     )
     pending_requests.sort(
         key=lambda r: (
+            r.priority != "urgent",
             r.preferred_date is None,
             r.preferred_date or datetime.now(LOCAL_TZ).date(),
             SLOT_ORDER.get(r.preferred_slot or "", 99),

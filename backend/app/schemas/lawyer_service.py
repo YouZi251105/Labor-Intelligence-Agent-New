@@ -93,8 +93,14 @@ class CaseReviewRead(BaseModel):
     status: str
     conclusion: str | None
     comment: str
+    user_decision: str | None
+    user_decision_at: datetime | None
     created_at: datetime
     reviewed_at: datetime | None
+
+
+class CaseReviewDecision(BaseModel):
+    decision: Literal["self_handle", "lawyer_assist"]
 
 
 class CaseReviewSubmit(BaseModel):

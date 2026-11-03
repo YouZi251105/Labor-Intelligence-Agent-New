@@ -2257,6 +2257,64 @@
         }
       }
     },
+    "/api/v1/lawyer-service/reviews/{review_id}/decision": {
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Record Review Decision",
+        "description": "复核结论出来后，用户选择后续方式：自行办理或律师协助。允许变更。",
+        "operationId": "record_review_decision_api_v1_lawyer_service_reviews__review_id__decision_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseReviewDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseReviewRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/lawyer-service/reviews/{review_id}/case-brief": {
       "get": {
         "tags": [
@@ -4788,6 +4846,23 @@
         ],
         "title": "CaseRead"
       },
+      "CaseReviewDecision": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "self_handle",
+              "lawyer_assist"
+            ],
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "CaseReviewDecision"
+      },
       "CaseReviewRead": {
         "properties": {
           "id": {
@@ -4828,6 +4903,29 @@
             "type": "string",
             "title": "Comment"
           },
+          "user_decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Decision"
+          },
+          "user_decision_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Decision At"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -4854,6 +4952,8 @@
           "status",
           "conclusion",
           "comment",
+          "user_decision",
+          "user_decision_at",
           "created_at",
           "reviewed_at"
         ],

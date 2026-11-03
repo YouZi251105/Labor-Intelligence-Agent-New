@@ -575,6 +575,8 @@ export interface ConsultationMessageItem {
 
 export type CaseReviewConclusion = 'ready_to_file' | 'need_more' | 'not_recommended'
 
+export type ReviewUserDecision = 'self_handle' | 'lawyer_assist'
+
 export interface CaseReviewItem {
   id: number
   case_id: number
@@ -582,6 +584,8 @@ export interface CaseReviewItem {
   status: 'pending' | 'reviewed'
   conclusion: CaseReviewConclusion | null
   comment: string
+  user_decision: ReviewUserDecision | null
+  user_decision_at: string | null
   created_at: string
   reviewed_at: string | null
 }

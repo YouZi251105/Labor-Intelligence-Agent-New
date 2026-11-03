@@ -93,6 +93,10 @@ class CaseReview(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     conclusion: Mapped[str | None] = mapped_column(String(40), nullable=True)
     comment: Mapped[str] = mapped_column(Text, default="")
+    user_decision: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    user_decision_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC)
     )
