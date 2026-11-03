@@ -16,10 +16,19 @@ class UTCDateTime(TypeDecorator[datetime]):
     impl = DateTime
     cache_ok = True
 
+    def process_bind_param(
+        self,
+        value: datetime | None,
+        dialect: Dialect | None,
+    ) -> datetime | None:
+        if not isinstance(value, datetime) or value.tzinfo is None:
+            return value
+        return value.astimezone(UTC).replace(tzinfo=None)
+
     def process_result_value(
         self,
         value: datetime | None,
-        dialect: Dialect,
+        dialect: Dialect | None,
     ) -> datetime | None:
         if isinstance(value, datetime) and value.tzinfo is None:
             return value.replace(tzinfo=UTC)
