@@ -454,42 +454,53 @@
             </button>
           </div>
         </template>
-        <form v-else @submit.prevent="createRequest">
-          <label>
-            说明你的问题
+        <form v-else class="lawyer-request-form" @submit.prevent="createRequest">
+          <div class="lawyer-form-block">
+            <span class="lawyer-form-block__title">1 · 描述问题</span>
             <textarea
               v-model="requestForm.reason"
-              rows="4"
+              rows="6"
               required
               placeholder="例如：公司拒不支付赔偿，材料已备齐，想请律师判断是否可以申请仲裁。"
             />
-          </label>
-          <label>
-            期望日期（可选，最多提前 14 天）
-            <input v-model="requestForm.preferred_date" type="date" :min="dateMin" :max="dateMax" />
-          </label>
-          <div v-if="requestForm.preferred_date" class="lawyer-slot-picker">
-            <span class="lawyer-slot-picker__label">期望时段</span>
+          </div>
+          <div class="lawyer-form-block">
+            <span class="lawyer-form-block__title">2 · 选择时间（可选）</span>
+            <label class="lawyer-form-block__field">
+              期望日期（最多提前 14 天）
+              <input v-model="requestForm.preferred_date" type="date" :min="dateMin" :max="dateMax" />
+            </label>
+            <div v-if="requestForm.preferred_date" class="lawyer-slot-picker">
+              <span class="lawyer-slot-picker__label">期望时段</span>
+              <div class="lawyer-slot-picker__options">
+                <button
+                  v-for="option in slotOptions"
+                  :key="option.value"
+                  type="button"
+                  class="lawyer-slot-chip"
+                  :class="{ 'lawyer-slot-chip--active': requestForm.preferred_slot === option.value }"
+                  @click="requestForm.preferred_slot = option.value"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="lawyer-form-block">
+            <span class="lawyer-form-block__title">3 · 紧急程度</span>
             <div class="lawyer-slot-picker__options">
               <button
-                v-for="option in slotOptions"
+                v-for="option in priorityOptions"
                 :key="option.value"
                 type="button"
                 class="lawyer-slot-chip"
-                :class="{ 'lawyer-slot-chip--active': requestForm.preferred_slot === option.value }"
-                @click="requestForm.preferred_slot = option.value"
+                :class="{ 'lawyer-slot-chip--active': requestForm.priority === option.value }"
+                @click="requestForm.priority = option.value"
               >
                 {{ option.label }}
               </button>
             </div>
           </div>
-          <label>
-            紧急程度
-            <select v-model="requestForm.priority">
-              <option value="normal">一般</option>
-              <option value="urgent">加急</option>
-            </select>
-          </label>
           <div class="form-actions">
             <button
               class="primary-action primary-action--compact"
@@ -657,6 +668,10 @@ const slotOptions = (Object.keys(requestSlotLabels) as RequestSlot[]).map((value
   value,
   label: requestSlotLabels[value],
 }))
+const priorityOptions = [
+  { value: 'normal' as const, label: '一般' },
+  { value: 'urgent' as const, label: '加急' },
+]
 
 const todayIso = new Date().toISOString().slice(0, 10)
 const dateMin = todayIso

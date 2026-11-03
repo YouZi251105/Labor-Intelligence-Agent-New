@@ -1171,7 +1171,43 @@ summary:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 14px;
+}
+
+.lawyer-request-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.lawyer-form-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--lia-border);
+}
+
+.lawyer-form-block:last-of-type {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.lawyer-form-block__title {
+  color: var(--lia-text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.lawyer-form-block__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--lia-text-secondary);
+  font-size: 12px;
+}
+
+.lawyer-form-block textarea {
+  min-height: 120px;
 }
 
 .lawyer-slot-picker__label {
