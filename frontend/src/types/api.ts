@@ -519,6 +519,43 @@ export interface DictionaryResponse {
   evidence_categories: DictionaryEvidenceCategory[]
 }
 
+export interface DictionaryDisputeConfig {
+  value: string
+  label: string
+  group: 'labor' | 'service'
+  keywords: string[]
+  required_categories: string[]
+  core_categories: string[]
+  claim_text: string
+}
+
+export interface DictionaryPackageContent {
+  disputes: DictionaryDisputeConfig[]
+  stages: DictionaryStage[]
+  evidence_categories: DictionaryEvidenceCategory[]
+  migrations: Record<string, string>
+}
+
+export interface DictionaryVersionSummary {
+  id: number
+  version: number
+  status: 'draft' | 'published' | 'retired'
+  checksum: string
+  created_by_id: number | null
+  created_at: string
+  published_at: string | null
+}
+
+export interface DictionaryVersionDetail extends DictionaryVersionSummary {
+  content: DictionaryPackageContent
+}
+
+export interface DictionaryActivePackage {
+  source: 'published' | 'default'
+  version: number | null
+  content: DictionaryPackageContent
+}
+
 export type LawyerRequestStatus =
   | 'pending'
   | 'accepted'

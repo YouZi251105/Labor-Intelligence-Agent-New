@@ -10,6 +10,7 @@ from app.models.collaboration import (
     SimulationSession,
     UserProfile,
 )
+from app.models.dictionary_version import DictionaryVersion
 from app.models.document import Document, DocumentEvidence
 from app.models.evidence import Evidence
 from app.models.lawyer import LawyerProfile
@@ -29,6 +30,7 @@ __all__ = [
     "ConsultationMessage",
     "ConsultationSession",
     "Conversation",
+    "DictionaryVersion",
     "Document",
     "DocumentEvidence",
     "Evidence",

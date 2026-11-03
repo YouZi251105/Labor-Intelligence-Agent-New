@@ -44,13 +44,21 @@ LEGACY_DISPUTE_TYPES = {
 }
 
 
+def apply_package_claims(claims: dict[str, str]) -> None:
+    """用字典包内容重建文书请求事项映射（字典服务发布后调用）。"""
+    CLAIMS.clear()
+    CLAIMS.update(claims)
+
+
 def generate_document(
     case: Case,
     evidence_items: list[Evidence],
     doc_type: str,
 ) -> tuple[str, str]:
     title = DOC_TITLES[doc_type]
-    claim_key = LEGACY_DISPUTE_TYPES.get(case.dispute_type, case.dispute_type)
+    from app.services.dictionary import get_runtime_migrations
+
+    claim_key = get_runtime_migrations().get(case.dispute_type, case.dispute_type)
     evidence_lines = "\n".join(
         f"{index + 1}. {item.filename}（{item.category}）"
         for index, item in enumerate(evidence_items)

@@ -75,6 +75,16 @@ MAX_FILE_SIZE = 20 * 1024 * 1024
 DISCLAIMER = "规则评估仅用于材料整理提示，不构成证据合法性或证明力结论。"
 
 
+def refresh_runtime_rules() -> None:
+    """从字典运行时源重建证据规则映射（字典包发布后由字典服务调用）。"""
+    from app.services.dictionary import DEFAULT_DISPUTE_RULES, get_runtime_rules
+
+    for value in DEFAULT_DISPUTE_RULES:
+        required, core = get_runtime_rules(value)
+        REQUIRED_CATEGORIES[value] = required
+        CORE_CATEGORIES[value] = core
+
+
 def assess_evidence_rules(
     dispute_type: str,
     items: list[dict[str, Any]],
@@ -86,9 +96,10 @@ def assess_evidence_rules(
 
     返回值不直接修改案件状态，仅提供结构化、可解释的提示。
     """
-    normalized = LEGACY_DISPUTE_TYPES.get(dispute_type, dispute_type)
-    required = REQUIRED_CATEGORIES.get(normalized, REQUIRED_CATEGORIES["labor_other"])
-    core = CORE_CATEGORIES.get(normalized, CORE_CATEGORIES["labor_other"])
+    from app.services.dictionary import get_runtime_migrations, get_runtime_rules
+
+    normalized = get_runtime_migrations().get(dispute_type, dispute_type)
+    required, core = get_runtime_rules(normalized)
     dispute_type = normalized
 
     present = sorted({item.get("category", "other") for item in items})
