@@ -7,8 +7,11 @@ import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { computed } from 'vue'
 
+import { stabilizeStreamingMarkdown } from '../utils/streamingMarkdown'
+
 const props = defineProps<{
   content: string
+  streaming?: boolean
 }>()
 
 const parser = new MarkdownIt({
@@ -24,9 +27,16 @@ parser.renderer.rules.link_open = (tokens, index, options, _env, renderer) => {
 }
 
 const rendered = computed(() =>
-  DOMPurify.sanitize(parser.render(props.content || ''), {
+  DOMPurify.sanitize(
+    parser.render(
+      props.streaming
+        ? stabilizeStreamingMarkdown(props.content || '')
+        : props.content || '',
+    ),
+    {
     USE_PROFILES: { html: true },
     ADD_ATTR: ['target'],
-  }),
+    },
+  ),
 )
 </script>

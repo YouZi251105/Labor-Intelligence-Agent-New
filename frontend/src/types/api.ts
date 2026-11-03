@@ -93,6 +93,19 @@ export interface FollowUpOption {
   kind: 'send' | 'fill' | 'lawyer_request' | 'filing_review'
 }
 
+export interface ReferenceItem {
+  type: 'law' | 'case'
+  id: string
+  title: string
+  excerpt: string
+  source_name: string
+  source_url: string
+  review_status: string
+  case_no?: string
+  court?: string
+  year?: number | null
+}
+
 export interface InterventionRecommendation {
   recommended: boolean
   level: 'none' | 'suggested' | 'urgent'
@@ -122,6 +135,7 @@ export interface ConsultationResponse {
     evidence_gaps: string[]
     risk_flags: string[]
     citations: string[]
+    references: ReferenceItem[]
     demo_mode: boolean
     follow_up_options: FollowUpOption[]
     intervention_recommendation: InterventionRecommendation

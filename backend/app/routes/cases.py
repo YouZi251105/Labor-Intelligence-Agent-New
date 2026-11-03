@@ -1,7 +1,12 @@
+import json
+from collections.abc import AsyncIterator
+
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_, select
 
 from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession
+from app.db.session import get_session_factory
 from app.models.audit import AuditLog
 from app.models.case import Case, Conversation, Message
 from app.models.document import Document
@@ -15,9 +20,21 @@ from app.schemas.case import (
     MessageCreate,
     MessageRead,
 )
-from app.services.ai import generate_ai_reply, structured_result
+from app.services.ai import (
+    AIResult,
+    generate_ai_reply,
+    generate_ai_reply_stream,
+    structured_result,
+)
 
 router = APIRouter(prefix="/cases", tags=["cases"])
+
+
+def _sse_event(event: str, payload: dict) -> str:
+    return (
+        f"event: {event}\n"
+        f"data: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
+    )
 
 
 async def get_accessible_case(
@@ -299,4 +316,178 @@ async def consult_case(
         structured=structured_result(ai_result),
         suggested_next_step=ai_result.suggested_next_step,
         demo_mode=ai_result.demo_mode,
+    )
+
+
+@router.post("/{case_id}/consultations/stream")
+async def consult_case_stream(
+    case_id: int,
+    payload: MessageCreate,
+    session: DbSession,
+    user: CompleteWorkerProfile,
+) -> StreamingResponse:
+    case = await get_worker_owned_case(case_id, session, user)
+    conversation = await session.scalar(
+        select(Conversation).where(Conversation.case_id == case_id)
+    )
+    if conversation is None:
+        conversation = Conversation(case_id=case_id)
+        session.add(conversation)
+        await session.flush()
+
+    history_results = await session.scalars(
+        select(Message)
+        .where(Message.conversation_id == conversation.id)
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(8)
+    )
+    history = list(reversed(list(history_results)))
+
+    user_message = Message(
+        conversation_id=conversation.id,
+        role="user",
+        content=payload.message,
+    )
+    session.add(user_message)
+    await session.commit()
+    await session.refresh(user_message)
+    initial_case_payload = CaseRead.model_validate(case).model_dump(mode="json")
+    user_message_payload = MessageRead.model_validate(user_message).model_dump(
+        mode="json"
+    )
+
+    async def event_stream() -> AsyncIterator[str]:
+        ai_result: AIResult | None = None
+        streamed_parts: list[str] = []
+        first_status = True
+        try:
+            async for event in generate_ai_reply_stream(
+                case,
+                payload.message,
+                history,
+            ):
+                event_type = event["type"]
+                if event_type == "status":
+                    data = dict(event)
+                    if first_status:
+                        first_status = False
+                        data["case"] = initial_case_payload
+                        data["user_message"] = user_message_payload
+                    yield _sse_event("status", data)
+                elif event_type == "delta":
+                    text = str(event.get("text") or "")
+                    if text:
+                        streamed_parts.append(text)
+                        yield _sse_event("delta", {"text": text})
+                elif event_type == "complete":
+                    ai_result = event["result"]
+
+            if ai_result is None:
+                raise RuntimeError("AI stream finished without a complete result")
+            streamed_reply = "".join(streamed_parts)
+            if streamed_reply != ai_result.reply:
+                ai_result = AIResult(
+                    reply=streamed_reply,
+                    classification=ai_result.classification,
+                    suggested_next_step=ai_result.suggested_next_step,
+                    demo_mode=ai_result.demo_mode,
+                    required_information=ai_result.required_information,
+                    evidence_gaps=ai_result.evidence_gaps,
+                    risk_flags=ai_result.risk_flags,
+                    citations=ai_result.citations,
+                    summary=ai_result.summary,
+                    follow_up_options=ai_result.follow_up_options,
+                    intervention_recommendation=ai_result.intervention_recommendation,
+                    references=ai_result.references,
+                )
+
+            structured = structured_result(ai_result)
+            async with get_session_factory()() as write_session:
+                persisted_case = await write_session.get(Case, case_id)
+                persisted_conversation = await write_session.scalar(
+                    select(Conversation).where(Conversation.case_id == case_id)
+                )
+                if persisted_case is None or persisted_conversation is None:
+                    raise RuntimeError("Case context disappeared during streaming")
+                assistant_message = Message(
+                    conversation_id=persisted_conversation.id,
+                    role="assistant",
+                    content=ai_result.reply,
+                    metadata_json={
+                        "classification": ai_result.classification,
+                        "structured": structured,
+                        "suggested_next_step": ai_result.suggested_next_step,
+                        "demo_mode": ai_result.demo_mode,
+                    },
+                )
+                write_session.add(assistant_message)
+                persisted_case.dispute_type = ai_result.classification["dispute_type"]
+                persisted_case.legal_relationship = ai_result.classification[
+                    "legal_relationship"
+                ]
+                persisted_case.classification = ai_result.classification
+                if persisted_case.stage == "intake":
+                    persisted_case.stage = "evidence"
+                persisted_case.facts = (
+                    f"{persisted_case.facts}\n{payload.message}".strip()
+                )
+                persisted_case.summary = persisted_case.facts[:180]
+                persisted_conversation.summary = persisted_case.summary
+                write_session.add(
+                    AuditLog(
+                        actor_id=user.id,
+                        action="case.consultation",
+                        object_type="case",
+                        object_id=persisted_case.id,
+                        metadata_json={
+                            "demo_mode": ai_result.demo_mode,
+                            "streamed": True,
+                        },
+                    )
+                )
+                await write_session.commit()
+                await write_session.refresh(persisted_case)
+                await write_session.refresh(assistant_message)
+                case_payload = CaseRead.model_validate(
+                    persisted_case
+                ).model_dump(mode="json")
+                assistant_payload = MessageRead.model_validate(
+                    assistant_message
+                ).model_dump(mode="json")
+
+            if ai_result.references:
+                yield _sse_event(
+                    "references",
+                    {
+                        "items": [
+                            item.__dict__ for item in ai_result.references
+                        ]
+                    },
+                )
+            yield _sse_event(
+                "done",
+                {
+                    "case": case_payload,
+                    "user_message": user_message_payload,
+                    "assistant_message": assistant_payload,
+                    "classification": ai_result.classification,
+                    "structured": structured,
+                    "suggested_next_step": ai_result.suggested_next_step,
+                    "demo_mode": ai_result.demo_mode,
+                },
+            )
+        except Exception:
+            yield _sse_event(
+                "error",
+                {"detail": "回复生成失败，请稍后重试。"},
+            )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

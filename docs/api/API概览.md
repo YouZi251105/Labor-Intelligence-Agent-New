@@ -64,6 +64,7 @@ Content-Type: application/json
 | GET | `/cases/{case_id}` | 案件详情 |
 | GET | `/cases/{case_id}/messages` | 案件消息历史 |
 | POST | `/cases/{case_id}/consultations` | 多轮咨询 |
+| POST | `/cases/{case_id}/consultations/stream` | 多轮咨询 SSE 流式响应 |
 | GET | `/cases/{case_id}/workflow` | 决策树节点、可用路径和期限提示 |
 | POST | `/cases/{case_id}/transitions` | 选择路径并保存决策记录 |
 

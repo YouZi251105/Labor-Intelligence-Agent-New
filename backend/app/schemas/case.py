@@ -63,6 +63,19 @@ class InterventionRecommendationRead(BaseModel):
     action: Literal["lawyer_request", "filing_review"]
 
 
+class ReferenceItemRead(BaseModel):
+    type: Literal["law", "case"]
+    id: str
+    title: str
+    excerpt: str = ""
+    source_name: str = ""
+    source_url: str = ""
+    review_status: str = "published"
+    case_no: str = ""
+    court: str = ""
+    year: int | None = None
+
+
 class StructuredAIResult(BaseModel):
     intent: str
     dispute_label: str
@@ -73,6 +86,7 @@ class StructuredAIResult(BaseModel):
     evidence_gaps: list[str]
     risk_flags: list[str]
     citations: list[str]
+    references: list[ReferenceItemRead]
     demo_mode: bool
     follow_up_options: list[FollowUpOptionRead]
     intervention_recommendation: InterventionRecommendationRead

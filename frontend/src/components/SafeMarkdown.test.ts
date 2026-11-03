@@ -21,4 +21,18 @@ describe('SafeMarkdown', () => {
       rel: 'noopener noreferrer',
     })
   })
+
+  it('stabilizes unfinished Markdown while streaming', () => {
+    const wrapper = mount(SafeMarkdown, {
+      props: {
+        content: '<script>alert(1)</script>\n\n**有限事实\n\n```text\n工资流水',
+        streaming: true,
+      },
+    })
+
+    expect(wrapper.find('strong').text()).toBe('有限事实')
+    expect(wrapper.find('pre').exists()).toBe(true)
+    expect(wrapper.find('script').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('**')
+  })
 })

@@ -59,7 +59,12 @@
         </button>
       </div>
 
-      <div class="chat-message-list" :class="{ 'chat-message-list--empty': messages.length === 0 }">
+      <div
+        ref="chatMessageList"
+        class="chat-message-list"
+        :class="{ 'chat-message-list--empty': messages.length === 0 }"
+        @scroll="onChatScroll"
+      >
         <div v-if="messages.length === 0" class="conversation-stage">
           <div class="assistant-mark">
             <Scale :size="26" :stroke-width="1.7" />
@@ -81,6 +86,10 @@
         >
           <span class="chat-message__role">{{ message.role === 'user' ? '你' : '劳务通' }}</span>
           <SafeMarkdown :content="message.content" />
+          <ReferenceMaterials
+            v-if="message.role === 'assistant'"
+            :references="referencesFromMessage(message)"
+          />
           <div
             v-if="message.role === 'assistant' && followUpOptions(message).length"
             class="follow-up-options"
@@ -101,9 +110,22 @@
           </div>
         </article>
 
-        <div v-if="sending" class="chat-message chat-message--assistant">
+        <div
+          v-if="streamingReply"
+          class="chat-message chat-message--assistant streaming-message"
+          data-testid="streaming-assistant"
+          aria-live="polite"
+        >
           <span class="chat-message__role">劳务通</span>
-          <p class="thinking-line"><span class="spinner-dot" /> 正在整理问题和上下文...</p>
+          <SafeMarkdown
+            v-if="streamingReply.content"
+            :content="streamingReply.content"
+            streaming
+          />
+          <p class="thinking-line streaming-status">
+            <span class="spinner-dot" />
+            {{ streamingReply.status }}
+          </p>
         </div>
       </div>
 
@@ -219,10 +241,11 @@ import {
   ShieldCheck,
   UserRoundX,
 } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
-import { apiRequest } from '../api/http'
+import { apiRequest, apiStream } from '../api/http'
+import ReferenceMaterials from '../components/ReferenceMaterials.vue'
 import SafeMarkdown from '../components/SafeMarkdown.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDictionaryStore } from '../stores/dictionary'
@@ -234,23 +257,34 @@ import type {
   HistoryCaseSummary,
   InterventionRecommendation,
   MessageItem,
+  ReferenceItem,
   TopicsResponse,
 } from '../types/api'
 import { followUpOptions } from '../utils/followUps'
+import { referencesFromMessage } from '../utils/references'
 
 const router = useRouter()
 const auth = useAuthStore()
 const workspace = useWorkspaceStore()
 const activeCase = ref<CaseItem | null>(null)
 const messages = ref<MessageItem[]>([])
+const chatMessageList = ref<HTMLElement | null>(null)
 const input = ref('')
 const sending = ref(false)
+const streamingReply = ref<{
+  status: string
+  content: string
+  references: ReferenceItem[]
+} | null>(null)
 const error = ref('')
 const suggestedNextStep = ref('')
 const evidenceGaps = ref<string[]>([])
 const interventionRecommendation = ref<InterventionRecommendation | null>(null)
 const historyCases = ref<HistoryCaseSummary[]>([])
 const topicSummary = ref<TopicsResponse>({ topics: [], total: 0 })
+let streamingBuffer = ''
+let streamFrame = 0
+let keepScrolledToBottom = true
 
 const topics = ['拖欠工资', '突然被辞退', '没有签合同', '工伤或受伤'] as const
 const topicIcons = {
@@ -269,6 +303,38 @@ const connectionLabel = computed(() => {
 
 function stageLabel(stage: string) {
   return dictionary.stageLabels[stage] ?? '识别问题'
+}
+
+function onChatScroll() {
+  const element = chatMessageList.value
+  if (!element) return
+  keepScrolledToBottom =
+    element.scrollHeight - element.scrollTop - element.clientHeight < 80
+}
+
+async function scrollToBottomIfNeeded() {
+  if (!keepScrolledToBottom) return
+  await nextTick()
+  const element = chatMessageList.value
+  if (element) element.scrollTop = element.scrollHeight
+}
+
+function flushStreamingBuffer() {
+  streamFrame = 0
+  if (!streamingReply.value || !streamingBuffer) return
+  streamingReply.value = {
+    ...streamingReply.value,
+    content: streamingReply.value.content + streamingBuffer,
+  }
+  streamingBuffer = ''
+  void scrollToBottomIfNeeded()
+}
+
+function appendStreamingText(text: string) {
+  streamingBuffer += text
+  if (!streamFrame) {
+    streamFrame = window.requestAnimationFrame(flushStreamingBuffer)
+  }
 }
 
 async function loadInitialCase() {
@@ -302,6 +368,13 @@ async function sendMessage(contentOverride?: string) {
   if (!content || sending.value) return
   sending.value = true
   error.value = ''
+  streamingBuffer = ''
+  streamingReply.value = {
+    status: '正在理解你的问题…',
+    content: '',
+    references: [],
+  }
+  let donePayload: ConsultationResponse | null = null
 
   try {
     if (!activeCase.value) {
@@ -316,25 +389,112 @@ async function sendMessage(contentOverride?: string) {
       })
     }
 
-    const response = await apiRequest<ConsultationResponse>(
-      `/cases/${activeCase.value.id}/consultations`,
+    await apiStream(
+      `/cases/${activeCase.value.id}/consultations/stream`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: content }),
       },
+      (event, data) => {
+        const payload = (data ?? {}) as Record<string, unknown>
+        if (event === 'status') {
+          if (payload.case) {
+            activeCase.value = payload.case as CaseItem
+          }
+          const userMessage = payload.user_message as MessageItem | undefined
+          if (
+            userMessage &&
+            !messages.value.some((message) => message.id === userMessage.id)
+          ) {
+            messages.value.push(userMessage)
+            void scrollToBottomIfNeeded()
+          }
+          if (streamingReply.value) {
+            streamingReply.value = {
+              ...streamingReply.value,
+              status:
+                typeof payload.label === 'string'
+                  ? payload.label
+                  : '正在生成回复…',
+            }
+          }
+          return
+        }
+        if (event === 'delta') {
+          if (typeof payload.text === 'string' && payload.text) {
+            appendStreamingText(payload.text)
+          }
+          return
+        }
+        if (event === 'references') {
+          const items = Array.isArray(payload.items)
+            ? (payload.items as ReferenceItem[])
+            : []
+          if (streamingReply.value) {
+            streamingReply.value = {
+              ...streamingReply.value,
+              references: items,
+            }
+          }
+          return
+        }
+        if (event === 'done') {
+          donePayload = payload as unknown as ConsultationResponse
+          return
+        }
+        if (event === 'error') {
+          throw new Error(
+            typeof payload.detail === 'string'
+              ? payload.detail
+              : '回复生成失败，请稍后重试',
+          )
+        }
+      },
     )
+    const response = donePayload as ConsultationResponse | null
+    if (!response) {
+      throw new Error('流式回复提前结束，请重试')
+    }
+    if (streamFrame) {
+      window.cancelAnimationFrame(streamFrame)
+      streamFrame = 0
+    }
+    flushStreamingBuffer()
     activeCase.value = response.case
+    messages.value = messages.value.filter(
+      (message) =>
+        message.id !== response.user_message.id &&
+        message.id !== response.assistant_message.id,
+    )
     messages.value.push(response.user_message, response.assistant_message)
     suggestedNextStep.value = response.suggested_next_step
     evidenceGaps.value = response.structured.evidence_gaps
     interventionRecommendation.value =
       response.structured.intervention_recommendation
     input.value = ''
+    void scrollToBottomIfNeeded()
   } catch (err) {
+    const partial = `${streamingReply.value?.content ?? ''}${streamingBuffer}`
+    if (partial.trim()) {
+      messages.value.push({
+        id: -Date.now(),
+        role: 'assistant',
+        content: partial,
+        metadata_json: { streaming_status: 'interrupted' },
+        created_at: new Date().toISOString(),
+      })
+    }
     error.value = err instanceof Error ? err.message : '发送失败'
   } finally {
+    if (streamFrame) {
+      window.cancelAnimationFrame(streamFrame)
+      streamFrame = 0
+    }
+    streamingBuffer = ''
+    streamingReply.value = null
     sending.value = false
+    void scrollToBottomIfNeeded()
   }
 }
 
@@ -386,5 +546,9 @@ onMounted(async () => {
   } catch (err) {
     error.value = err instanceof Error ? err.message : '案件加载失败'
   }
+})
+
+onBeforeUnmount(() => {
+  if (streamFrame) window.cancelAnimationFrame(streamFrame)
 })
 </script>
