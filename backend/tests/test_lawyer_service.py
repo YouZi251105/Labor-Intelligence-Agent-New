@@ -177,13 +177,13 @@ def test_request_preferred_slot_and_date_validation() -> None:
             headers=auth(user_token),
             json={
                 "case_id": case_id,
-                "reason": "超过 14 天",
+                "reason": "超过 7 天",
                 "preferred_date": far,
                 "preferred_slot": "morning",
             },
         )
         assert far_response.status_code == 400
-        assert "14 天" in far_response.json()["detail"]
+        assert "7 天" in far_response.json()["detail"]
 
         created = client.post(
             "/api/v1/lawyer-service/requests",
@@ -407,6 +407,83 @@ def test_accept_request_blocked_when_case_assigned_to_other_lawyer() -> None:
         )
         assert accepted.status_code == 200
         assert accepted.json()["lawyer_id"] == me["id"]
+
+
+def test_consultation_attachment_flow() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        admin_token = login(client, "admin", "Admin123!")
+        case_id = create_case(client, user_token, "附件流程测试")
+
+        created = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "发附件给律师"},
+        )
+        assert created.status_code == 201
+        request_id = created.json()["id"]
+        accepted = client.patch(
+            f"/api/v1/lawyer-service/requests/{request_id}",
+            headers=auth(lawyer_token),
+            json={"accept": True},
+        )
+        assert accepted.status_code == 200
+        sessions = client.get("/api/v1/lawyer-service/sessions", headers=auth(user_token))
+        session_id = sessions.json()[0]["id"]
+
+        attachment = client.post(
+            f"/api/v1/lawyer-service/sessions/{session_id}/messages/file",
+            headers=auth(user_token),
+            data={"content": "这是我的工资流水"},
+            files={"file": ("工资流水.txt", "实发工资 5000 元，拖欠两个月".encode(), "text/plain")},
+        )
+        assert attachment.status_code == 201
+        payload = attachment.json()
+        assert payload["attachment_name"] == "工资流水.txt"
+        assert payload["attachment_size"] > 0
+
+        messages = client.get(
+            f"/api/v1/lawyer-service/sessions/{session_id}/messages",
+            headers=auth(user_token),
+        )
+        target = [m for m in messages.json() if m["id"] == payload["id"]][0]
+        assert target["attachment_name"] == "工资流水.txt"
+
+        download = client.get(
+            f"/api/v1/lawyer-service/sessions/{session_id}/messages/{payload['id']}/attachment",
+            headers=auth(lawyer_token),
+        )
+        assert download.status_code == 200
+        assert b"5000" in download.content
+
+        non_party = client.get(
+            f"/api/v1/lawyer-service/sessions/{session_id}/messages/{payload['id']}/attachment",
+            headers=auth(admin_token),
+        )
+        assert non_party.status_code == 404
+
+        rejected = client.post(
+            f"/api/v1/lawyer-service/sessions/{session_id}/messages/file",
+            headers=auth(user_token),
+            files={"file": ("恶意.exe", b"MZ", "application/x-msdownload")},
+        )
+        assert rejected.status_code == 400
+
+
+def test_request_date_within_seven_days() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        case_id = create_case(client, user_token, "七日预约测试")
+        far = (datetime.now(ZoneInfo("Asia/Shanghai")).date() + timedelta(days=10)).isoformat()
+
+        created = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "预约超出范围", "preferred_date": far},
+        )
+        assert created.status_code == 400
+        assert "7 天" in created.json()["detail"]
 
 
 def test_duplicate_active_request_conflict() -> None:

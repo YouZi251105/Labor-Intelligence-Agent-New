@@ -10,7 +10,20 @@
         "
       >
         <span class="chat-message__role">{{ senderLabels[message.sender_role] }}</span>
-        <SafeMarkdown :content="message.content" />
+        <SafeMarkdown v-if="message.content" :content="message.content" />
+        <a
+          v-if="message.attachment_name"
+          class="chat-attachment"
+          href="#"
+          @click.prevent="downloadAttachment(message)"
+        >
+          <Paperclip :size="14" />
+          <span class="chat-attachment__name">{{ message.attachment_name }}</span>
+          <small v-if="message.attachment_size" class="chat-attachment__size">
+            {{ formatSize(message.attachment_size) }}
+          </small>
+          <Download :size="14" />
+        </a>
         <small class="consult-chat__time">
           {{ new Date(message.created_at).toLocaleString('zh-CN') }}
         </small>
@@ -22,14 +35,43 @@
     </div>
     <p v-if="error" class="inline-error">{{ error }}</p>
     <form v-if="session.status === 'active'" class="chat-compose-inline" @submit.prevent="send">
-      <textarea v-model="draft" rows="3" placeholder="输入消息，双方记录都会留存。" />
-      <button
-        class="primary-action primary-action--compact"
-        type="submit"
-        :disabled="sending || !draft.trim()"
-      >
-        {{ sending ? '发送中...' : '发送' }}
-      </button>
+      <div v-if="attachment" class="chat-attachment-preview">
+        <Paperclip :size="14" />
+        <span class="chat-attachment__name">{{ attachment.name }}</span>
+        <small class="chat-attachment__size">{{ formatSize(attachment.size) }}</small>
+        <button class="chat-attachment-preview__remove" type="button" @click="clearAttachment">
+          <X :size="14" />
+        </button>
+      </div>
+      <textarea
+        v-model="draft"
+        rows="3"
+        placeholder="输入消息，可附带 PDF、Word、图片等材料（10MB 以内），双方记录都会留存。"
+      />
+      <div class="chat-compose-inline__actions">
+        <button
+          class="secondary-action secondary-action--icon"
+          type="button"
+          title="添加附件"
+          @click="fileInput?.click()"
+        >
+          <Paperclip :size="16" />
+        </button>
+        <button
+          class="primary-action primary-action--compact"
+          type="submit"
+          :disabled="sending || (!draft.trim() && !attachment)"
+        >
+          {{ sending ? '发送中...' : '发送' }}
+        </button>
+      </div>
+      <input
+        ref="fileInput"
+        type="file"
+        accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.doc,.docx"
+        hidden
+        @change="onFileSelected"
+      />
     </form>
     <p v-else class="consult-chat__closed">
       <Lock :size="14" />
@@ -45,10 +87,10 @@
 </template>
 
 <script setup lang="ts">
-import { Lock } from '@lucide/vue'
+import { Download, Lock, Paperclip, X } from '@lucide/vue'
 import { nextTick, onMounted, ref, watch } from 'vue'
 
-import { apiRequest } from '../api/http'
+import { apiFile, apiRequest } from '../api/http'
 import SafeMarkdown from './SafeMarkdown.vue'
 import type { ConsultationMessageItem, ConsultationSessionItem } from '../types/api'
 
@@ -63,6 +105,8 @@ const emit = defineEmits<{
 
 const messages = ref<ConsultationMessageItem[]>([])
 const draft = ref('')
+const attachment = ref<File | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 const loading = ref(false)
 const sending = ref(false)
 const closing = ref(false)
@@ -72,6 +116,22 @@ const listEl = ref<HTMLElement | null>(null)
 const senderLabels: Record<string, string> = {
   user: '劳动者',
   lawyer: '律师',
+}
+
+function formatSize(size: number) {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+function onFileSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  attachment.value = input.files?.[0] ?? null
+  input.value = ''
+}
+
+function clearAttachment() {
+  attachment.value = null
 }
 
 async function scrollToBottom() {
@@ -96,25 +156,56 @@ async function loadMessages() {
 
 async function send() {
   const content = draft.value.trim()
-  if (!content) return
+  if (!content && !attachment.value) return
   sending.value = true
   error.value = ''
   try {
-    const message = await apiRequest<ConsultationMessageItem>(
-      `/lawyer-service/sessions/${props.session.id}/messages`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      },
-    )
+    let message: ConsultationMessageItem
+    if (attachment.value) {
+      const form = new FormData()
+      if (content) form.append('content', content)
+      form.append('file', attachment.value)
+      message = await apiRequest<ConsultationMessageItem>(
+        `/lawyer-service/sessions/${props.session.id}/messages/file`,
+        { method: 'POST', body: form },
+      )
+    } else {
+      message = await apiRequest<ConsultationMessageItem>(
+        `/lawyer-service/sessions/${props.session.id}/messages`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+        },
+      )
+    }
     messages.value.push(message)
     draft.value = ''
+    clearAttachment()
     await scrollToBottom()
   } catch (err) {
     error.value = err instanceof Error ? err.message : '发送失败'
   } finally {
     sending.value = false
+  }
+}
+
+async function downloadAttachment(message: ConsultationMessageItem) {
+  if (!message.attachment_name) return
+  error.value = ''
+  try {
+    const blob = await apiFile(
+      `/lawyer-service/sessions/${message.session_id}/messages/${message.id}/attachment`,
+      { accept: '*/*' },
+    )
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = message.attachment_name
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '附件下载失败'
   }
 }
 

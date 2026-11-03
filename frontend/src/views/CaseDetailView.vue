@@ -772,7 +772,7 @@ function localIso(day: Date) {
 const dateMin = localIso(new Date())
 const dateOptions = computed(() => {
   const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-  return Array.from({ length: 15 }, (_, offset) => {
+  return Array.from({ length: 8 }, (_, offset) => {
     const day = new Date()
     day.setDate(day.getDate() + offset)
     return {

@@ -68,6 +68,9 @@ class ConsultationMessageRead(BaseModel):
     session_id: int
     sender_role: str
     content: str
+    attachment_name: str | None = None
+    attachment_size: int | None = None
+    attachment_type: str | None = None
     created_at: datetime
 
 

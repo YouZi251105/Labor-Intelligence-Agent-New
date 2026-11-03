@@ -1127,6 +1127,74 @@ summary:focus-visible {
   padding: 4px 2px;
 }
 
+.chat-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--lia-border);
+  border-radius: 10px;
+  background: var(--lia-surface);
+  color: var(--lia-primary);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.chat-attachment:hover {
+  border-color: var(--lia-primary);
+}
+
+.chat-attachment__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-attachment__size {
+  flex-shrink: 0;
+  color: var(--lia-text-muted);
+}
+
+.chat-attachment-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px dashed var(--lia-border);
+  border-radius: 10px;
+  background: var(--lia-surface-soft);
+  color: var(--lia-text);
+  font-size: 12px;
+}
+
+.chat-attachment-preview__remove {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--lia-text-muted);
+  cursor: pointer;
+}
+
+.chat-attachment-preview__remove:hover {
+  color: var(--lia-danger);
+}
+
+.chat-compose-inline__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.secondary-action--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 9px;
+}
+
 .consult-chat__time {
   display: block;
   margin-top: 6px;

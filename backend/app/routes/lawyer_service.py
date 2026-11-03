@@ -1,8 +1,19 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Response,
+    UploadFile,
+)
 from sqlalchemy import or_, select
 
 from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession, require_roles
@@ -32,7 +43,12 @@ from app.schemas.lawyer_service import (
     LawyerRequestCreate,
     LawyerRequestRead,
 )
-from app.services.evidence import assess_case_evidence
+from app.services.evidence import (
+    ALLOWED_EXTENSIONS,
+    assess_case_evidence,
+    validate_signature,
+)
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/lawyer-service", tags=["lawyer-service"])
 
@@ -42,6 +58,7 @@ LawyerRequired = Annotated[User, Depends(LawyerUser)]
 ACTIVE_REQUEST_STATUSES = {"pending", "accepted"}
 SLOT_ORDER = {"morning": 0, "afternoon": 1, "evening": 2}
 LOCAL_TZ = ZoneInfo("Asia/Shanghai")
+MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
 
 
 def _audit(
@@ -103,8 +120,8 @@ async def create_request(
         today = datetime.now(LOCAL_TZ).date()
         if payload.preferred_date < today:
             raise HTTPException(status_code=400, detail="预约日期不能早于今天")
-        if payload.preferred_date > today + timedelta(days=14):
-            raise HTTPException(status_code=400, detail="预约日期最多提前 14 天")
+        if payload.preferred_date > today + timedelta(days=7):
+            raise HTTPException(status_code=400, detail="预约日期最多提前 7 天")
         if payload.preferred_slot is not None:
             preferred_time = (
                 f"{payload.preferred_date.month}月{payload.preferred_date.day}日 "
@@ -277,6 +294,109 @@ async def send_message(
     await session.commit()
     await session.refresh(message)
     return message
+
+
+@router.post(
+    "/sessions/{session_id}/messages/file",
+    response_model=ConsultationMessageRead,
+    status_code=201,
+)
+async def send_message_with_attachment(
+    session_id: int,
+    session: DbSession,
+    user: CurrentUser,
+    content: Annotated[str, Form()] = "",
+    file: Annotated[UploadFile | None, File()] = None,
+) -> ConsultationMessage:
+    item = await _get_session(session_id, session)
+    if item.status != "active":
+        raise HTTPException(status_code=409, detail="会话已结束，无法继续发送消息")
+    sender_role: str | None = None
+    if user.role == "user" and item.user_id == user.id:
+        sender_role = "user"
+    elif user.role == "lawyer" and item.lawyer_id == user.id:
+        sender_role = "lawyer"
+    else:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    text = content.strip()
+    if file is None or not file.filename:
+        if not text:
+            raise HTTPException(status_code=400, detail="请输入消息或选择附件")
+        message = ConsultationMessage(
+            session_id=item.id, sender_role=sender_role, content=text
+        )
+        session.add(message)
+        await session.commit()
+        await session.refresh(message)
+        return message
+
+    filename = Path(file.filename).name
+    extension = Path(filename).suffix.lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="附件仅支持 jpg、jpeg、png、webp、pdf、txt、doc、docx",
+        )
+    attachment = await file.read()
+    if len(attachment) > MAX_ATTACHMENT_SIZE:
+        raise HTTPException(status_code=400, detail="附件不能超过 10MB")
+    if not validate_signature(extension, attachment):
+        raise HTTPException(status_code=400, detail="附件内容与扩展名不匹配")
+
+    key = f"consultation-{item.id}/{uuid4().hex}{extension}"
+    get_storage().save(key, attachment)
+
+    message = ConsultationMessage(
+        session_id=item.id,
+        sender_role=sender_role,
+        content=text,
+        attachment_name=filename,
+        attachment_key=key,
+        attachment_size=len(attachment),
+        attachment_type=file.content_type or "application/octet-stream",
+    )
+    session.add(message)
+    session.add(_audit(user.id, "consultation_message.attachment", item.id))
+    await session.commit()
+    await session.refresh(message)
+    return message
+
+
+@router.get(
+    "/sessions/{session_id}/messages/{message_id}/attachment",
+)
+async def download_attachment(
+    session_id: int,
+    message_id: int,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    item = await _get_session(session_id, session)
+    if item.user_id != user.id and item.lawyer_id != user.id:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    message = await session.scalar(
+        select(ConsultationMessage).where(
+            ConsultationMessage.id == message_id,
+            ConsultationMessage.session_id == item.id,
+        )
+    )
+    if message is None or not message.attachment_key:
+        raise HTTPException(status_code=404, detail="附件不存在")
+
+    try:
+        data = get_storage().read(message.attachment_key)
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404, detail="附件文件已丢失") from None
+
+    filename = quote(message.attachment_name or "attachment")
+    return Response(
+        content=data,
+        media_type=message.attachment_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+        },
+    )
 
 
 @router.post("/sessions/{session_id}/close", response_model=ConsultationSessionRead)

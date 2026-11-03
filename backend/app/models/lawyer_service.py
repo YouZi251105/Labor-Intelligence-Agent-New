@@ -73,6 +73,10 @@ class ConsultationMessage(Base):
     )
     sender_role: Mapped[str] = mapped_column(String(20))
     content: Mapped[str] = mapped_column(Text)
+    attachment_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attachment_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    attachment_size: Mapped[int | None] = mapped_column(nullable=True)
+    attachment_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC)
     )

@@ -562,6 +562,9 @@ export interface ConsultationMessageItem {
   session_id: number
   sender_role: 'user' | 'lawyer'
   content: string
+  attachment_name: string | null
+  attachment_size: number | null
+  attachment_type: string | null
   created_at: string
 }
 

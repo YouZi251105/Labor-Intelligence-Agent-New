@@ -2118,6 +2118,116 @@
         }
       }
     },
+    "/api/v1/lawyer-service/sessions/{session_id}/messages/file": {
+      "post": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Send Message With Attachment",
+        "operationId": "send_message_with_attachment_api_v1_lawyer_service_sessions__session_id__messages_file_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_send_message_with_attachment_api_v1_lawyer_service_sessions__session_id__messages_file_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultationMessageRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lawyer-service/sessions/{session_id}/messages/{message_id}/attachment": {
+      "get": {
+        "tags": [
+          "lawyer-service"
+        ],
+        "summary": "Download Attachment",
+        "operationId": "download_attachment_api_v1_lawyer_service_sessions__session_id__messages__message_id__attachment_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/lawyer-service/sessions/{session_id}/close": {
       "post": {
         "tags": [
@@ -4682,6 +4792,29 @@
         ],
         "title": "Body_review_contract_file_api_v1_cases__case_id__contract_review_file_post"
       },
+      "Body_send_message_with_attachment_api_v1_lawyer_service_sessions__session_id__messages_file_post": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "default": ""
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "binary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "title": "Body_send_message_with_attachment_api_v1_lawyer_service_sessions__session_id__messages_file_post"
+      },
       "Body_upload_case_evidence_api_v1_cases__case_id__evidence_post": {
         "properties": {
           "file": {
@@ -5064,6 +5197,39 @@
           "content": {
             "type": "string",
             "title": "Content"
+          },
+          "attachment_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Name"
+          },
+          "attachment_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Size"
+          },
+          "attachment_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Type"
           },
           "created_at": {
             "type": "string",
