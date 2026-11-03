@@ -98,6 +98,22 @@ def test_delete_case_with_evidence_conflicts() -> None:
         assert delete.status_code == 409
 
 
+def test_delete_case_with_lawyer_request_conflicts() -> None:
+    with TestClient(app) as client:
+        token = login_demo(client)
+        case_id = create_case(client, token, "有律师预约案件删除测试")
+
+        request = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth_headers(token),
+            json={"case_id": case_id, "reason": "删除前已有律师服务记录"},
+        )
+        assert request.status_code == 201
+
+        delete = client.delete(f"/api/v1/cases/{case_id}", headers=auth_headers(token))
+        assert delete.status_code == 409
+
+
 def test_filter_by_dispute_type_and_search() -> None:
     with TestClient(app) as client:
         token = login_demo(client)

@@ -14,7 +14,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 
 from app.api.deps import CompleteWorkerProfile, CurrentUser, DbSession, require_roles
 from app.models.audit import AuditLog
@@ -55,7 +55,8 @@ router = APIRouter(prefix="/lawyer-service", tags=["lawyer-service"])
 LawyerUser = require_roles("lawyer")
 LawyerRequired = Annotated[User, Depends(LawyerUser)]
 
-ACTIVE_REQUEST_STATUSES = {"pending", "accepted"}
+OPEN_REQUEST_STATUSES = {"pending", "accepted", "in_session"}
+CANCELLABLE_REQUEST_STATUSES = {"pending", "accepted"}
 SLOT_ORDER = {"morning": 0, "afternoon": 1, "evening": 2}
 LOCAL_TZ = ZoneInfo("Asia/Shanghai")
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
@@ -108,7 +109,7 @@ async def create_request(
         select(LawyerRequest.id)
         .where(
             LawyerRequest.case_id == case.id,
-            LawyerRequest.status.in_(ACTIVE_REQUEST_STATUSES),
+            LawyerRequest.status.in_(OPEN_REQUEST_STATUSES),
         )
         .limit(1)
     )
@@ -151,10 +152,16 @@ async def list_requests(session: DbSession, user: CurrentUser) -> list[LawyerReq
     if user.role == "user":
         query = query.where(LawyerRequest.user_id == user.id)
     elif user.role == "lawyer":
-        query = query.where(
+        query = query.join(Case, Case.id == LawyerRequest.case_id).where(
             or_(
                 LawyerRequest.lawyer_id == user.id,
-                LawyerRequest.lawyer_id.is_(None),
+                and_(
+                    LawyerRequest.lawyer_id.is_(None),
+                    or_(
+                        Case.assigned_lawyer_id.is_(None),
+                        Case.assigned_lawyer_id == user.id,
+                    ),
+                ),
             )
         )
     results = await session.scalars(query)
@@ -169,19 +176,19 @@ async def act_request(
     user: LawyerRequired,
 ) -> LawyerRequest:
     request = await _get_request(request_id, session)
+    case = await session.get(Case, request.case_id)
+    if case is None:
+        raise HTTPException(status_code=409, detail="关联案件不存在，无法处理")
+    if case.assigned_lawyer_id not in (None, user.id):
+        raise HTTPException(
+            status_code=409,
+            detail="该案件已由其他律师承办，无法处理；如有需要请联系管理员调整分配",
+        )
     if request.status != "pending":
         raise HTTPException(status_code=409, detail="该预约已处理，无法重复操作")
 
     if payload.accept:
         # 谁受理谁负责：案件已有其他承办律师时不允许受理，避免会话律师与承办律师不一致
-        case = await session.get(Case, request.case_id)
-        if case is None:
-            raise HTTPException(status_code=409, detail="关联案件不存在，无法受理")
-        if case.assigned_lawyer_id not in (None, user.id):
-            raise HTTPException(
-                status_code=409,
-                detail="该案件已由其他律师承办，无法受理；如有需要请联系管理员调整分配",
-            )
         request.status = "accepted"
         request.lawyer_id = user.id
         request.accepted_at = datetime.now(UTC)
@@ -213,9 +220,10 @@ async def cancel_request(
     user: CurrentUser,
 ) -> LawyerRequest:
     request = await _get_request(request_id, session)
-    if user.role == "user" and request.user_id != user.id:
+    is_owner = user.role == "user" and request.user_id == user.id
+    if not is_owner and user.role != "admin":
         raise HTTPException(status_code=404, detail="预约不存在")
-    if request.status not in ACTIVE_REQUEST_STATUSES:
+    if request.status not in CANCELLABLE_REQUEST_STATUSES:
         raise HTTPException(status_code=409, detail="当前状态不可取消")
 
     request.status = "cancelled"
@@ -291,6 +299,7 @@ async def send_message(
         content=payload.content,
     )
     session.add(message)
+    await _mark_session_started(item, session)
     await session.commit()
     await session.refresh(message)
     return message
@@ -327,6 +336,7 @@ async def send_message_with_attachment(
             session_id=item.id, sender_role=sender_role, content=text
         )
         session.add(message)
+        await _mark_session_started(item, session)
         await session.commit()
         await session.refresh(message)
         return message
@@ -358,6 +368,7 @@ async def send_message_with_attachment(
     )
     session.add(message)
     session.add(_audit(user.id, "consultation_message.attachment", item.id))
+    await _mark_session_started(item, session)
     await session.commit()
     await session.refresh(message)
     return message
@@ -415,7 +426,7 @@ async def close_session(
     item.closed_at = datetime.now(UTC)
     if item.request_id:
         request = await session.get(LawyerRequest, item.request_id)
-        if request and request.status == "accepted":
+        if request and request.status in {"accepted", "in_session"}:
             request.status = "completed"
             request.completed_at = datetime.now(UTC)
     session.add(_audit(user.id, "consultation.session.closed", item.id))
@@ -503,12 +514,13 @@ async def review_case_brief(
     review = await session.get(CaseReview, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="复核任务不存在")
-    if review.lawyer_id is not None and review.lawyer_id != user.id:
-        raise HTTPException(status_code=404, detail="复核任务不存在")
-
     case = await session.get(Case, review.case_id)
     if case is None:
         raise HTTPException(status_code=404, detail="案件不存在")
+    if review.lawyer_id not in (None, user.id):
+        raise HTTPException(status_code=404, detail="复核任务不存在")
+    if case.assigned_lawyer_id not in (None, user.id):
+        raise HTTPException(status_code=404, detail="复核任务不存在")
 
     evidence_items = list(
         await session.scalars(
@@ -553,13 +565,21 @@ async def submit_review(
     if review.status != "pending":
         raise HTTPException(status_code=409, detail="该复核已处理")
 
+    case = await session.get(Case, review.case_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail="案件不存在")
+    if case.assigned_lawyer_id not in (None, user.id):
+        raise HTTPException(
+            status_code=409,
+            detail="该案件已由其他律师承办，无法提交复核",
+        )
+
     review.lawyer_id = user.id
     review.status = "reviewed"
     review.conclusion = payload.conclusion
     review.comment = payload.comment
     review.reviewed_at = datetime.now(UTC)
-    case = await session.get(Case, review.case_id)
-    if case is not None and case.assigned_lawyer_id is None:
+    if case.assigned_lawyer_id is None:
         case.assigned_lawyer_id = user.id
     session.add(_audit(user.id, "case.review.completed", review.id))
     await session.commit()
@@ -567,16 +587,34 @@ async def submit_review(
     return review
 
 
+async def _mark_session_started(
+    item: ConsultationSession,
+    session: DbSession,
+) -> None:
+    if item.request_id is None:
+        return
+    request = await session.get(LawyerRequest, item.request_id)
+    if request is not None and request.status == "accepted":
+        request.status = "in_session"
+
+
 @router.get("/todos", response_model=dict)
 async def lawyer_todos(session: DbSession, user: LawyerRequired) -> dict[str, object]:
     pending_requests = list(
         await session.scalars(
             select(LawyerRequest)
+            .join(Case, Case.id == LawyerRequest.case_id)
             .where(
                 LawyerRequest.status == "pending",
                 or_(
                     LawyerRequest.lawyer_id == user.id,
-                    LawyerRequest.lawyer_id.is_(None),
+                    and_(
+                        LawyerRequest.lawyer_id.is_(None),
+                        or_(
+                            Case.assigned_lawyer_id.is_(None),
+                            Case.assigned_lawyer_id == user.id,
+                        ),
+                    ),
                 ),
             )
             .order_by(LawyerRequest.created_at.asc())
@@ -585,11 +623,18 @@ async def lawyer_todos(session: DbSession, user: LawyerRequired) -> dict[str, ob
     pending_reviews = list(
         await session.scalars(
             select(CaseReview)
+            .join(Case, Case.id == CaseReview.case_id)
             .where(
                 CaseReview.status == "pending",
                 or_(
                     CaseReview.lawyer_id == user.id,
-                    CaseReview.lawyer_id.is_(None),
+                    and_(
+                        CaseReview.lawyer_id.is_(None),
+                        or_(
+                            Case.assigned_lawyer_id.is_(None),
+                            Case.assigned_lawyer_id == user.id,
+                        ),
+                    ),
                 ),
             )
             .order_by(CaseReview.created_at.asc())

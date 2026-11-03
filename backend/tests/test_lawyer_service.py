@@ -1,6 +1,7 @@
 """律师服务（预约/对话/复核）接口的单元测试。"""
 import asyncio
 from datetime import datetime, timedelta
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
@@ -89,6 +90,65 @@ def test_request_accept_and_message_flow() -> None:
         assert len(messages.json()) == 2
 
 
+def test_first_message_starts_session_and_close_completes_request() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        case_id = create_case(client, user_token, "会话状态流转测试")
+
+        created = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "需要律师在线沟通"},
+        )
+        request_id = created.json()["id"]
+        accepted = client.patch(
+            f"/api/v1/lawyer-service/requests/{request_id}",
+            headers=auth(lawyer_token),
+            json={"accept": True},
+        )
+        assert accepted.status_code == 200
+
+        sessions = client.get(
+            "/api/v1/lawyer-service/sessions",
+            headers=auth(user_token),
+        ).json()
+        session_id = sessions[0]["id"]
+        sent = client.post(
+            f"/api/v1/lawyer-service/sessions/{session_id}/messages",
+            headers=auth(user_token),
+            json={"content": "请帮我确认下一步。"},
+        )
+        assert sent.status_code == 201
+
+        requests = client.get(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+        ).json()
+        current = next(item for item in requests if item["id"] == request_id)
+        assert current["status"] == "in_session"
+
+        duplicate = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "重复预约"},
+        )
+        assert duplicate.status_code == 409
+
+        closed = client.post(
+            f"/api/v1/lawyer-service/sessions/{session_id}/close",
+            headers=auth(user_token),
+        )
+        assert closed.status_code == 200
+
+        requests = client.get(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+        ).json()
+        current = next(item for item in requests if item["id"] == request_id)
+        assert current["status"] == "completed"
+
+
 def test_accept_assigns_case_and_todos_expose_case_summary() -> None:
     with TestClient(app) as client:
         user_token = login(client, "demo", "Demo123!")
@@ -147,6 +207,69 @@ def test_review_submit_assigns_case_to_lawyer() -> None:
 
         case_view = client.get(f"/api/v1/cases/{case_id}", headers=auth(lawyer_token))
         assert case_view.status_code == 200
+
+
+def test_assigned_case_queue_and_review_stay_with_assigned_lawyer() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        admin_token = login(client, "admin", "Admin123!")
+        case_id = create_case(client, user_token, "复核分配冲突测试")
+
+        assigned_lawyer = client.get("/api/v1/auth/me", headers=auth(lawyer_token)).json()
+        assigned = client.post(
+            f"/api/v1/admin/cases/{case_id}/assign",
+            headers=auth(admin_token),
+            json={"lawyer_id": assigned_lawyer["id"]},
+        )
+        assert assigned.status_code == 200
+
+        username = f"lawyer_review_conflict_{uuid4().hex}"
+        asyncio.run(_insert_lawyer_user(username))
+        other_token = login(client, username, "Lawyer123!")
+        pending_request = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "仅应由承办律师处理"},
+        )
+        assert pending_request.status_code == 201
+        other_requests = client.get(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(other_token),
+        )
+        assert pending_request.json()["id"] not in [
+            item["id"] for item in other_requests.json()
+        ]
+        rejected_by_other = client.patch(
+            f"/api/v1/lawyer-service/requests/{pending_request.json()['id']}",
+            headers=auth(other_token),
+            json={"accept": False, "reject_reason": "不应由其他律师拒绝"},
+        )
+        assert rejected_by_other.status_code == 409
+
+        review = client.post(
+            f"/api/v1/lawyer-service/cases/{case_id}/review",
+            headers=auth(user_token),
+        )
+        assert review.status_code == 201
+        review_id = review.json()["id"]
+        other_todos = client.get(
+            "/api/v1/lawyer-service/todos",
+            headers=auth(other_token),
+        )
+        assert review_id not in [item["id"] for item in other_todos.json()["reviews"]]
+        other_brief = client.get(
+            f"/api/v1/lawyer-service/reviews/{review_id}/case-brief",
+            headers=auth(other_token),
+        )
+        assert other_brief.status_code == 404
+
+        blocked = client.post(
+            f"/api/v1/lawyer-service/reviews/{review_id}/submit",
+            headers=auth(other_token),
+            json={"conclusion": "need_more", "comment": "由其他律师承办"},
+        )
+        assert blocked.status_code == 409
 
 
 def test_request_preferred_slot_and_date_validation() -> None:
@@ -524,6 +647,27 @@ def test_cancel_request() -> None:
         )
         assert cancelled.status_code == 200
         assert cancelled.json()["status"] == "cancelled"
+
+
+def test_lawyer_cannot_cancel_another_users_request() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        case_id = create_case(client, user_token, "取消预约权限测试")
+        created = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "预约后由他人尝试取消"},
+        )
+        assert created.status_code == 201
+
+        username = f"lawyer_cancel_guard_{uuid4().hex}"
+        asyncio.run(_insert_lawyer_user(username))
+        lawyer_token = login(client, username, "Lawyer123!")
+        forbidden = client.post(
+            f"/api/v1/lawyer-service/requests/{created.json()['id']}/cancel",
+            headers=auth(lawyer_token),
+        )
+        assert forbidden.status_code == 404
 
 
 def test_message_permission_rejects_non_participant() -> None:

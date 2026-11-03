@@ -6,6 +6,7 @@ from app.models.audit import AuditLog
 from app.models.case import Case, Conversation, Message
 from app.models.document import Document
 from app.models.evidence import Evidence
+from app.models.lawyer_service import CaseReview, ConsultationSession, LawyerRequest
 from app.schemas.case import (
     CaseArchiveUpdate,
     CaseCreate,
@@ -165,10 +166,28 @@ async def delete_case(
     has_documents = await session.scalar(
         select(Document.id).where(Document.case_id == case_id).limit(1)
     )
-    if has_messages or has_evidence or has_documents:
+    has_lawyer_request = await session.scalar(
+        select(LawyerRequest.id).where(LawyerRequest.case_id == case_id).limit(1)
+    )
+    has_case_review = await session.scalar(
+        select(CaseReview.id).where(CaseReview.case_id == case_id).limit(1)
+    )
+    has_consultation_session = await session.scalar(
+        select(ConsultationSession.id)
+        .where(ConsultationSession.case_id == case_id)
+        .limit(1)
+    )
+    if (
+        has_messages
+        or has_evidence
+        or has_documents
+        or has_lawyer_request
+        or has_case_review
+        or has_consultation_session
+    ):
         raise HTTPException(
             status_code=409,
-            detail="该案件已包含咨询、证据或文书，只能归档不能删除",
+            detail="该案件已包含咨询、证据、文书或律师服务记录，只能归档不能删除",
         )
 
     session.add(
