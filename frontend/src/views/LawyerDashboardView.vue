@@ -123,45 +123,6 @@
       </div>
     </section>
 
-    <section v-else-if="activeTab === 'opinions'" class="detail-grid">
-      <form class="detail-card" @submit.prevent="createOpinion">
-        <span class="eyebrow">律师意见</span>
-        <h2>提交案件意见</h2>
-        <label>
-          <span>关联案件</span>
-          <select v-model.number="opinionCaseId" required>
-            <option :value="0">选择案件</option>
-            <option v-for="item in cases" :key="item.id" :value="item.id">
-              #{{ item.id }} {{ item.title }}
-            </option>
-          </select>
-        </label>
-        <label>
-          <span>意见内容</span>
-          <textarea v-model="opinionContent" rows="8" required />
-        </label>
-        <div class="form-actions">
-          <button class="primary-action primary-action--compact" type="submit" :disabled="saving">
-            提交意见
-          </button>
-        </div>
-      </form>
-      <div class="detail-card">
-        <span class="eyebrow">已提交意见</span>
-        <h2>{{ opinions.length }} 条</h2>
-        <div class="opinion-list">
-          <article v-for="opinion in opinions" :key="opinion.id" class="opinion-card">
-            <div class="opinion-card__head">
-              <strong>案件 #{{ opinion.case_id }}</strong>
-              <small>{{ new Date(opinion.created_at).toLocaleString('zh-CN') }}</small>
-            </div>
-            <SafeMarkdown class="opinion-card__content" :content="opinion.content" />
-          </article>
-          <p v-if="!opinions.length" class="muted-text">尚未提交意见。</p>
-        </div>
-      </div>
-    </section>
-
     <section v-else-if="activeTab === 'revenue'" class="detail-grid">
       <form class="detail-card" @submit.prevent="createRevenue">
         <span class="eyebrow">收益台账</span>
@@ -441,7 +402,6 @@ import {
   FileText,
   MapPin,
   MessagesSquare,
-  MessageSquareText,
   WalletCards,
 } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -449,14 +409,12 @@ import { useRouter } from 'vue-router'
 
 import { apiRequest } from '../api/http'
 import ConsultationChat from '../components/ConsultationChat.vue'
-import SafeMarkdown from '../components/SafeMarkdown.vue'
 import { useDictionaryStore } from '../stores/dictionary'
 import { notifySuccess, promptForText } from '../utils/dialogs'
 import type {
   CaseItem,
   CaseReviewItem,
   ConsultationSessionItem,
-  LawyerOpinion,
   LawyerRequestItem,
   LawyerTodoCase,
   LawyerTodosResponse,
@@ -487,12 +445,9 @@ const router = useRouter()
 const activeTab = ref('cases')
 const cases = ref<CaseItem[]>([])
 const serviceRecords = ref<ServiceRecord[]>([])
-const opinions = ref<LawyerOpinion[]>([])
 const revenueEntries = ref<RevenueLedger[]>([])
 const error = ref('')
 const saving = ref(false)
-const opinionCaseId = ref(0)
-const opinionContent = ref('')
 const revenueAmountYuan = ref(0)
 
 const serviceForm = reactive({
@@ -683,7 +638,6 @@ const tabs = [
   { key: 'todos', label: '待办', icon: BellRing },
   { key: 'sessions', label: '咨询会话', icon: MessagesSquare },
   { key: 'services', label: '服务记录', icon: FileText },
-  { key: 'opinions', label: '律师意见', icon: MessageSquareText },
   { key: 'revenue', label: '收益台账', icon: WalletCards },
 ]
 
@@ -715,19 +669,16 @@ function nextServiceStatus(status: string) {
 async function loadAll() {
   error.value = ''
   try {
-    const [caseData, serviceData, opinionData, revenueData] = await Promise.all([
+    const [caseData, serviceData, revenueData] = await Promise.all([
       apiRequest<CaseItem[]>('/lawyer/cases'),
       apiRequest<ServiceRecord[]>('/lawyer/service-records'),
-      apiRequest<LawyerOpinion[]>('/lawyer/opinions'),
       apiRequest<RevenueLedger[]>('/lawyer/revenue'),
     ])
     cases.value = caseData
     serviceRecords.value = serviceData
-    opinions.value = opinionData
     revenueEntries.value = revenueData
     if (!serviceForm.case_id && caseData.length) {
       serviceForm.case_id = caseData[0].id
-      opinionCaseId.value = caseData[0].id
     }
     await refreshLawyerService()
   } catch (err) {
@@ -770,27 +721,6 @@ async function advanceServiceRecord(record: ServiceRecord) {
     if (index >= 0) serviceRecords.value[index] = updated
   } catch (err) {
     error.value = err instanceof Error ? err.message : '服务状态更新失败'
-  }
-}
-
-async function createOpinion() {
-  if (!opinionCaseId.value || !opinionContent.value.trim()) return
-  saving.value = true
-  try {
-    const opinion = await apiRequest<LawyerOpinion>(
-      `/lawyer/cases/${opinionCaseId.value}/opinions`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: opinionContent.value.trim() }),
-      },
-    )
-    opinions.value.unshift(opinion)
-    opinionContent.value = ''
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '律师意见提交失败'
-  } finally {
-    saving.value = false
   }
 }
 

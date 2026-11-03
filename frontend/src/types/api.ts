@@ -378,14 +378,6 @@ export interface HistoryResponse {
   cases: HistoryCaseSummary[]
 }
 
-export interface LawyerOpinion {
-  id: number
-  case_id: number
-  lawyer_id: number
-  content: string
-  status: string
-  created_at: string
-}
 
 export interface ServiceRecord {
   id: number

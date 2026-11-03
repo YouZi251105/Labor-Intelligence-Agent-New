@@ -156,12 +156,19 @@ async def act_request(
         raise HTTPException(status_code=409, detail="该预约已处理，无法重复操作")
 
     if payload.accept:
+        # 谁受理谁负责：案件已有其他承办律师时不允许受理，避免会话律师与承办律师不一致
+        case = await session.get(Case, request.case_id)
+        if case is None:
+            raise HTTPException(status_code=409, detail="关联案件不存在，无法受理")
+        if case.assigned_lawyer_id not in (None, user.id):
+            raise HTTPException(
+                status_code=409,
+                detail="该案件已由其他律师承办，无法受理；如有需要请联系管理员调整分配",
+            )
         request.status = "accepted"
         request.lawyer_id = user.id
         request.accepted_at = datetime.now(UTC)
-        case = await session.get(Case, request.case_id)
-        if case is not None and case.assigned_lawyer_id is None:
-            case.assigned_lawyer_id = user.id
+        case.assigned_lawyer_id = user.id
         session.add(
             ConsultationSession(
                 request_id=request.id,

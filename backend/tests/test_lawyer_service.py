@@ -1,4 +1,5 @@
 """律师服务（预约/对话/复核）接口的单元测试。"""
+import asyncio
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -344,6 +345,68 @@ def test_todos_urgent_first() -> None:
         assert todos.status_code == 200
         request_cases = [item["case_id"] for item in todos.json()["requests"]]
         assert request_cases.index(urgent_id) < request_cases.index(normal_id)
+
+
+async def _insert_lawyer_user(username: str) -> int:
+    from app.core.security import hash_password
+    from app.db.session import get_session_factory
+    from app.models.user import User
+
+    factory = get_session_factory()
+    async with factory() as session:
+        user = User(
+            username=username,
+            password_hash=hash_password("Lawyer123!"),
+            role="lawyer",
+            display_name=username,
+            is_active=True,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user.id
+
+
+def test_accept_request_blocked_when_case_assigned_to_other_lawyer() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        admin_token = login(client, "admin", "Admin123!")
+        case_id = create_case(client, user_token, "分配冲突测试")
+
+        me = client.get("/api/v1/auth/me", headers=auth(lawyer_token)).json()
+        assigned = client.post(
+            f"/api/v1/admin/cases/{case_id}/assign",
+            headers=auth(admin_token),
+            json={"lawyer_id": me["id"]},
+        )
+        assert assigned.status_code == 200
+
+        asyncio.run(_insert_lawyer_user("lawyer_conflict"))
+        other_token = login(client, "lawyer_conflict", "Lawyer123!")
+
+        request = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "需要律师判断"},
+        )
+        assert request.status_code == 201
+        request_id = request.json()["id"]
+
+        blocked = client.patch(
+            f"/api/v1/lawyer-service/requests/{request_id}",
+            headers=auth(other_token),
+            json={"accept": True},
+        )
+        assert blocked.status_code == 409
+
+        accepted = client.patch(
+            f"/api/v1/lawyer-service/requests/{request_id}",
+            headers=auth(lawyer_token),
+            json={"accept": True},
+        )
+        assert accepted.status_code == 200
+        assert accepted.json()["lawyer_id"] == me["id"]
 
 
 def test_duplicate_active_request_conflict() -> None:

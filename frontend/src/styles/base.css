@@ -1707,41 +1707,18 @@ summary:focus-visible {
   border-top: 1px solid var(--lia-border);
 }
 
-.opinion-list {
+.session-banner {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.opinion-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--lia-border);
-  border-radius: 12px;
-  background: var(--lia-surface);
-}
-
-.opinion-card__head {
-  display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--lia-border);
-}
-
-.opinion-card__head small {
-  flex-shrink: 0;
-  color: var(--lia-text-muted);
-}
-
-.opinion-card__content {
-  color: var(--lia-text-secondary);
-  font-size: 12px;
-  line-height: 1.8;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--lia-primary);
+  border-radius: 12px;
+  background: var(--lia-primary-soft);
+  color: var(--lia-text);
+  font-size: 13px;
 }
 
 .session-item {

@@ -37,6 +37,17 @@
     <p v-if="error" class="inline-error">{{ error }}</p>
 
     <section v-if="activeTab === 'overview'">
+      <div
+        v-if="activeRequest && ['accepted', 'in_session'].includes(activeRequest.status)"
+        class="session-banner"
+      >
+        <span>
+          {{ activeRequest.status === 'accepted' ? '律师已受理你的预约' : '正在与律师咨询中' }}，可以在「律师协助」页签继续对话。
+        </span>
+        <button class="primary-action primary-action--compact" type="button" @click="activeTab = 'lawyer'">
+          进入对话
+        </button>
+      </div>
       <div v-if="workflow" class="detail-card workflow-card">
         <div class="detail-section-heading">
           <div>
