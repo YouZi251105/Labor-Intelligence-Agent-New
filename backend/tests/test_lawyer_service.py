@@ -1,4 +1,7 @@
 """律师服务（预约/对话/复核）接口的单元测试。"""
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -143,6 +146,95 @@ def test_review_submit_assigns_case_to_lawyer() -> None:
 
         case_view = client.get(f"/api/v1/cases/{case_id}", headers=auth(lawyer_token))
         assert case_view.status_code == 200
+
+
+def test_request_preferred_slot_and_date_validation() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        case_id = create_case(client, user_token, "时段预约测试")
+        today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+        past = (today - timedelta(days=1)).isoformat()
+        far = (today + timedelta(days=15)).isoformat()
+        valid = (today + timedelta(days=3)).isoformat()
+
+        past_response = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={
+                "case_id": case_id,
+                "reason": "日期已过去",
+                "preferred_date": past,
+                "preferred_slot": "evening",
+            },
+        )
+        assert past_response.status_code == 400
+        assert "不能早于" in past_response.json()["detail"]
+
+        far_response = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={
+                "case_id": case_id,
+                "reason": "超过 14 天",
+                "preferred_date": far,
+                "preferred_slot": "morning",
+            },
+        )
+        assert far_response.status_code == 400
+        assert "14 天" in far_response.json()["detail"]
+
+        created = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={
+                "case_id": case_id,
+                "reason": "材料复杂，希望晚间沟通",
+                "preferred_date": valid,
+                "preferred_slot": "evening",
+            },
+        )
+        assert created.status_code == 201
+        body = created.json()
+        assert body["preferred_date"] == valid
+        assert body["preferred_slot"] == "evening"
+        assert "18:00" in body["preferred_time"]
+
+        todos = client.get("/api/v1/lawyer-service/todos", headers=auth(lawyer_token))
+        assert todos.status_code == 200
+        assert body["id"] in [item["id"] for item in todos.json()["requests"]]
+
+
+def test_reject_request_requires_reason() -> None:
+    with TestClient(app) as client:
+        user_token = login(client, "demo", "Demo123!")
+        lawyer_token = login(client, "lawyer", "Lawyer123!")
+        case_id = create_case(client, user_token, "拒绝理由测试")
+
+        created = client.post(
+            "/api/v1/lawyer-service/requests",
+            headers=auth(user_token),
+            json={"case_id": case_id, "reason": "需要人工判断"},
+        )
+        assert created.status_code == 201
+        request_id = created.json()["id"]
+
+        missing_reason = client.patch(
+            f"/api/v1/lawyer-service/requests/{request_id}",
+            headers=auth(lawyer_token),
+            json={"accept": False},
+        )
+        assert missing_reason.status_code == 422
+
+        rejected = client.patch(
+            f"/api/v1/lawyer-service/requests/{request_id}",
+            headers=auth(lawyer_token),
+            json={"accept": False, "reject_reason": "近期时段已排满，请改约"},
+        )
+        assert rejected.status_code == 200
+        body = rejected.json()
+        assert body["status"] == "rejected"
+        assert body["reject_reason"] == "近期时段已排满，请改约"
 
 
 def test_duplicate_active_request_conflict() -> None:

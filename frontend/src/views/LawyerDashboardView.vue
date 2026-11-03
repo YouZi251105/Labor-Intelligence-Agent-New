@@ -221,15 +221,21 @@
         <div class="ledger-list">
           <article v-for="request in todoRequests" :key="request.id">
             <div>
-              <strong>#{{ request.case_id }} · {{ todoCaseTitle(request.case_id) }}</strong>
+              <strong>
+                #{{ request.case_id }} · {{ todoCaseTitle(request.case_id) }}
+                <span v-if="request.priority === 'urgent'" class="status-tag status-tag--warning">加急</span>
+                <span
+                  v-if="request.preferred_date && request.preferred_date < todayIso"
+                  class="status-tag status-tag--warning"
+                >已过期</span>
+              </strong>
               <span class="pre-line">{{ request.reason }}</span>
               <small>
-                期望时间：{{ request.preferred_time || '不限' }} ·
+                期望时间：{{ todoSlotText(request) }} ·
                 {{ new Date(request.created_at).toLocaleString('zh-CN') }}
               </small>
             </div>
             <div class="ledger-list__actions">
-              <span v-if="request.priority === 'urgent'" class="status-tag status-tag--warning">加急</span>
               <button
                 type="button"
                 :disabled="actingRequestId === request.id"
@@ -361,7 +367,7 @@ import { apiRequest } from '../api/http'
 import ConsultationChat from '../components/ConsultationChat.vue'
 import SafeMarkdown from '../components/SafeMarkdown.vue'
 import { useDictionaryStore } from '../stores/dictionary'
-import { notifySuccess } from '../utils/dialogs'
+import { notifySuccess, promptForText } from '../utils/dialogs'
 import type {
   CaseItem,
   CaseReviewItem,
@@ -373,6 +379,13 @@ import type {
   RevenueLedger,
   ServiceRecord,
 } from '../types/api'
+
+const slotLabels: Record<string, string> = {
+  morning: '上午 09:00-12:00',
+  afternoon: '下午 14:00-18:00',
+  evening: '晚间 18:00-21:00',
+}
+const todayIso = new Date().toISOString().slice(0, 10)
 
 const router = useRouter()
 const activeTab = ref('cases')
@@ -460,13 +473,24 @@ async function refreshLawyerService() {
 }
 
 async function actTodoRequest(request: LawyerRequestItem, accept: boolean) {
+  let rejectReason = ''
+  if (!accept) {
+    const reason = await promptForText('拒绝预约时需要向用户说明理由（会展示给用户）：', {
+      title: '拒绝预约',
+      placeholder: '例如：近期时段已排满，请改约其他时间',
+      requiredMessage: '请填写拒绝理由',
+      multiline: true,
+    })
+    if (reason === null) return
+    rejectReason = reason
+  }
   actingRequestId.value = request.id
   error.value = ''
   try {
     await apiRequest<LawyerRequestItem>(`/lawyer-service/requests/${request.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accept }),
+      body: JSON.stringify({ accept, reject_reason: rejectReason }),
     })
     notifySuccess(accept ? '已受理，可在咨询会话中回复' : '已拒绝该预约')
     await refreshLawyerService()
@@ -475,6 +499,14 @@ async function actTodoRequest(request: LawyerRequestItem, accept: boolean) {
   } finally {
     actingRequestId.value = null
   }
+}
+
+function todoSlotText(request: LawyerRequestItem) {
+  if (request.preferred_date && request.preferred_slot) {
+    const monthDay = request.preferred_date.slice(5).replace('-', '月')
+    return `${monthDay}日 · ${slotLabels[request.preferred_slot]}`
+  }
+  return request.preferred_time || '不限'
 }
 
 async function submitReview(review: CaseReviewItem) {

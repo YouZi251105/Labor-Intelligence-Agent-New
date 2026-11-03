@@ -5834,6 +5834,12 @@
           "accept": {
             "type": "boolean",
             "title": "Accept"
+          },
+          "reject_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Reject Reason",
+            "default": ""
           }
         },
         "type": "object",
@@ -5859,6 +5865,34 @@
             "maxLength": 160,
             "title": "Preferred Time",
             "default": ""
+          },
+          "preferred_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Date"
+          },
+          "preferred_slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "morning",
+                  "afternoon",
+                  "evening"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Slot"
           },
           "priority": {
             "type": "string",
@@ -5910,6 +5944,29 @@
             "type": "string",
             "title": "Preferred Time"
           },
+          "preferred_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Date"
+          },
+          "preferred_slot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Slot"
+          },
           "priority": {
             "type": "string",
             "title": "Priority"
@@ -5917,6 +5974,10 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "reject_reason": {
+            "type": "string",
+            "title": "Reject Reason"
           },
           "created_at": {
             "type": "string",
@@ -5961,8 +6022,11 @@
           "lawyer_id",
           "reason",
           "preferred_time",
+          "preferred_date",
+          "preferred_slot",
           "priority",
           "status",
+          "reject_reason",
           "created_at",
           "updated_at",
           "accepted_at",

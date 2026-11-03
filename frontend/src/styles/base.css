@@ -1156,6 +1156,61 @@ summary:focus-visible {
   margin-bottom: 10px;
 }
 
+.lawyer-slot-warning {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--lia-warning-soft);
+  border-radius: 10px;
+  background: var(--lia-warning-soft);
+  color: var(--lia-warning);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.lawyer-slot-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.lawyer-slot-picker__label {
+  color: var(--lia-text-secondary);
+  font-size: 12px;
+}
+
+.lawyer-slot-picker__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lawyer-slot-chip {
+  padding: 8px 12px;
+  border: 1px solid var(--lia-border);
+  border-radius: 999px;
+  background: var(--lia-surface);
+  color: var(--lia-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.lawyer-slot-chip:hover {
+  border-color: var(--lia-primary);
+  color: var(--lia-primary);
+}
+
+.lawyer-slot-chip--active {
+  border-color: var(--lia-primary);
+  background: var(--lia-primary-soft);
+  color: var(--lia-primary);
+  font-weight: 650;
+}
+
 .lawyer-progress {
   display: flex;
   align-items: flex-start;

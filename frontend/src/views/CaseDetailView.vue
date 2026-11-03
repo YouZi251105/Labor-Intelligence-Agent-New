@@ -435,8 +435,14 @@
             </li>
           </ol>
           <p class="pre-line">{{ activeRequest.reason }}</p>
+          <p v-if="requestExpired" class="lawyer-slot-warning">
+            已超过期望时间，律师会尽快与你联系；如有急事可取消后重新预约加急时段。
+          </p>
+          <p v-if="activeRequest.status === 'rejected' && activeRequest.reject_reason" class="lawyer-slot-warning">
+            律师说明：{{ activeRequest.reject_reason }}
+          </p>
           <small class="muted-text">
-            期望时间：{{ activeRequest.preferred_time || '不限' }} · 提交于
+            期望时间：{{ requestTimeText(activeRequest) }} · 提交于
             {{ new Date(activeRequest.created_at).toLocaleString('zh-CN') }}
           </small>
           <div
@@ -459,9 +465,24 @@
             />
           </label>
           <label>
-            期望时间（可选）
-            <input v-model="requestForm.preferred_time" placeholder="例如：工作日晚上 8 点后" />
+            期望日期（可选，最多提前 14 天）
+            <input v-model="requestForm.preferred_date" type="date" :min="dateMin" :max="dateMax" />
           </label>
+          <div v-if="requestForm.preferred_date" class="lawyer-slot-picker">
+            <span class="lawyer-slot-picker__label">期望时段</span>
+            <div class="lawyer-slot-picker__options">
+              <button
+                v-for="option in slotOptions"
+                :key="option.value"
+                type="button"
+                class="lawyer-slot-chip"
+                :class="{ 'lawyer-slot-chip--active': requestForm.preferred_slot === option.value }"
+                @click="requestForm.preferred_slot = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
           <label>
             紧急程度
             <select v-model="requestForm.priority">
@@ -572,6 +593,7 @@ import type {
   EvidenceResponse,
   LawyerRequestItem,
   MessageItem,
+  RequestSlot,
   WorkflowOption,
   WorkflowResponse,
 } from '../types/api'
@@ -621,8 +643,27 @@ const cancellingRequest = ref(false)
 const requestingReview = ref(false)
 const requestForm = reactive({
   reason: '',
-  preferred_time: '',
-  priority: 'normal',
+  preferred_date: '',
+  preferred_slot: 'evening' as RequestSlot,
+  priority: 'normal' as 'normal' | 'urgent',
+})
+
+const requestSlotLabels: Record<RequestSlot, string> = {
+  morning: '上午 09:00-12:00',
+  afternoon: '下午 14:00-18:00',
+  evening: '晚间 18:00-21:00',
+}
+const slotOptions = (Object.keys(requestSlotLabels) as RequestSlot[]).map((value) => ({
+  value,
+  label: requestSlotLabels[value],
+}))
+
+const todayIso = new Date().toISOString().slice(0, 10)
+const dateMin = todayIso
+const dateMax = computed(() => {
+  const max = new Date()
+  max.setDate(max.getDate() + 14)
+  return max.toISOString().slice(0, 10)
 })
 
 const requestStatusLabels: Record<string, string> = {
@@ -744,13 +785,15 @@ async function createRequest() {
       body: JSON.stringify({
         case_id: caseId,
         reason,
-        preferred_time: requestForm.preferred_time.trim(),
+        preferred_date: requestForm.preferred_date || null,
+        preferred_slot: requestForm.preferred_date ? requestForm.preferred_slot : null,
         priority: requestForm.priority,
       }),
     })
     lawyerRequests.value.unshift(created)
     requestForm.reason = ''
-    requestForm.preferred_time = ''
+    requestForm.preferred_date = ''
+    requestForm.preferred_slot = 'evening'
     requestForm.priority = 'normal'
     notifySuccess('预约已提交，律师会尽快处理')
   } catch (err) {
@@ -759,6 +802,21 @@ async function createRequest() {
     creatingRequest.value = false
   }
 }
+
+function requestTimeText(request: LawyerRequestItem) {
+  if (request.preferred_date && request.preferred_slot) {
+    const monthDay = request.preferred_date.slice(5).replace('-', '月')
+    return `${monthDay}日 · ${requestSlotLabels[request.preferred_slot]}`
+  }
+  return request.preferred_time || '不限'
+}
+
+const requestExpired = computed(() => {
+  const request = activeRequest.value
+  if (!request) return false
+  if (!['pending', 'accepted'].includes(request.status)) return false
+  return Boolean(request.preferred_date && request.preferred_date < todayIso)
+})
 
 async function cancelRequest() {
   if (!activeRequest.value) return

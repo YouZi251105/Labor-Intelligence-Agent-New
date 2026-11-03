@@ -51,6 +51,42 @@ export async function promptForPassword(message: string): Promise<string | null>
   }
 }
 
+interface PromptTextOptions {
+  title?: string
+  placeholder?: string
+  required?: boolean
+  requiredMessage?: string
+  multiline?: boolean
+}
+
+export async function promptForText(
+  message: string,
+  options: PromptTextOptions = {},
+): Promise<string | null> {
+  const {
+    title = '请填写',
+    placeholder = '',
+    required = true,
+    requiredMessage = '内容不能为空',
+    multiline = false,
+  } = options
+  try {
+    const result = await ElMessageBox.prompt(message, title, {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      inputType: multiline ? 'textarea' : 'text',
+      inputPlaceholder: placeholder,
+      inputValidator: (value: string) =>
+        !required || value.trim().length > 0 || requiredMessage,
+      customClass: 'lia-confirm-dialog',
+      closeOnClickModal: false,
+    })
+    return result.value?.trim() || null
+  } catch {
+    return null
+  }
+}
+
 export function notifySuccess(message: string): void {
   ElMessage.success(message)
 }

@@ -1,5 +1,6 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
@@ -15,6 +16,7 @@ from app.models.lawyer_service import (
 )
 from app.models.user import User
 from app.schemas.lawyer_service import (
+    SLOT_LABELS,
     CaseReviewRead,
     CaseReviewSubmit,
     ConsultationMessageCreate,
@@ -31,6 +33,8 @@ LawyerUser = require_roles("lawyer")
 LawyerRequired = Annotated[User, Depends(LawyerUser)]
 
 ACTIVE_REQUEST_STATUSES = {"pending", "accepted"}
+SLOT_ORDER = {"morning": 0, "afternoon": 1, "evening": 2}
+LOCAL_TZ = ZoneInfo("Asia/Shanghai")
 
 
 def _audit(
@@ -87,11 +91,26 @@ async def create_request(
     if active is not None:
         raise HTTPException(status_code=409, detail="该案件已有进行中的律师服务预约")
 
+    preferred_time = payload.preferred_time
+    if payload.preferred_date is not None:
+        today = datetime.now(LOCAL_TZ).date()
+        if payload.preferred_date < today:
+            raise HTTPException(status_code=400, detail="预约日期不能早于今天")
+        if payload.preferred_date > today + timedelta(days=14):
+            raise HTTPException(status_code=400, detail="预约日期最多提前 14 天")
+        if payload.preferred_slot is not None:
+            preferred_time = (
+                f"{payload.preferred_date.month}月{payload.preferred_date.day}日 "
+                f"{SLOT_LABELS[payload.preferred_slot]}"
+            )
+
     request = LawyerRequest(
         case_id=case.id,
         user_id=user.id,
         reason=payload.reason,
-        preferred_time=payload.preferred_time,
+        preferred_time=preferred_time,
+        preferred_date=payload.preferred_date,
+        preferred_slot=payload.preferred_slot,
         priority=payload.priority,
     )
     session.add(request)
@@ -148,6 +167,7 @@ async def act_request(
     else:
         request.status = "rejected"
         request.lawyer_id = user.id
+        request.reject_reason = payload.reject_reason.strip()
         session.add(_audit(user.id, "lawyer_request.rejected", request.id))
 
     await session.commit()
@@ -364,6 +384,14 @@ async def lawyer_todos(session: DbSession, user: LawyerRequired) -> dict[str, ob
                 ),
             )
             .order_by(CaseReview.created_at.asc())
+        )
+    )
+    pending_requests.sort(
+        key=lambda r: (
+            r.preferred_date is None,
+            r.preferred_date or datetime.now(LOCAL_TZ).date(),
+            SLOT_ORDER.get(r.preferred_slot or "", 99),
+            r.created_at,
         )
     )
     return {

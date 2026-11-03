@@ -1,6 +1,6 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import Date, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -20,8 +20,11 @@ class LawyerRequest(Base):
     )
     reason: Mapped[str] = mapped_column(Text)
     preferred_time: Mapped[str] = mapped_column(String(160), default="")
+    preferred_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    preferred_slot: Mapped[str | None] = mapped_column(String(20), nullable=True)
     priority: Mapped[str] = mapped_column(String(20), default="normal")
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    reject_reason: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC)
     )

@@ -528,6 +528,8 @@ export type LawyerRequestStatus =
   | 'completed'
   | 'cancelled'
 
+export type RequestSlot = 'morning' | 'afternoon' | 'evening'
+
 export interface LawyerRequestItem {
   id: number
   case_id: number
@@ -535,8 +537,11 @@ export interface LawyerRequestItem {
   lawyer_id: number | null
   reason: string
   preferred_time: string
+  preferred_date: string | null
+  preferred_slot: RequestSlot | null
   priority: 'normal' | 'urgent'
   status: LawyerRequestStatus
+  reject_reason: string | null
   created_at: string
   updated_at: string
   accepted_at: string | null
