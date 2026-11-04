@@ -36,3 +36,21 @@ export function followUpOptions(message: MessageItem): FollowUpOption[] {
     })
     .slice(0, 4)
 }
+
+export function latestActionableAssistantMessageId(
+  messages: MessageItem[],
+): number | null {
+  const lastMessage = messages.at(-1)
+  return lastMessage?.role === 'assistant' ? lastMessage.id : null
+}
+
+export function activeFollowUpOptions(
+  message: MessageItem,
+  latestAssistantMessageId: number | null,
+  consumedKeys: ReadonlySet<string>,
+): FollowUpOption[] {
+  if (message.id !== latestAssistantMessageId) return []
+  return followUpOptions(message).filter(
+    (option) => !consumedKeys.has(`${message.id}:${option.id}`),
+  )
+}

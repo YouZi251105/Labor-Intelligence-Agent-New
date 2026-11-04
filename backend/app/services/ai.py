@@ -45,6 +45,31 @@ class InterventionRecommendation:
 
 
 @dataclass(frozen=True)
+class FollowUpProgress:
+    """State used to keep suggested next questions aligned with the case."""
+
+    stage: str = "intake"
+    has_evidence: bool = False
+    has_documents: bool = False
+    lawyer_assigned: bool = False
+    lawyer_request_status: str = ""
+    case_review_status: str = ""
+
+    @property
+    def lawyer_engaged(self) -> bool:
+        return self.lawyer_assigned or self.lawyer_request_status in {
+            "pending",
+            "accepted",
+            "in_session",
+            "completed",
+        }
+
+    @property
+    def review_requested(self) -> bool:
+        return self.case_review_status in {"pending", "reviewed"}
+
+
+@dataclass(frozen=True)
 class ReferenceItem:
     type: Literal["law", "case"]
     id: str
@@ -160,6 +185,10 @@ def _build_qwen_prompt(
     return (
         "你是劳务通的法律咨询助手。请先识别问题类别，再给出简洁建议。"
         "不得保证结果，不得编造法条。"
+        "平台设有律师端，并由平台驻场律师和合作律师提供咨询、材料复核、"
+        "正式流程前审查等协助；具体代理关系和服务范围由律师评估后与用户确认。"
+        "涉及律师、代理、立案或复杂争议时，应引导用户使用平台的律师协助入口，"
+        "不得回答平台不提供律师服务、不推荐律师或不对接律师。"
         f"{follow_up_instruction}"
         f"案件事实：{case.facts}\n历史对话：{history_context}\n用户新消息：{text}"
     )
@@ -176,6 +205,8 @@ def _result_from_reply(
     required_information: list[str],
     evidence_gaps: list[str],
     demo_mode: bool,
+    history: list[Message],
+    progress: FollowUpProgress | None = None,
     model_suggestions: list[str] | None = None,
 ) -> AIResult:
     return AIResult(
@@ -197,10 +228,16 @@ def _result_from_reply(
             required_information,
             next_step,
             recommendation,
-            model_suggestions,
+            history=history,
+            progress=progress,
+            model_suggestions=model_suggestions,
         ),
         intervention_recommendation=recommendation,
     )
+
+
+def _normalize_follow_up_text(text: str) -> str:
+    return " ".join(text.strip().rstrip("。！？!?").split())
 
 
 def build_follow_up_options(
@@ -208,34 +245,99 @@ def build_follow_up_options(
     required_information: list[str],
     next_step: str,
     recommendation: InterventionRecommendation,
+    *,
+    history: list[Message] | None = None,
+    progress: FollowUpProgress | None = None,
     model_suggestions: list[str] | None = None,
 ) -> list[FollowUpOption]:
-    """Combine missing-information prompts with model or local next questions."""
+    """Build questions that reflect current gaps, actions and case progress."""
+    history = history or []
+    progress = progress or FollowUpProgress()
     options: list[FollowUpOption] = []
     seen_messages: set[str] = set()
+    previous_user_messages = {
+        _normalize_follow_up_text(item.content)
+        for item in history
+        if item.role == "user" and item.content.strip()
+    }
+
+    def add_option(
+        *,
+        option_id: str,
+        label: str,
+        message: str,
+        kind: Literal["send", "fill", "lawyer_request", "filing_review"],
+    ) -> None:
+        if len(options) >= 4:
+            return
+        message_key = _normalize_follow_up_text(message)
+        label_key = _normalize_follow_up_text(label)
+        if (
+            not message_key
+            or not label_key
+            or message_key in seen_messages
+            or message_key in previous_user_messages
+            or label_key in {_normalize_follow_up_text(item.label) for item in options}
+        ):
+            return
+        options.append(
+            FollowUpOption(
+                id=option_id,
+                label=label,
+                message=message,
+                kind=kind,
+            )
+        )
+        seen_messages.add(message_key)
+
     missing = [
         item
         for item in required_information
         if not _information_present(item, context)
     ]
-    fill_target = missing[0] if missing else "新的关键事实"
-    fill_message = (
-        "我再补充新的关键事实："
-        if fill_target == "新的关键事实"
-        else f"关于{fill_target}，我的情况是："
-    )
-    options.append(
-        FollowUpOption(
-            id="missing-info-1",
+    if missing:
+        fill_target = missing[0]
+        add_option(
+            option_id="missing-info-1",
             label=f"补充：{fill_target}",
-            message=fill_message,
+            message=f"关于{fill_target}，我的情况是：",
             kind="fill",
         )
-    )
-    seen_messages.add(fill_message)
-    seen_labels = {options[0].label}
 
-    if recommendation.recommended:
+    if progress.review_requested:
+        add_option(
+            option_id="review-focus",
+            label="了解复核重点",
+            message="平台律师复核时重点会看哪些材料？",
+            kind="send",
+        )
+        add_option(
+            option_id="review-next",
+            label="复核后怎么继续",
+            message="复核结论出来后，我还需要做什么？",
+            kind="send",
+        )
+    elif progress.lawyer_engaged:
+        add_option(
+            option_id="lawyer-materials",
+            label="补充律师所需材料",
+            message="律师介入后，我还需要补充哪些材料？",
+            kind="send",
+        )
+        add_option(
+            option_id="lawyer-context",
+            label="准备律师沟通",
+            message="和律师沟通时，我应该先说明哪些关键事实？",
+            kind="send",
+        )
+        if recommendation.recommended and recommendation.action == "filing_review":
+            add_option(
+                option_id="recommended-filing_review",
+                label="申请正式流程前复核",
+                message="申请正式流程前复核",
+                kind="filing_review",
+            )
+    elif recommendation.recommended:
         action_label = (
             "申请律师介入"
             if recommendation.action == "lawyer_request"
@@ -246,40 +348,96 @@ def build_follow_up_options(
             if recommendation.action == "lawyer_request"
             else "申请正式流程前复核"
         )
-        options.append(
-            FollowUpOption(
-                id=f"recommended-{recommendation.action}",
-                label=action_label,
-                message=action_message,
-                kind=recommendation.action,
-            )
+        add_option(
+            option_id=f"recommended-{recommendation.action}",
+            label=action_label,
+            message=action_message,
+            kind=recommendation.action,
         )
-        seen_labels.add(action_label)
 
-    suggestions = model_suggestions or [
-        "请根据我的情况，列出现有材料还可能缺少哪些关键材料。",
-        f"{next_step} 请进一步说明我应该先协商、投诉还是申请仲裁。",
-        "我需要律师帮我复核现有材料和办理路径。",
-    ]
+    stage_questions: list[tuple[str, str]] = []
+    if progress.stage in {"intake", "evidence"}:
+        if progress.has_evidence:
+            stage_questions.append(
+                ("检查现有材料", "请帮我检查现有材料还缺什么。")
+            )
+        else:
+            stage_questions.append(
+                ("先上传哪些材料", "我应该先上传哪些最有用的材料？")
+            )
+        stage_questions.append(
+            ("准备到什么程度", "证据准备到什么程度可以进入下一步？")
+        )
+    elif progress.stage == "procedure":
+        stage_questions.extend(
+            [
+                ("选择办理路径", "根据我的情况，应该先协商、投诉还是申请仲裁？"),
+                ("核对关键期限", "选择办理路径前需要核对哪些期限？"),
+            ]
+        )
+    elif progress.stage == "document":
+        stage_questions.extend(
+            [
+                ("核对文书内容", "请帮我核对文书中的主体、金额、请求事项和证据编号。"),
+                ("检查证据目录", "当前证据目录还缺哪些材料？"),
+            ]
+        )
+    elif progress.stage == "lawyer_help":
+        stage_questions.append(
+            ("准备律师复核", "律师复核前，我还需要准备哪些说明和材料？")
+        )
+    elif progress.stage == "closed":
+        stage_questions.append(
+            ("归档与后续", "这个案件应如何归档，后续出现新情况怎么继续？")
+        )
+
+    stage_questions.append(
+        (
+            "下一步先做什么",
+            f"围绕“{next_step}”，我现在最先做什么？",
+        )
+    )
+    for index, (label, message) in enumerate(stage_questions, start=1):
+        add_option(
+            option_id=f"progress-{index}",
+            label=label,
+            message=message,
+            kind="send",
+        )
+
+    suggestions = model_suggestions or []
     for index, suggestion in enumerate(suggestions, start=1):
         normalized = suggestion.strip()
-        if not normalized or normalized in seen_messages:
+        if not normalized:
             continue
-        label = _follow_up_label(normalized, index)
-        if label in seen_labels:
+        if progress.review_requested and "复核" in normalized:
             continue
-        options.append(
-            FollowUpOption(
-                id=f"suggestion-{index}",
-                label=label,
-                message=normalized,
-                kind="send",
-            )
+        if (
+            progress.lawyer_engaged
+            and "律师" in normalized
+            and any(term in normalized for term in ("申请", "预约", "介入"))
+        ):
+            continue
+        add_option(
+            option_id=f"suggestion-{index}",
+            label=_follow_up_label(normalized, index, progress),
+            message=normalized,
+            kind="send",
         )
-        seen_messages.add(normalized)
-        seen_labels.add(label)
-        if len(options) >= 4:
-            break
+
+    if len(options) < 2:
+        add_option(
+            option_id="fallback-facts",
+            label="补充关键事实",
+            message="我还需要补充哪些关键事实？",
+            kind="send",
+        )
+        add_option(
+            option_id="fallback-next",
+            label="下一步怎么做",
+            message="根据当前材料和进度，我下一步应该做什么？",
+            kind="send",
+        )
     return options
 
 
@@ -389,7 +547,8 @@ def build_demo_reply(
         f"{context_line}\n\n"
         f"从你刚才的描述看，关键事实是：{text[:120]}。"
         "这个阶段先不要急着写完整文书，先确认对方主体、工作时间、金额和时间线。\n\n"
-        f"下一步建议：先整理{evidence_hint}，再判断是否需要协商、仲裁或直接咨询律师。\n\n"
+        f"下一步建议：先整理{evidence_hint}，再判断是否需要协商、仲裁，"
+        "或通过案件页申请平台律师协助复核。\n\n"
         "当前使用本地演示规则回复。配置千问 API Key 后，会基于同样案件上下文生成更自然的分析。"
     )
 
@@ -416,6 +575,8 @@ async def generate_ai_reply(
     case: Case,
     text: str,
     history: list[Message],
+    *,
+    progress: FollowUpProgress | None = None,
 ) -> AIResult:
     settings = get_settings()
     classification = classify_message(text)
@@ -461,6 +622,8 @@ async def generate_ai_reply(
                 required_information=required_information,
                 evidence_gaps=evidence_gaps,
                 demo_mode=False,
+                history=history,
+                progress=progress,
                 model_suggestions=model_suggestions,
             )
         except (httpx.HTTPError, KeyError, TypeError, ValueError):
@@ -476,6 +639,8 @@ async def generate_ai_reply(
         required_information=required_information,
         evidence_gaps=evidence_gaps,
         demo_mode=True,
+        history=history,
+        progress=progress,
     )
 
 
@@ -513,6 +678,8 @@ async def generate_ai_reply_stream(
     case: Case,
     text: str,
     history: list[Message],
+    *,
+    progress: FollowUpProgress | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Yield safe UI events while reading real Qwen content tokens."""
     settings = get_settings()
@@ -567,6 +734,8 @@ async def generate_ai_reply_stream(
                     required_information=required_information,
                     evidence_gaps=evidence_gaps,
                     demo_mode=False,
+                    history=history,
+                    progress=progress,
                 ),
             }
             return
@@ -597,6 +766,8 @@ async def generate_ai_reply_stream(
             required_information=required_information,
             evidence_gaps=evidence_gaps,
             demo_mode=True,
+            history=history,
+            progress=progress,
         ),
     }
 
@@ -622,14 +793,20 @@ def _information_present(label: str, context: str) -> bool:
     return False
 
 
-def _follow_up_label(message: str, index: int) -> str:
+def _follow_up_label(
+    message: str,
+    index: int,
+    progress: FollowUpProgress,
+) -> str:
     labels = {
-        "律师": "需要人工复核",
-        "人工复核": "需要人工复核",
-        "协商": "下一步怎么走",
-        "投诉": "下一步怎么走",
-        "仲裁": "下一步怎么走",
-        "材料": "现有材料够不够",
+        "复核": "了解复核重点" if progress.review_requested else "申请人工复核",
+        "律师": "补充律师所需信息" if progress.lawyer_engaged else "申请律师协助",
+        "协商": "选择办理路径",
+        "投诉": "选择办理路径",
+        "仲裁": "核对仲裁准备",
+        "材料": "检查材料缺口",
+        "期限": "核对关键期限",
+        "文书": "核对文书内容",
     }
     for keyword, label in labels.items():
         if keyword in message:

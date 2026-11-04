@@ -173,6 +173,7 @@ test('worker can continue with a clickable AI follow-up option', async ({ page }
 
   const sendOption = page.locator('.follow-up-option[data-kind="send"]').first()
   await expect(sendOption).toBeVisible()
+  await expect(page.locator('.follow-up-options')).toHaveCount(1)
   const assistantCount = await page.locator('.chat-message--assistant').count()
   const secondResponse = page.waitForResponse(
     (response) =>
@@ -182,6 +183,7 @@ test('worker can continue with a clickable AI follow-up option', async ({ page }
   await sendOption.click()
   expect((await secondResponse).ok()).toBeTruthy()
   await expect(page.locator('.chat-message--assistant')).toHaveCount(assistantCount + 1)
+  await expect(page.locator('.follow-up-options')).toHaveCount(1)
 })
 
 test('worker receives a staged streaming consultation response', async ({ page }) => {

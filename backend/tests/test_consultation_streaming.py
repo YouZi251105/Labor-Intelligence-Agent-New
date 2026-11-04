@@ -138,3 +138,41 @@ def test_consultation_stream_emits_progress_deltas_and_done() -> None:
         messages = persisted.json()
         assert [item["role"] for item in messages] == ["user", "assistant"]
         assert messages[-1]["content"] == done["assistant_message"]["content"]
+
+
+def test_streaming_consultation_hides_completed_review_action() -> None:
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "demo", "password": "Demo123!"},
+        )
+        token = login.json()["access_token"]
+        created = client.post(
+            "/api/v1/cases",
+            headers=auth(token),
+            json={
+                "title": "流式追问动作去重",
+                "dispute_type": "labor_pay",
+                "location": "上海市",
+                "facts": "工伤后公司不承认，我准备马上申请仲裁。",
+            },
+        )
+        case_id = created.json()["id"]
+        review = client.post(
+            f"/api/v1/lawyer-service/cases/{case_id}/review",
+            headers=auth(token),
+        )
+
+        response = client.post(
+            f"/api/v1/cases/{case_id}/consultations/stream",
+            headers=auth(token),
+            json={"message": "我已经申请复核了，接下来还要准备什么？"},
+        )
+
+    assert review.status_code == 201
+    assert response.status_code == 200
+    events = parse_sse(response.text)
+    done = next(payload for event, payload in events if event == "done")
+    options = done["structured"]["follow_up_options"]
+    assert "filing_review" not in {item["kind"] for item in options}
+    assert any("复核" in item["label"] or "复核" in item["message"] for item in options)

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { MessageItem } from '../types/api'
-import { followUpOptions } from './followUps'
+import {
+  activeFollowUpOptions,
+  followUpOptions,
+  latestActionableAssistantMessageId,
+} from './followUps'
 
 function assistantMessage(options: unknown): MessageItem {
   return {
@@ -79,5 +83,48 @@ describe('followUpOptions', () => {
       'lawyer_request',
       'filing_review',
     ])
+  })
+})
+
+describe('activeFollowUpOptions', () => {
+  it('only exposes options for a trailing assistant message', () => {
+    const assistant = assistantMessage([
+      {
+        id: 'next-step',
+        label: '下一步怎么走',
+        message: '下一步应该怎么做？',
+        kind: 'send',
+      },
+    ])
+    const userMessage: MessageItem = {
+      ...assistant,
+      id: 2,
+      role: 'user',
+      content: '补充事实',
+    }
+
+    expect(latestActionableAssistantMessageId([assistant])).toBe(1)
+    expect(latestActionableAssistantMessageId([assistant, userMessage])).toBeNull()
+  })
+
+  it('hides options already consumed by the user', () => {
+    const message = assistantMessage([
+      {
+        id: 'lawyer',
+        label: '申请律师协助',
+        message: '申请律师介入',
+        kind: 'lawyer_request',
+      },
+      {
+        id: 'materials',
+        label: '检查材料',
+        message: '请帮我检查材料。',
+        kind: 'send',
+      },
+    ])
+
+    const result = activeFollowUpOptions(message, message.id, new Set(['1:lawyer']))
+
+    expect(result.map((item) => item.id)).toEqual(['materials'])
   })
 })

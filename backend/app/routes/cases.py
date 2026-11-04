@@ -23,6 +23,7 @@ from app.schemas.case import (
 )
 from app.services.ai import (
     AIResult,
+    FollowUpProgress,
     generate_ai_reply,
     generate_ai_reply_stream,
     structured_result,
@@ -67,6 +68,52 @@ async def get_worker_owned_case(
     if case.owner_id != user.id:
         raise HTTPException(status_code=404, detail="案件不存在")
     return case
+
+
+async def get_follow_up_progress(
+    case: Case,
+    session: DbSession,
+) -> FollowUpProgress:
+    latest_request_status = await session.scalar(
+        select(LawyerRequest.status)
+        .where(LawyerRequest.case_id == case.id)
+        .order_by(LawyerRequest.created_at.desc(), LawyerRequest.id.desc())
+        .limit(1)
+    )
+    active_request_status = await session.scalar(
+        select(LawyerRequest.status)
+        .where(
+            LawyerRequest.case_id == case.id,
+            LawyerRequest.status.in_(
+                ("pending", "accepted", "in_session", "completed")
+            ),
+        )
+        .order_by(LawyerRequest.created_at.desc(), LawyerRequest.id.desc())
+        .limit(1)
+    )
+    review_status = await session.scalar(
+        select(CaseReview.status).where(CaseReview.case_id == case.id).limit(1)
+    )
+    has_evidence = (
+        await session.scalar(
+            select(Evidence.id).where(Evidence.case_id == case.id).limit(1)
+        )
+        is not None
+    )
+    has_documents = (
+        await session.scalar(
+            select(Document.id).where(Document.case_id == case.id).limit(1)
+        )
+        is not None
+    )
+    return FollowUpProgress(
+        stage=case.stage,
+        has_evidence=has_evidence,
+        has_documents=has_documents,
+        lawyer_assigned=case.assigned_lawyer_id is not None,
+        lawyer_request_status=active_request_status or latest_request_status or "",
+        case_review_status=review_status or "",
+    )
 
 
 @router.post("", response_model=CaseRead, status_code=status.HTTP_201_CREATED)
@@ -359,7 +406,13 @@ async def consult_case(
     session.add(user_message)
     await session.flush()
 
-    ai_result = await generate_ai_reply(case, payload.message, history)
+    follow_up_progress = await get_follow_up_progress(case, session)
+    ai_result = await generate_ai_reply(
+        case,
+        payload.message,
+        history,
+        progress=follow_up_progress,
+    )
     assistant_message = Message(
         conversation_id=conversation.id,
         role="assistant",
@@ -415,6 +468,7 @@ async def _run_consult_stream(
     payload: MessageCreate,
     user: CompleteWorkerProfile,
     *,
+    progress: FollowUpProgress,
     initial_case_payload: dict[str, Any],
     user_message_payload: dict[str, Any],
     action: str,
@@ -423,7 +477,12 @@ async def _run_consult_stream(
     streamed_parts: list[str] = []
     first_status = True
     try:
-        async for event in generate_ai_reply_stream(case, payload.message, history):
+        async for event in generate_ai_reply_stream(
+            case,
+            payload.message,
+            history,
+            progress=progress,
+        ):
             event_type = event["type"]
             if event_type == "status":
                 data = dict(event)
@@ -580,6 +639,7 @@ async def consult_case_stream(
     user_message_payload = MessageRead.model_validate(user_message).model_dump(
         mode="json"
     )
+    follow_up_progress = await get_follow_up_progress(case, session)
 
     async def event_stream() -> AsyncIterator[str]:
         async for chunk in _run_consult_stream(
@@ -589,6 +649,7 @@ async def consult_case_stream(
             history,
             payload,
             user,
+            progress=follow_up_progress,
             initial_case_payload=initial_case_payload,
             user_message_payload=user_message_payload,
             action="case.consultation",
@@ -644,6 +705,7 @@ async def consult_auto_create_stream(
     user_message_payload = MessageRead.model_validate(user_message).model_dump(
         mode="json"
     )
+    follow_up_progress = await get_follow_up_progress(case, session)
 
     async def event_stream() -> AsyncIterator[str]:
         async for chunk in _run_consult_stream(
@@ -653,6 +715,7 @@ async def consult_auto_create_stream(
             history,
             payload,
             user,
+            progress=follow_up_progress,
             initial_case_payload=initial_case_payload,
             user_message_payload=user_message_payload,
             action="case.auto_created_consultation",

@@ -139,18 +139,23 @@
             :references="referencesFromMessage(message)"
           />
           <div
-            v-if="message.role === 'assistant' && followUpOptions(message).length"
+            v-if="
+              !sending &&
+              message.role === 'assistant' &&
+              activeFollowUpOptionsForMessage(message).length
+            "
             class="follow-up-options"
+            :data-message-id="message.id"
           >
             <span class="follow-up-options__label">猜你想问</span>
             <button
-              v-for="option in followUpOptions(message)"
+              v-for="option in activeFollowUpOptionsForMessage(message)"
               :key="option.id"
               type="button"
               class="follow-up-option"
               :data-kind="option.kind"
               :disabled="sending"
-              @click="handleFollowUp(option)"
+              @click="handleFollowUp(message, option)"
             >
               {{ option.label }}
               <ArrowUpRight :size="14" />
@@ -284,6 +289,7 @@ import {
   Banknote,
   Clock3,
   FileWarning,
+  Plus,
   Scale,
   ShieldAlert,
   ShieldCheck,
@@ -308,7 +314,10 @@ import type {
   ReferenceItem,
   TopicsResponse,
 } from '../types/api'
-import { followUpOptions } from '../utils/followUps'
+import {
+  activeFollowUpOptions,
+  latestActionableAssistantMessageId,
+} from '../utils/followUps'
 import { referencesFromMessage } from '../utils/references'
 
 const router = useRouter()
@@ -331,9 +340,13 @@ const evidenceGaps = ref<string[]>([])
 const interventionRecommendation = ref<InterventionRecommendation | null>(null)
 const historyCases = ref<HistoryCaseSummary[]>([])
 const topicSummary = ref<TopicsResponse>({ topics: [], total: 0 })
+const consumedFollowUpKeys = ref<string[]>([])
 let streamingBuffer = ''
 let streamFrame = 0
 let keepScrolledToBottom = true
+const latestAssistantMessageId = computed(() =>
+  latestActionableAssistantMessageId(messages.value),
+)
 
 const topics = ['拖欠工资', '突然被辞退', '没有签合同', '工伤或受伤'] as const
 const topicIcons = {
@@ -587,8 +600,24 @@ async function sendMessage(contentOverride?: string) {
   }
 }
 
-function handleFollowUp(option: FollowUpOption) {
+function followUpKey(message: MessageItem, option: FollowUpOption) {
+  return `${message.id}:${option.id}`
+}
+
+function activeFollowUpOptionsForMessage(message: MessageItem) {
+  return activeFollowUpOptions(
+    message,
+    latestAssistantMessageId.value,
+    new Set(consumedFollowUpKeys.value),
+  )
+}
+
+function handleFollowUp(message: MessageItem, option: FollowUpOption) {
   if (sending.value) return
+  const key = followUpKey(message, option)
+  if (!consumedFollowUpKeys.value.includes(key)) {
+    consumedFollowUpKeys.value = [...consumedFollowUpKeys.value, key]
+  }
   if (option.kind === 'lawyer_request') {
     openLawyerIntervention()
     return
