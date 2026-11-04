@@ -4,10 +4,58 @@
       <header class="workspace-header">
         <div>
           <span class="eyebrow">AI 法律咨询</span>
-          <h1>{{ activeCase ? activeCase.title : '先说说你遇到了什么问题' }}</h1>
-          <p>先描述你的情况，系统会一步步帮你梳理。</p>
+          <div class="workspace-header__title-row">
+            <select
+              class="case-selector"
+              :value="activeCase?.id ?? ''"
+              @change="onCaseSelect"
+              aria-label="选择案件"
+            >
+              <option value="" disabled>选择已有案件…</option>
+              <option
+                v-for="item in allCases"
+                :key="item.id"
+                :value="item.id"
+              >
+                {{ item.title }}（{{
+                  dictionary.disputeLabels[item.dispute_type] || item.dispute_type
+                }}）
+              </option>
+            </select>
+            <h1
+              v-if="activeCase"
+              class="workspace-header__case-title"
+            >
+              {{ activeCase.title }}
+            </h1>
+            <h1 v-else>先说说你遇到了什么问题</h1>
+          </div>
+          <p v-if="activeCase">
+            {{ dictionary.disputeLabels[activeCase.dispute_type] || activeCase.dispute_type }} · {{
+              stageLabel(activeCase.stage)
+            }}
+          </p>
+          <p v-else>
+            先描述你的情况，系统会一步步帮你梳理。发送首条消息后会自动创建案件。
+          </p>
         </div>
         <div class="workspace-header__actions">
+          <button
+            class="primary-action primary-action--compact"
+            type="button"
+            @click="startNewConversation"
+          >
+            <Plus :size="16" />
+            新开一轮对话
+          </button>
+          <RouterLink
+            v-if="auth.user?.role === 'user'"
+            class="text-link"
+            to="/cases"
+          >
+            我的案件
+            <ArrowRight :size="16" />
+          </RouterLink>
           <button
             v-if="auth.user?.role === 'user'"
             class="secondary-action secondary-action--compact"
@@ -266,6 +314,7 @@ import { referencesFromMessage } from '../utils/references'
 const router = useRouter()
 const auth = useAuthStore()
 const workspace = useWorkspaceStore()
+const allCases = ref<CaseItem[]>([])
 const activeCase = ref<CaseItem | null>(null)
 const messages = ref<MessageItem[]>([])
 const chatMessageList = ref<HTMLElement | null>(null)
@@ -343,11 +392,14 @@ async function loadInitialCase() {
     apiRequest<{ cases: HistoryCaseSummary[] }>('/analytics/history'),
     apiRequest<TopicsResponse>('/analytics/topics'),
   ])
+  allCases.value = cases
   historyCases.value = history.cases
   topicSummary.value = topics
   if (!cases.length) return
   activeCase.value = cases[0]
-  messages.value = await apiRequest<MessageItem[]>(`/cases/${cases[0].id}/messages`)
+  messages.value = await apiRequest<MessageItem[]>(
+    `/cases/${cases[0].id}/messages`,
+  )
   if (messages.value.length) {
     const metadata = messages.value.at(-1)?.metadata_json ?? {}
     suggestedNextStep.value = String(metadata.suggested_next_step ?? '')
@@ -361,6 +413,47 @@ async function loadInitialCase() {
     interventionRecommendation.value =
       structured?.intervention_recommendation ?? null
   }
+}
+
+function startNewConversation() {
+  activeCase.value = null
+  messages.value = []
+  suggestedNextStep.value = ''
+  evidenceGaps.value = []
+  interventionRecommendation.value = null
+  error.value = ''
+}
+
+async function selectCase(target: CaseItem) {
+  activeCase.value = target
+  messages.value = await apiRequest<MessageItem[]>(
+    `/cases/${target.id}/messages`,
+  )
+  if (messages.value.length) {
+    const metadata = messages.value.at(-1)?.metadata_json ?? {}
+    suggestedNextStep.value = String(metadata.suggested_next_step ?? '')
+    const structured = metadata.structured as
+      | {
+          evidence_gaps?: string[]
+          intervention_recommendation?: InterventionRecommendation
+        }
+      | undefined
+    evidenceGaps.value = structured?.evidence_gaps ?? []
+    interventionRecommendation.value =
+      structured?.intervention_recommendation ?? null
+  } else {
+    suggestedNextStep.value = ''
+    evidenceGaps.value = []
+    interventionRecommendation.value = null
+  }
+}
+
+function onCaseSelect(event: Event) {
+  const el = event.target as HTMLSelectElement
+  const selectedId = Number(el.value)
+  const target = allCases.value.find((item) => item.id === selectedId)
+  if (target) void selectCase(target)
+  else startNewConversation()
 }
 
 async function sendMessage(contentOverride?: string) {
@@ -377,20 +470,12 @@ async function sendMessage(contentOverride?: string) {
   let donePayload: ConsultationResponse | null = null
 
   try {
-    if (!activeCase.value) {
-      activeCase.value = await apiRequest<CaseItem>('/cases', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: content.slice(0, 30),
-          facts: content,
-          dispute_type: 'labor_other',
-        }),
-      })
-    }
+    const streamUrl = activeCase.value
+      ? `/cases/${activeCase.value.id}/consultations/stream`
+      : '/cases/consult/stream'
 
     await apiStream(
-      `/cases/${activeCase.value.id}/consultations/stream`,
+      streamUrl,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -462,6 +547,10 @@ async function sendMessage(contentOverride?: string) {
     }
     flushStreamingBuffer()
     activeCase.value = response.case
+    // 无案件自动创建后，刷新下拉列表让新案件出现
+    if (!allCases.value.some((item) => item.id === response.case.id)) {
+      allCases.value = await apiRequest<CaseItem[]>('/cases')
+    }
     messages.value = messages.value.filter(
       (message) =>
         message.id !== response.user_message.id &&

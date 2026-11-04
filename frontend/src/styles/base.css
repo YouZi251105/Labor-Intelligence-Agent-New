@@ -371,6 +371,51 @@ h2 {
   line-height: 1.25;
 }
 
+.workspace-header__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-header__title-row h1 {
+  margin-bottom: 0;
+}
+
+.workspace-header__case-title {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-selector {
+  flex: 0 0 auto;
+  max-width: 360px;
+  padding: 6px 28px 6px 10px;
+  font-size: 13px;
+  color: var(--lia-text);
+  background-color: var(--lia-bg-elevated);
+  border: 1px solid var(--lia-border);
+  border-radius: 6px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M0 0l5 6 5-6z' fill='%2364748b'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 6px;
+}
+
+.case-selector:hover {
+  border-color: var(--lia-accent, #3b82f6);
+}
+
+.case-selector:focus {
+  outline: none;
+  border-color: var(--lia-accent, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
 .workspace-header p {
   max-width: 680px;
   margin-bottom: 0;
@@ -1897,22 +1942,7 @@ summary:focus-visible {
   margin-top: 12px;
 }
 
-.session-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--lia-border);
-  border-radius: 12px;
-  background: var(--lia-surface);
-  cursor: pointer;
-}
-
-.session-item--active {
-  border-color: var(--lia-primary, #b4574e);
-  box-shadow: inset 3px 0 0 var(--lia-primary, #b4574e);
-}
+/* session-item 样式定义集中在文件末尾 detail-grid--sessions 区块。 */
 
 .markdown-body {
   min-width: 0;
@@ -5084,4 +5114,115 @@ summary:focus-visible {
   display: grid;
   gap: 8px;
   align-content: start;
+}
+
+/* ---------------------------------------------------------------------------
+   律师端咨询会话：列表 + 对话同栏布局
+--------------------------------------------------------------------------- */
+.detail-grid--sessions {
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: start;
+}
+
+.sessions-list-card {
+  max-height: 640px;
+  overflow-y: auto;
+  align-self: start;
+}
+
+.sessions-chat-card {
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sessions-chat-card .detail-section-heading {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.sessions-chat-card .consult-chat {
+  flex: 1;
+  min-height: 0;
+}
+
+.sessions-chat-card .consult-chat__list {
+  max-height: none;
+  flex: 1;
+  min-height: 240px;
+}
+
+.sessions-chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  border: 1px dashed var(--lia-border);
+  border-radius: var(--lia-radius);
+  color: var(--lia-text-muted);
+}
+
+.sessions-chat-empty svg {
+  opacity: 0.5;
+}
+
+/* session-item 列表卡片：时间、状态标签远离边框 */
+.session-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--lia-border);
+  border-radius: 12px;
+  background: var(--lia-surface);
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.session-item:hover {
+  border-color: var(--lia-border-strong);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.session-item__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 2px;
+}
+
+.session-item__title {
+  font-size: 13px;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-item__time {
+  font-size: 11px;
+  color: var(--lia-text-muted);
+  line-height: 1.4;
+  padding-left: 1px;
+}
+
+.session-item--active {
+  border-color: var(--lia-primary, #b4574e);
+  box-shadow: inset 2px 0 0 var(--lia-primary, #b4574e);
+  background: color-mix(in srgb, var(--lia-primary, #b4574e) 4%, var(--lia-surface));
+}
+
+/* status-tag 紧凑尺寸，避免挤压卡片内容 */
+.status-tag--compact {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  line-height: 1.5;
+  white-space: nowrap;
 }

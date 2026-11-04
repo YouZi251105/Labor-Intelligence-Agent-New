@@ -246,8 +246,8 @@
       </div>
     </section>
 
-    <section v-else-if="activeTab === 'sessions'" class="detail-grid">
-      <div class="detail-card">
+    <section v-else-if="activeTab === 'sessions'" class="detail-grid detail-grid--sessions">
+      <div class="detail-card sessions-list-card">
         <div class="detail-section-heading">
           <div>
             <span class="eyebrow">咨询会话</span>
@@ -262,30 +262,50 @@
             :class="{ 'session-item--active': activeSessionId === item.id }"
             @click="activeSessionId = item.id"
           >
-            <div>
-              <strong>#{{ item.case_id }} · {{ sessionCaseTitle(item) }}</strong>
-              <small>开始于 {{ new Date(item.created_at).toLocaleString('zh-CN') }}</small>
+            <div class="session-item__main">
+              <strong
+                class="session-item__title"
+                :title="`#${item.case_id} · ${sessionCaseTitle(item)}`"
+              >
+                #{{ item.case_id }} · {{ sessionCaseTitle(item) }}
+              </strong>
+              <small class="session-item__time">
+                {{ new Date(item.created_at).toLocaleString('zh-CN') }}
+              </small>
             </div>
-            <span class="status-tag" :class="{ 'status-tag--success': item.status === 'active' }">
+            <span
+              class="status-tag status-tag--compact"
+              :class="{ 'status-tag--success': item.status === 'active' }"
+            >
               {{ item.status === 'active' ? '进行中' : '已结束' }}
             </span>
           </article>
-          <p v-if="!sessions.length" class="muted-text">暂无咨询会话，受理预约后会自动创建。</p>
+          <p v-if="!sessions.length" class="muted-text">
+            暂无咨询会话，受理预约后会自动创建。
+          </p>
         </div>
       </div>
-      <div v-if="activeSession" class="detail-card detail-card--wide">
-        <div class="detail-section-heading">
-          <div>
-            <span class="eyebrow">对话窗口</span>
-            <h2>#{{ activeSession.case_id }} · {{ sessionCaseTitle(activeSession) }}</h2>
+      <div class="detail-card sessions-chat-card">
+        <template v-if="activeSession">
+          <div class="detail-section-heading">
+            <div>
+              <span class="eyebrow">对话窗口</span>
+              <h2>#{{ activeSession.case_id }} · {{ sessionCaseTitle(activeSession) }}</h2>
+            </div>
           </div>
+          <ConsultationChat
+            :key="activeSession.id"
+            :session="activeSession"
+            sender-role="lawyer"
+            @closed="onSessionClosed"
+          />
+        </template>
+        <div v-else class="sessions-chat-empty">
+          <MessageCircle :size="32" />
+          <p class="muted-text">
+            {{ sessions.length ? '从左侧选择一个会话开始对话' : '暂无会话可选择' }}
+          </p>
         </div>
-        <ConsultationChat
-          :key="activeSession.id"
-          :session="activeSession"
-          sender-role="lawyer"
-          @closed="onSessionClosed"
-        />
       </div>
     </section>
 
@@ -401,6 +421,7 @@ import {
   Clock3,
   FileText,
   MapPin,
+  MessageCircle,
   MessagesSquare,
   WalletCards,
 } from '@lucide/vue'
