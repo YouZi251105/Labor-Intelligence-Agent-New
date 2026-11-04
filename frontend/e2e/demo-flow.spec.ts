@@ -470,6 +470,12 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
     path: `../docs/screenshots/admin-rule-packages-${testInfo.project.name}.png`,
     fullPage: true,
   })
+  await page.getByRole('button', { name: '预览', exact: true }).click()
+  await expect(page.locator('.workflow-designer__inspector')).toHaveCount(0)
+  await page.screenshot({
+    path: `../docs/screenshots/admin-rule-preview-${testInfo.project.name}.png`,
+    fullPage: false,
+  })
 })
 
 test('admin can compose workflow blocks by drag and drop', async ({
@@ -513,8 +519,9 @@ test('admin can compose workflow blocks by drag and drop', async ({
     .locator('.workflow-palette__item')
     .filter({ hasText: '阶段块' })
   if (testInfo.project.name === 'desktop') {
+    await page.locator('.workflow-designer__canvas').scrollIntoViewIfNeeded()
     await stageBlock.dragTo(page.locator('.workflow-designer__canvas'), {
-      targetPosition: { x: 160, y: 560 },
+      targetPosition: { x: 160, y: 300 },
     })
   } else {
     await stageBlock.click()
@@ -533,6 +540,38 @@ test('admin can compose workflow blocks by drag and drop', async ({
     .last()
     .hover({ force: true })
   await expect(page.locator('.workflow-connection__label text').last()).toBeVisible()
+
+  await page.getByRole('button', { name: '折叠版本列表' }).click()
+  await expect(page.locator('.rule-package-list__item')).toHaveCount(0)
+  await page.getByRole('button', { name: '展开版本列表' }).click()
+  await expect(packageItem).toBeVisible()
+
+  await page.getByRole('button', { name: '折叠积木面板' }).click()
+  await expect(page.locator('.workflow-designer')).toHaveClass(
+    /workflow-designer--palette-collapsed/,
+  )
+  await page.getByRole('button', { name: '展开积木面板' }).click()
+
+  await page.getByRole('button', { name: '折叠属性面板' }).click()
+  await expect(page.locator('.workflow-designer__inspector')).toHaveCount(0)
+  await page.getByRole('button', { name: '展开属性面板' }).click()
+  await expect(page.locator('.workflow-designer__inspector')).toBeVisible()
+
+  const zoomLabel = page.locator('.workflow-designer__zoom')
+  const zoomBefore = (await zoomLabel.textContent())?.trim()
+  await page.getByRole('button', { name: '放大画布' }).click()
+  await expect(zoomLabel).not.toHaveText(zoomBefore ?? '')
+
+  await page.getByRole('button', { name: '预览', exact: true }).click()
+  await expect(page.locator('.workflow-designer')).toHaveClass(
+    /workflow-designer--preview/,
+  )
+  await expect(page.locator('.workflow-designer__palette')).toHaveCount(0)
+  await expect(page.locator('.workflow-designer__inspector')).toHaveCount(0)
+  await expect(page.locator('.workflow-designer__canvas')).toBeVisible()
+
+  await page.getByRole('button', { name: '编辑', exact: true }).click()
+  await expect(page.locator('.workflow-designer__palette')).toBeVisible()
 })
 
 test('worker can read a rejected lawyer request reason', async ({ page }) => {

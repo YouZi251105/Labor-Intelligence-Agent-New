@@ -2,13 +2,91 @@
   <div
     v-if="content"
     class="workflow-designer"
-    :class="{ 'workflow-designer--readonly': readonly }"
+    :class="{
+      'workflow-designer--readonly': readonly,
+      'workflow-designer--preview': previewMode,
+      'workflow-designer--palette-collapsed': paletteCollapsed,
+      'workflow-designer--inspector-collapsed': inspectorCollapsed,
+    }"
   >
+    <div class="workflow-designer__toolbar">
+      <div class="workflow-mode-switch" role="group" aria-label="画布模式">
+        <button
+          type="button"
+          :class="{ active: !previewMode }"
+          @click="enterEditMode"
+        >
+          <Pencil :size="15" />
+          {{ sourceReadonly ? '详情' : '编辑' }}
+        </button>
+        <button
+          type="button"
+          :class="{ active: previewMode }"
+          @click="enterPreviewMode"
+        >
+          <Eye :size="15" />
+          预览
+        </button>
+      </div>
+      <div class="workflow-designer__tools">
+        <button
+          v-if="!readonly"
+          type="button"
+          :title="paletteCollapsed ? '展开积木面板' : '折叠积木面板'"
+          :aria-label="paletteCollapsed ? '展开积木面板' : '折叠积木面板'"
+          @click="paletteCollapsed = !paletteCollapsed"
+        >
+          <PanelLeftOpen v-if="paletteCollapsed" :size="16" />
+          <PanelLeftClose v-else :size="16" />
+        </button>
+        <button type="button" title="缩小画布" aria-label="缩小画布" @click="zoomOut">
+          <ZoomOut :size="16" />
+        </button>
+        <span class="workflow-designer__zoom" aria-live="polite">
+          {{ Math.round(zoom * 100) }}%
+        </span>
+        <button type="button" title="放大画布" aria-label="放大画布" @click="zoomIn">
+          <ZoomIn :size="16" />
+        </button>
+        <button type="button" title="适应画布" aria-label="适应画布" @click="fitToCanvas">
+          <Scan :size="16" />
+        </button>
+        <button
+          type="button"
+          title="自动整理"
+          aria-label="自动整理"
+          :disabled="readonly"
+          @click="autoArrangeBlocks"
+        >
+          <LayoutGrid :size="16" />
+        </button>
+        <button
+          v-if="!previewMode && selectedBlock && selectedNode && !sourceReadonly"
+          type="button"
+          :title="inspectorCollapsed ? '展开属性面板' : '折叠属性面板'"
+          :aria-label="inspectorCollapsed ? '展开属性面板' : '折叠属性面板'"
+          @click="inspectorCollapsed = !inspectorCollapsed"
+        >
+          <PanelRightOpen v-if="inspectorCollapsed" :size="16" />
+          <PanelRightClose v-else :size="16" />
+        </button>
+        <button
+          type="button"
+          :title="isFullscreen ? '退出全屏' : '全屏预览'"
+          :aria-label="isFullscreen ? '退出全屏' : '全屏预览'"
+          @click="toggleFullscreen"
+        >
+          <Minimize2 v-if="isFullscreen" :size="16" />
+          <Maximize2 v-else :size="16" />
+        </button>
+      </div>
+    </div>
+
     <aside v-if="!readonly" class="workflow-designer__palette">
       <div class="workflow-designer__palette-heading">
         <div>
-          <span class="eyebrow">受控积木</span>
-          <h3>流程组件</h3>
+          <span v-if="!paletteCollapsed" class="eyebrow">受控积木</span>
+          <h3 v-if="!paletteCollapsed">流程组件</h3>
         </div>
         <button
           type="button"
@@ -30,12 +108,12 @@
         @click="addBlock(item.type, 40, nextAutoY)"
       >
         <component :is="item.icon" :size="17" />
-        <span>
+        <span v-if="!paletteCollapsed">
           <strong>{{ item.label }}</strong>
           <small>{{ item.description }}</small>
         </span>
       </button>
-      <p class="workflow-designer__hint">
+      <p v-if="!paletteCollapsed" class="workflow-designer__hint">
         点击添加积木；桌面端也可拖入画布。选中后可微调位置，出口目标决定连线方向。
       </p>
     </aside>
@@ -43,129 +121,144 @@
     <section
       ref="canvasRef"
       class="workflow-designer__canvas"
+      @dragover.prevent
+      @drop="dropOnCanvas"
     >
       <div
-        ref="stageRef"
-        class="workflow-designer__stage"
-        :style="{ width: `${stageWidth}px`, height: `${canvasHeight}px` }"
-        @dragover.prevent
-        @drop="dropOnCanvas"
+        class="workflow-designer__viewport"
+        :style="{
+          width: `${scaledStageWidth}px`,
+          height: `${scaledStageHeight}px`,
+        }"
       >
-        <svg
-          v-if="workflowEdges.length"
-          class="workflow-connections"
-          :width="stageWidth"
-          :height="canvasHeight"
-          aria-label="流程图连线"
+        <div
+          ref="stageRef"
+          class="workflow-designer__stage"
+          :style="{
+            width: `${stageWidth}px`,
+            height: `${canvasHeight}px`,
+            transform: `scale(${zoom})`,
+          }"
         >
-          <defs>
-            <marker
-              id="workflow-arrowhead"
-              markerWidth="8"
-              markerHeight="8"
-              refX="7"
-              refY="4"
-              orient="auto"
-              markerUnits="userSpaceOnUse"
-            >
-              <path d="M 0 0 L 8 4 L 0 8 z" fill="#93847e" />
-            </marker>
-            <marker
-              id="workflow-arrowhead-active"
-              markerWidth="8"
-              markerHeight="8"
-              refX="7"
-              refY="4"
-              orient="auto"
-              markerUnits="userSpaceOnUse"
-            >
-              <path d="M 0 0 L 8 4 L 0 8 z" fill="#a61b1b" />
-            </marker>
-          </defs>
-          <g
-            v-for="edge in workflowEdges"
-            :key="edge.id"
-            class="workflow-connection"
-            :class="{ active: edge.active }"
-            :data-edge-id="edge.id"
+          <svg
+            v-if="workflowEdges.length"
+            class="workflow-connections"
+            :width="stageWidth"
+            :height="canvasHeight"
+            aria-label="流程图连线"
           >
-            <path
-              class="workflow-connection__path"
-              :d="edge.path"
-              :marker-end="
-                edge.active
-                  ? 'url(#workflow-arrowhead-active)'
-                  : 'url(#workflow-arrowhead)'
-              "
-            />
-            <path
-              class="workflow-connection__hit"
-              :d="edge.path"
-              @click.stop="selectConnection(edge.sourceId)"
-            />
+            <defs>
+              <marker
+                id="workflow-arrowhead"
+                markerWidth="8"
+                markerHeight="8"
+                refX="7"
+                refY="4"
+                orient="auto"
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#93847e" />
+              </marker>
+              <marker
+                id="workflow-arrowhead-active"
+                markerWidth="8"
+                markerHeight="8"
+                refX="7"
+                refY="4"
+                orient="auto"
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#a61b1b" />
+              </marker>
+            </defs>
             <g
-              class="workflow-connection__label"
-              :transform="`translate(${edge.labelX} ${edge.labelY})`"
+              v-for="edge in workflowEdges"
+              :key="edge.id"
+              class="workflow-connection"
+              :class="{ active: edge.active }"
+              :data-edge-id="edge.id"
             >
-              <rect
-                :x="-edge.labelWidth / 2"
-                y="-11"
-                :width="edge.labelWidth"
-                height="22"
-                rx="6"
+              <path
+                class="workflow-connection__path"
+                :d="edge.path"
+                :marker-end="
+                  edge.active
+                    ? 'url(#workflow-arrowhead-active)'
+                    : 'url(#workflow-arrowhead)'
+                "
               />
-              <text text-anchor="middle" dy="3.5">{{ edge.label }}</text>
+              <path
+                class="workflow-connection__hit"
+                :d="edge.path"
+                @click.stop="selectConnection(edge.sourceId)"
+              />
+              <g
+                class="workflow-connection__label"
+                :transform="`translate(${edge.labelX} ${edge.labelY})`"
+              >
+                <rect
+                  :x="-edge.labelWidth / 2"
+                  y="-11"
+                  :width="edge.labelWidth"
+                  height="22"
+                  rx="6"
+                />
+                <text text-anchor="middle" dy="3.5">{{ edge.label }}</text>
+              </g>
             </g>
-          </g>
-        </svg>
+          </svg>
 
-        <article
-          v-for="block in designerBlocks"
-          :key="block.id"
-          :ref="(element) => setBlockElement(block.id, element as HTMLElement | null)"
-          class="workflow-block"
-          :class="[
-            `workflow-block--${block.block_type}`,
-            { active: selectedBlockId === block.id },
-          ]"
-          :style="{ left: `${block.position.x}px`, top: `${block.position.y}px` }"
-          @click="selectedBlockId = block.id"
-        >
-          <header
-            class="workflow-block__header"
-            :draggable="!readonly"
-            @dragstart="startBlockDrag($event, block.id)"
+          <article
+            v-for="block in designerBlocks"
+            :key="block.id"
+            :ref="(element) => setBlockElement(block.id, element as HTMLElement | null)"
+            class="workflow-block"
+            :class="[
+              `workflow-block--${block.block_type}`,
+              { active: selectedBlockId === block.id },
+            ]"
+            :style="{ left: `${block.position.x}px`, top: `${block.position.y}px` }"
+            @click="selectedBlockId = block.id"
           >
-            <span class="workflow-block__kind">{{ blockTypeLabel(block.block_type) }}</span>
-            <strong>{{ content.nodes[block.id]?.label || block.id }}</strong>
-            <small>{{ block.id }} · {{ stageLabel(content.nodes[block.id]?.stage ?? '') }}</small>
-          </header>
-          <div class="workflow-block__ports">
-            <div
-              v-for="option in content.nodes[block.id]?.options ?? []"
-              :key="option.id"
-              :ref="
-                (element) =>
-                  setPortElement(
-                    block.id,
-                    option.id,
-                    element as HTMLElement | null,
-                  )
-              "
+            <header
+              class="workflow-block__header"
+              :draggable="!readonly"
+              @dragstart="startBlockDrag($event, block.id)"
             >
-              <span>{{ option.label || '未命名出口' }}</span>
-              <strong>{{ option.target_node || '未连接' }}</strong>
+              <span class="workflow-block__kind">{{ blockTypeLabel(block.block_type) }}</span>
+              <strong>{{ content.nodes[block.id]?.label || block.id }}</strong>
+              <small>{{ block.id }} · {{ stageLabel(content.nodes[block.id]?.stage ?? '') }}</small>
+            </header>
+            <div class="workflow-block__ports">
+              <div
+                v-for="option in content.nodes[block.id]?.options ?? []"
+                :key="option.id"
+                :ref="
+                  (element) =>
+                    setPortElement(
+                      block.id,
+                      option.id,
+                      element as HTMLElement | null,
+                    )
+                "
+              >
+                <span>{{ option.label || '未命名出口' }}</span>
+                <strong>{{ option.target_node || '未连接' }}</strong>
+              </div>
+              <small v-if="block.block_type === 'end'">流程结束，无输出</small>
             </div>
-            <small v-if="block.block_type === 'end'">流程结束，无输出</small>
-          </div>
-        </article>
-        <p v-if="!designerBlocks.length" class="workflow-designer__empty">
-          从左侧添加第一个流程积木。
-        </p>
+          </article>
+          <p v-if="!designerBlocks.length" class="workflow-designer__empty">
+            从左侧添加第一个流程积木。
+          </p>
+        </div>
       </div>
     </section>
 
-    <aside v-if="selectedBlock && selectedNode" class="workflow-designer__inspector">
+    <aside
+      v-if="selectedBlock && selectedNode && !previewMode && !inspectorCollapsed"
+      class="workflow-designer__inspector"
+    >
       <div class="workflow-designer__inspector-heading">
         <div>
           <span class="eyebrow">{{ readonly ? '积木详情' : '积木设置' }}</span>
@@ -342,13 +435,24 @@ import {
   ArrowRight,
   ArrowUp,
   CircleStop,
+  Eye,
   FileCheck2,
   GitBranch,
   LayoutGrid,
+  Maximize2,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Pencil,
   Plus,
   Scale,
+  Scan,
   ShieldCheck,
   Trash2,
+  ZoomIn,
+  ZoomOut,
 } from '@lucide/vue'
 import {
   computed,
@@ -455,6 +559,11 @@ const palette = [
 const content = ref<DesignerContent | null>(null)
 const selectedBlockId = ref('')
 const draggingBlockId = ref('')
+const previewMode = ref(false)
+const paletteCollapsed = ref(false)
+const inspectorCollapsed = ref(false)
+const zoom = ref(1)
+const isFullscreen = ref(false)
 const canvasRef = ref<HTMLElement | null>(null)
 const stageRef = ref<HTMLElement | null>(null)
 const measuredBlocks = ref<Record<string, MeasuredBlock>>({})
@@ -465,7 +574,8 @@ const portElements = new Map<string, HTMLElement>()
 let optionCounter = 0
 let measureFrame = 0
 let resizeObserver: ResizeObserver | null = null
-const readonly = computed(() => Boolean(props.readonly))
+const sourceReadonly = computed(() => Boolean(props.readonly))
+const readonly = computed(() => sourceReadonly.value || previewMode.value)
 
 watch(
   () => props.modelValue,
@@ -492,11 +602,13 @@ onMounted(() => {
   for (const element of portElements.values()) {
     resizeObserver?.observe(element)
   }
+  document.addEventListener('fullscreenchange', syncFullscreenState)
   scheduleMeasure()
 })
 
 onBeforeUnmount(() => {
   if (measureFrame) cancelAnimationFrame(measureFrame)
+  document.removeEventListener('fullscreenchange', syncFullscreenState)
   resizeObserver?.disconnect()
   resizeObserver = null
   blockElements.clear()
@@ -545,6 +657,10 @@ const stageWidth = computed(() =>
     }),
   ),
 )
+const scaledStageWidth = computed(() => Math.round(stageWidth.value * zoom.value))
+const scaledStageHeight = computed(() =>
+  Math.round(canvasHeight.value * zoom.value),
+)
 const workflowConnections = computed(() =>
   content.value
     ? collectWorkflowConnections(content.value)
@@ -585,6 +701,62 @@ const connectableTargets = computed(() =>
       label: content.value?.nodes[item.id]?.label || item.id,
     })),
 )
+
+function enterPreviewMode() {
+  previewMode.value = true
+  void nextTick(fitToCanvas)
+}
+
+function enterEditMode() {
+  previewMode.value = false
+  zoom.value = 1
+  void nextTick(scheduleMeasure)
+}
+
+function setZoom(value: number) {
+  zoom.value = Math.round(Math.max(0.35, Math.min(1.6, value)) * 100) / 100
+  scheduleMeasure()
+}
+
+function zoomIn() {
+  setZoom(zoom.value + 0.1)
+}
+
+function zoomOut() {
+  setZoom(zoom.value - 0.1)
+}
+
+function fitToCanvas() {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const availableWidth = Math.max(1, canvas.clientWidth - 24)
+  const availableHeight = Math.max(1, canvas.clientHeight - 24)
+  setZoom(
+    Math.min(
+      availableWidth / stageWidth.value,
+      availableHeight / canvasHeight.value,
+    ),
+  )
+}
+
+async function toggleFullscreen() {
+  const canvas = canvasRef.value
+  if (!canvas?.requestFullscreen) return
+  try {
+    if (document.fullscreenElement === canvas) {
+      await document.exitFullscreen()
+    } else {
+      await canvas.requestFullscreen()
+    }
+  } catch {
+    isFullscreen.value = document.fullscreenElement === canvas
+  }
+}
+
+function syncFullscreenState() {
+  isFullscreen.value = document.fullscreenElement === canvasRef.value
+  void nextTick(scheduleMeasure)
+}
 
 function setBlockElement(blockId: string, element: HTMLElement | null) {
   const current = blockElements.get(blockId)
@@ -631,17 +803,18 @@ function measureCanvas() {
   if (!canvas || !stage) return
   viewportWidth.value = canvas.clientWidth || 720
   const stageRect = stage.getBoundingClientRect()
+  const scale = zoom.value || 1
   const nextBlocks: Record<string, MeasuredBlock> = {}
   for (const [blockId, element] of blockElements) {
     const rect = element.getBoundingClientRect()
     if (!rect.width || !rect.height) continue
     nextBlocks[blockId] = {
-      left: rect.left - stageRect.left,
-      right: rect.right - stageRect.left,
-      top: rect.top - stageRect.top,
-      bottom: rect.bottom - stageRect.top,
-      width: rect.width,
-      height: rect.height,
+      left: (rect.left - stageRect.left) / scale,
+      right: (rect.right - stageRect.left) / scale,
+      top: (rect.top - stageRect.top) / scale,
+      bottom: (rect.bottom - stageRect.top) / scale,
+      width: rect.width / scale,
+      height: rect.height / scale,
     }
   }
   const nextPorts: Record<string, WorkflowRect> = {}
@@ -649,10 +822,10 @@ function measureCanvas() {
     const rect = element.getBoundingClientRect()
     if (!rect.width || !rect.height) continue
     nextPorts[key] = {
-      left: rect.left - stageRect.left,
-      right: rect.right - stageRect.left,
-      top: rect.top - stageRect.top,
-      bottom: rect.bottom - stageRect.top,
+      left: (rect.left - stageRect.left) / scale,
+      right: (rect.right - stageRect.left) / scale,
+      top: (rect.top - stageRect.top) / scale,
+      bottom: (rect.bottom - stageRect.top) / scale,
     }
   }
   measuredBlocks.value = nextBlocks
@@ -724,9 +897,12 @@ function startBlockDrag(event: DragEvent, blockId: string) {
 
 function dropOnCanvas(event: DragEvent) {
   if (readonly.value) return
-  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const x = Math.max(20, event.clientX - bounds.left - 110)
-  const y = Math.max(20, event.clientY - bounds.top - 30)
+  const stage = stageRef.value
+  if (!stage) return
+  const bounds = stage.getBoundingClientRect()
+  const scale = zoom.value || 1
+  const x = Math.max(20, (event.clientX - bounds.left) / scale - 110)
+  const y = Math.max(20, (event.clientY - bounds.top) / scale - 30)
   const type = event.dataTransfer?.getData('application/x-workflow-block-type') as BlockType
   const blockId = event.dataTransfer?.getData('application/x-workflow-block-id')
   if (type) {

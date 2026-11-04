@@ -94,31 +94,59 @@
       <span />
     </div>
 
-    <div v-else class="rule-package-layout">
-      <aside class="rule-package-list" aria-label="规则包版本列表">
+    <div
+      v-else
+      class="rule-package-layout"
+      :class="{ 'rule-package-layout--versions-collapsed': packagesCollapsed }"
+    >
+      <aside
+        class="rule-package-list"
+        :class="{ 'rule-package-list--collapsed': packagesCollapsed }"
+        aria-label="规则包版本列表"
+      >
         <div class="rule-package-list__heading">
-          <strong>{{ packages.length }} 个版本</strong>
-          <button type="button" class="icon-button" title="刷新规则包" @click="loadPackages()">
-            <RefreshCw :size="16" />
-          </button>
+          <strong v-if="!packagesCollapsed">{{ packages.length }} 个版本</strong>
+          <div class="rule-package-list__actions">
+            <button
+              v-if="!packagesCollapsed"
+              type="button"
+              class="icon-button"
+              title="刷新规则包"
+              @click="loadPackages()"
+            >
+              <RefreshCw :size="16" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              :title="packagesCollapsed ? '展开版本列表' : '折叠版本列表'"
+              :aria-label="packagesCollapsed ? '展开版本列表' : '折叠版本列表'"
+              @click="packagesCollapsed = !packagesCollapsed"
+            >
+              <PanelLeftOpen v-if="packagesCollapsed" :size="16" />
+              <PanelLeftClose v-else :size="16" />
+            </button>
+          </div>
         </div>
-        <button
-          v-for="item in packages"
-          :key="item.id"
-          type="button"
-          class="rule-package-list__item"
-          :class="{ active: selectedPackage?.id === item.id }"
-          @click="selectPackage(item)"
-        >
-          <span>
-            <strong>{{ item.package_id }}</strong>
-            <small>{{ item.version }}</small>
-          </span>
-          <span class="status-tag" :class="statusClass(item.status)">
-            {{ statusLabel(item.status) }}
-          </span>
-        </button>
-        <p v-if="!packages.length" class="muted-text">还没有规则包版本。</p>
+        <template v-if="!packagesCollapsed">
+          <button
+            v-for="item in packages"
+            :key="item.id"
+            type="button"
+            class="rule-package-list__item"
+            :class="{ active: selectedPackage?.id === item.id }"
+            @click="selectPackage(item)"
+          >
+            <span>
+              <strong>{{ item.package_id }}</strong>
+              <small>{{ item.version }}</small>
+            </span>
+            <span class="status-tag" :class="statusClass(item.status)">
+              {{ statusLabel(item.status) }}
+            </span>
+          </button>
+          <p v-if="!packages.length" class="muted-text">还没有规则包版本。</p>
+        </template>
       </aside>
 
       <div class="rule-package-editor">
@@ -256,6 +284,8 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  PanelLeftClose,
+  PanelLeftOpen,
   RefreshCw,
   Rocket,
   Save,
@@ -284,6 +314,7 @@ const busy = ref(false)
 const error = ref('')
 const success = ref('')
 const visualContent = ref<Record<string, unknown> | null>(null)
+const packagesCollapsed = ref(false)
 const aiOpen = ref(false)
 const aiGenerating = ref(false)
 const aiInstruction = ref('')

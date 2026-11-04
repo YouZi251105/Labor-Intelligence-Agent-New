@@ -20,7 +20,7 @@
 - 案件最终去向确认和立案前复核后的正式文书标记门槛。
 - 劳动者注册后先完善个人资料，再进入案件、咨询、材料、文书和模拟训练。
 - 管理后台运营数据大屏，展示近 7 天趋势、纠纷构成、案件阶段和待办审计。
-- 管理端规则包中心，支持纯中文 Excel 模板导入/导出、AI 辅助生成草稿、带箭头连线的可视化流程组合、移动端方向微调、Word 复核稿、只读复核、结构校验、版本审核和发布切换。
+- 管理端规则包中心，支持纯中文 Excel 模板导入/导出、AI 辅助生成草稿、带箭头连线的可视化流程组合、编辑与预览切换、画布缩放和面板折叠、移动端方向微调、Word 复核稿、只读复核、结构校验、版本审核和发布切换。
 - 登录后连续 20 分钟无操作会自动退出，并同步清理本地会话。
 - 自动化测试、类型检查、静态检查和构建流程。
 
@@ -56,6 +56,8 @@
 
 ![规则包 Excel 与可视化配置](docs/screenshots/admin-rule-packages-desktop.png)
 
+![规则包预览模式](docs/screenshots/admin-rule-preview-desktop.png)
+
 ![完善个人资料](docs/screenshots/profile-required-desktop.png)
 
 ![模拟对话](docs/screenshots/simulation-desktop.png)
@@ -72,6 +74,7 @@
 - [运营数据大屏](docs/screenshots/admin-dashboard-mobile.png)
 - [管理后台](docs/screenshots/admin-mobile.png)
 - [规则包 Excel 与可视化配置](docs/screenshots/admin-rule-packages-mobile.png)
+- [规则包预览模式](docs/screenshots/admin-rule-preview-mobile.png)
 - [律师工作台](docs/screenshots/lawyer-mobile.png)
 - [模拟对话](docs/screenshots/simulation-mobile.png)
 - [维权帮助](docs/screenshots/help-mobile.png)
