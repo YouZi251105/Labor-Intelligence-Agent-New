@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import re
 from collections.abc import AsyncIterator
 from dataclasses import asdict, dataclass, field
@@ -10,6 +11,8 @@ import httpx
 from app.core.config import Settings, get_settings
 from app.models.case import Case, Message
 from app.services.dictionary import DISPUTE_KEYWORDS, DISPUTE_LABELS
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -626,8 +629,8 @@ async def generate_ai_reply(
                 progress=progress,
                 model_suggestions=model_suggestions,
             )
-        except (httpx.HTTPError, KeyError, TypeError, ValueError):
-            pass
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            logger.warning("Qwen API request failed (%s), falling back to demo: %s", type(exc).__name__, exc)
 
     return _result_from_reply(
         case=case,
@@ -739,7 +742,8 @@ async def generate_ai_reply_stream(
                 ),
             }
             return
-        except (httpx.HTTPError, KeyError, TypeError, ValueError):
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            logger.warning("Qwen stream request failed (%s), falling back to demo: %s", type(exc).__name__, exc)
             if generating_sent:
                 raise
 
