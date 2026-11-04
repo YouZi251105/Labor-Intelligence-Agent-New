@@ -442,6 +442,8 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
   await expect(page.locator('.workflow-designer')).toBeVisible()
   await expect(page.locator('.workflow-designer__palette')).toHaveCount(0)
   await expect(page.locator('.workflow-block')).toHaveCount(6)
+  await expect(page.locator('.workflow-connection').first()).toBeVisible()
+  await expect(page.locator('.workflow-connection__label text').first()).toBeVisible()
   await expect(page.locator('.workflow-designer input').first()).toBeDisabled()
   const wordDownloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '下载 Word 复核稿' }).click()
@@ -455,7 +457,10 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
   )
   await page.evaluate(() => {
     window.scrollTo(0, 0)
-    document.querySelector<HTMLElement>('.page')?.scrollTo(0, 0)
+    for (const element of document.querySelectorAll<HTMLElement>('*')) {
+      if (element.scrollTop) element.scrollTop = 0
+      if (element.scrollLeft) element.scrollLeft = 0
+    }
   })
   await page.screenshot({
     path: `../docs/screenshots/admin-rule-packages-${testInfo.project.name}.png`,
@@ -495,10 +500,11 @@ test('admin can compose workflow blocks by drag and drop', async ({
   await packageItem.click()
   await expect(page.locator('.workflow-designer__palette')).toBeVisible()
   await expect(
-    page.getByText('草稿支持从左侧拖拽积木到画布', { exact: false }),
+    page.getByText('草稿支持点击或拖拽添加积木', { exact: false }),
   ).toBeVisible()
 
   const initialBlocks = await page.locator('.workflow-block').count()
+  const initialConnections = await page.locator('.workflow-connection').count()
   const stageBlock = page
     .locator('.workflow-palette__item')
     .filter({ hasText: '阶段块' })
@@ -510,6 +516,15 @@ test('admin can compose workflow blocks by drag and drop', async ({
     await stageBlock.click()
   }
   await expect(page.locator('.workflow-block')).toHaveCount(initialBlocks + 1)
+  await expect(page.getByRole('button', { name: '上移积木' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '自动整理' }).first()).toBeVisible()
+
+  const targetSelect = page.locator('.workflow-outlet select').first()
+  await targetSelect.selectOption({ index: 1 })
+  await expect(page.locator('.workflow-connection')).toHaveCount(
+    initialConnections + 1,
+  )
+  await expect(page.locator('.workflow-connection__label text').last()).toBeVisible()
 })
 
 test('worker can read a rejected lawyer request reason', async ({ page }) => {

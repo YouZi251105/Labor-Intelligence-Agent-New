@@ -5,8 +5,21 @@
     :class="{ 'workflow-designer--readonly': readonly }"
   >
     <aside v-if="!readonly" class="workflow-designer__palette">
-      <span class="eyebrow">受控积木</span>
-      <h3>流程组件</h3>
+      <div class="workflow-designer__palette-heading">
+        <div>
+          <span class="eyebrow">受控积木</span>
+          <h3>流程组件</h3>
+        </div>
+        <button
+          type="button"
+          class="workflow-auto-layout"
+          title="自动整理画布"
+          aria-label="自动整理"
+          @click="autoArrangeBlocks"
+        >
+          <LayoutGrid :size="15" />
+        </button>
+      </div>
       <button
         v-for="item in palette"
         :key="item.type"
@@ -23,47 +36,118 @@
         </span>
       </button>
       <p class="workflow-designer__hint">
-        积木可拖动到画布。连接目标从各出口的节点下拉框中选择。
+        点击添加积木；桌面端也可拖入画布。选中后可微调位置，出口目标决定连线方向。
       </p>
     </aside>
 
     <section
+      ref="canvasRef"
       class="workflow-designer__canvas"
-      :style="{ minHeight: `${canvasHeight}px` }"
-      @dragover.prevent
-      @drop="dropOnCanvas"
     >
-      <article
-        v-for="block in designerBlocks"
-        :key="block.id"
-        class="workflow-block"
-        :class="[
-          `workflow-block--${block.block_type}`,
-          { active: selectedBlockId === block.id },
-        ]"
-        :style="{ left: `${block.position.x}px`, top: `${block.position.y}px` }"
-        @click="selectedBlockId = block.id"
+      <div
+        ref="stageRef"
+        class="workflow-designer__stage"
+        :style="{ width: `${stageWidth}px`, height: `${canvasHeight}px` }"
+        @dragover.prevent
+        @drop="dropOnCanvas"
       >
-        <header
-          class="workflow-block__header"
-          :draggable="!readonly"
-          @dragstart="startBlockDrag($event, block.id)"
+        <svg
+          v-if="workflowEdges.length"
+          class="workflow-connections"
+          :width="stageWidth"
+          :height="canvasHeight"
+          aria-label="流程图连线"
         >
-          <span class="workflow-block__kind">{{ blockTypeLabel(block.block_type) }}</span>
-          <strong>{{ content.nodes[block.id]?.label || block.id }}</strong>
-          <small>{{ block.id }} · {{ stageLabel(content.nodes[block.id]?.stage ?? '') }}</small>
-        </header>
-        <div class="workflow-block__ports">
-          <div v-for="option in content.nodes[block.id]?.options ?? []" :key="option.id">
-            <span>{{ option.label || '未命名出口' }}</span>
-            <strong>{{ option.target_node || '未连接' }}</strong>
+          <defs>
+            <marker
+              id="workflow-arrowhead"
+              markerWidth="9"
+              markerHeight="9"
+              refX="7"
+              refY="4.5"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="currentColor" />
+            </marker>
+          </defs>
+          <g
+            v-for="edge in workflowEdges"
+            :key="edge.id"
+            class="workflow-connection"
+            :class="{ active: edge.active }"
+            :data-edge-id="edge.id"
+          >
+            <path
+              class="workflow-connection__path"
+              :d="edge.path"
+              marker-end="url(#workflow-arrowhead)"
+            />
+            <path
+              class="workflow-connection__hit"
+              :d="edge.path"
+              @click.stop="selectConnection(edge.sourceId)"
+            />
+            <g
+              class="workflow-connection__label"
+              :transform="`translate(${edge.labelX} ${edge.labelY})`"
+            >
+              <rect
+                :x="-edge.labelWidth / 2"
+                y="-11"
+                :width="edge.labelWidth"
+                height="22"
+                rx="6"
+              />
+              <text text-anchor="middle" dy="3.5">{{ edge.label }}</text>
+            </g>
+          </g>
+        </svg>
+
+        <article
+          v-for="block in designerBlocks"
+          :key="block.id"
+          :ref="(element) => setBlockElement(block.id, element as HTMLElement | null)"
+          class="workflow-block"
+          :class="[
+            `workflow-block--${block.block_type}`,
+            { active: selectedBlockId === block.id },
+          ]"
+          :style="{ left: `${block.position.x}px`, top: `${block.position.y}px` }"
+          @click="selectedBlockId = block.id"
+        >
+          <header
+            class="workflow-block__header"
+            :draggable="!readonly"
+            @dragstart="startBlockDrag($event, block.id)"
+          >
+            <span class="workflow-block__kind">{{ blockTypeLabel(block.block_type) }}</span>
+            <strong>{{ content.nodes[block.id]?.label || block.id }}</strong>
+            <small>{{ block.id }} · {{ stageLabel(content.nodes[block.id]?.stage ?? '') }}</small>
+          </header>
+          <div class="workflow-block__ports">
+            <div
+              v-for="option in content.nodes[block.id]?.options ?? []"
+              :key="option.id"
+              :ref="
+                (element) =>
+                  setPortElement(
+                    block.id,
+                    option.id,
+                    element as HTMLElement | null,
+                  )
+              "
+            >
+              <span>{{ option.label || '未命名出口' }}</span>
+              <strong>{{ option.target_node || '未连接' }}</strong>
+            </div>
+            <small v-if="block.block_type === 'end'">流程结束，无输出</small>
           </div>
-          <small v-if="block.block_type === 'end'">流程结束，无输出</small>
-        </div>
-      </article>
-      <p v-if="!designerBlocks.length" class="workflow-designer__empty">
-        从左侧拖入第一个流程积木。
-      </p>
+        </article>
+        <p v-if="!designerBlocks.length" class="workflow-designer__empty">
+          从左侧添加第一个流程积木。
+        </p>
+      </div>
     </section>
 
     <aside v-if="selectedBlock && selectedNode" class="workflow-designer__inspector">
@@ -108,6 +192,52 @@
           </option>
         </select>
       </label>
+
+      <div v-if="!readonly" class="workflow-position-controls">
+        <span>位置微调</span>
+        <div class="workflow-position-controls__grid">
+          <button
+            type="button"
+            title="上移积木"
+            aria-label="上移积木"
+            @click="nudgeSelected(0, -32)"
+          >
+            <ArrowUp :size="16" />
+          </button>
+          <button
+            type="button"
+            title="左移积木"
+            aria-label="左移积木"
+            @click="nudgeSelected(-32, 0)"
+          >
+            <ArrowLeft :size="16" />
+          </button>
+          <button
+            type="button"
+            title="自动整理"
+            aria-label="自动整理"
+            @click="autoArrangeBlocks"
+          >
+            <LayoutGrid :size="16" />
+          </button>
+          <button
+            type="button"
+            title="右移积木"
+            aria-label="右移积木"
+            @click="nudgeSelected(32, 0)"
+          >
+            <ArrowRight :size="16" />
+          </button>
+          <button
+            type="button"
+            title="下移积木"
+            aria-label="下移积木"
+            @click="nudgeSelected(0, 32)"
+          >
+            <ArrowDown :size="16" />
+          </button>
+        </div>
+      </div>
 
       <div v-if="selectedBlock.block_type !== 'end'" class="workflow-outlets">
         <div class="workflow-outlets__heading">
@@ -192,15 +322,35 @@
 
 <script setup lang="ts">
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   CircleStop,
   FileCheck2,
   GitBranch,
+  LayoutGrid,
   Plus,
   Scale,
   ShieldCheck,
   Trash2,
 } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
+
+import {
+  buildWorkflowEdge,
+  collectWorkflowConnections,
+  type WorkflowConnection,
+  type WorkflowEdgeGeometry,
+  type WorkflowRect,
+} from '../utils/workflowEdges'
 
 type BlockType = 'stage' | 'decision' | 'evidence_gate' | 'lawyer_gate' | 'end'
 
@@ -248,6 +398,18 @@ interface DesignerContent {
   }
 }
 
+interface MeasuredBlock extends WorkflowRect {
+  width: number
+  height: number
+}
+
+interface RenderedWorkflowEdge
+  extends WorkflowConnection,
+    WorkflowEdgeGeometry {
+  active: boolean
+  labelWidth: number
+}
+
 const props = defineProps<{
   modelValue: Record<string, unknown>
   readonly?: boolean
@@ -278,7 +440,16 @@ const palette = [
 const content = ref<DesignerContent | null>(null)
 const selectedBlockId = ref('')
 const draggingBlockId = ref('')
+const canvasRef = ref<HTMLElement | null>(null)
+const stageRef = ref<HTMLElement | null>(null)
+const measuredBlocks = ref<Record<string, MeasuredBlock>>({})
+const measuredPorts = ref<Record<string, WorkflowRect>>({})
+const viewportWidth = ref(720)
+const blockElements = new Map<string, HTMLElement>()
+const portElements = new Map<string, HTMLElement>()
 let optionCounter = 0
+let measureFrame = 0
+let resizeObserver: ResizeObserver | null = null
 const readonly = computed(() => Boolean(props.readonly))
 
 watch(
@@ -295,6 +466,28 @@ watch(
   { immediate: true, deep: true },
 )
 
+onMounted(() => {
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(scheduleMeasure)
+  }
+  if (canvasRef.value) resizeObserver?.observe(canvasRef.value)
+  for (const element of blockElements.values()) {
+    resizeObserver?.observe(element)
+  }
+  for (const element of portElements.values()) {
+    resizeObserver?.observe(element)
+  }
+  scheduleMeasure()
+})
+
+onBeforeUnmount(() => {
+  if (measureFrame) cancelAnimationFrame(measureFrame)
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  blockElements.clear()
+  portElements.clear()
+})
+
 const designerBlocks = computed<BlockRule[]>(() => {
   const blocks = content.value?.designer?.blocks
   if (!blocks) return []
@@ -308,13 +501,66 @@ const selectedNode = computed(() =>
     ? content.value.nodes[selectedBlock.value.id]
     : null,
 )
-const nextAutoY = computed(() => 40 + designerBlocks.value.length * 230)
+const nextAutoY = computed(() => {
+  const bottom = Math.max(
+    0,
+    ...designerBlocks.value.map((item) => {
+      const measured = measuredBlocks.value[item.id]
+      return item.position.y + (measured?.height ?? 170)
+    }),
+  )
+  return bottom + 48
+})
 const canvasHeight = computed(() =>
   Math.max(
     620,
-    ...designerBlocks.value.map((item) => item.position.y + 260),
+    ...designerBlocks.value.map((item) => {
+      const measured = measuredBlocks.value[item.id]
+      return item.position.y + (measured?.height ?? 190) + 80
+    }),
   ),
 )
+const stageWidth = computed(() =>
+  Math.max(
+    720,
+    viewportWidth.value,
+    ...designerBlocks.value.map((item) => {
+      const measured = measuredBlocks.value[item.id]
+      return item.position.x + (measured?.width ?? 200) + 90
+    }),
+  ),
+)
+const workflowConnections = computed(() =>
+  content.value
+    ? collectWorkflowConnections(content.value)
+    : [],
+)
+const workflowEdges = computed<RenderedWorkflowEdge[]>(() => {
+  const edges: RenderedWorkflowEdge[] = []
+  for (const connection of workflowConnections.value) {
+    const sourceBlock = measuredBlocks.value[connection.sourceId]
+    const targetBlock = measuredBlocks.value[connection.targetId]
+    const port = measuredPorts.value[`${connection.sourceId}:${connection.optionId}`]
+    if (!sourceBlock || !targetBlock || !port) continue
+    const geometry = buildWorkflowEdge({
+      sourceBlock,
+      sourcePort: port,
+      targetBlock,
+    })
+    edges.push({
+      ...connection,
+      ...geometry,
+      active:
+        selectedBlockId.value === connection.sourceId ||
+        selectedBlockId.value === connection.targetId,
+      labelWidth: Math.max(
+        54,
+        Math.min(150, connection.label.length * 13 + 20),
+      ),
+    })
+  }
+  return edges
+})
 const connectableTargets = computed(() =>
   designerBlocks.value
     .filter((item) => item.id !== selectedBlockId.value)
@@ -323,6 +569,83 @@ const connectableTargets = computed(() =>
       label: content.value?.nodes[item.id]?.label || item.id,
     })),
 )
+
+function setBlockElement(blockId: string, element: HTMLElement | null) {
+  const current = blockElements.get(blockId)
+  if (current === element) return
+  if (current) resizeObserver?.unobserve(current)
+  if (element) {
+    blockElements.set(blockId, element)
+    resizeObserver?.observe(element)
+  } else {
+    blockElements.delete(blockId)
+  }
+  scheduleMeasure()
+}
+
+function setPortElement(
+  blockId: string,
+  optionId: string,
+  element: HTMLElement | null,
+) {
+  const key = `${blockId}:${optionId}`
+  const current = portElements.get(key)
+  if (current === element) return
+  if (current) resizeObserver?.unobserve(current)
+  if (element) {
+    portElements.set(key, element)
+    resizeObserver?.observe(element)
+  } else {
+    portElements.delete(key)
+  }
+  scheduleMeasure()
+}
+
+function scheduleMeasure() {
+  if (measureFrame) return
+  measureFrame = window.requestAnimationFrame(() => {
+    measureFrame = 0
+    measureCanvas()
+  })
+}
+
+function measureCanvas() {
+  const canvas = canvasRef.value
+  const stage = stageRef.value
+  if (!canvas || !stage) return
+  viewportWidth.value = canvas.clientWidth || 720
+  const stageRect = stage.getBoundingClientRect()
+  const nextBlocks: Record<string, MeasuredBlock> = {}
+  for (const [blockId, element] of blockElements) {
+    const rect = element.getBoundingClientRect()
+    if (!rect.width || !rect.height) continue
+    nextBlocks[blockId] = {
+      left: rect.left - stageRect.left,
+      right: rect.right - stageRect.left,
+      top: rect.top - stageRect.top,
+      bottom: rect.bottom - stageRect.top,
+      width: rect.width,
+      height: rect.height,
+    }
+  }
+  const nextPorts: Record<string, WorkflowRect> = {}
+  for (const [key, element] of portElements) {
+    const rect = element.getBoundingClientRect()
+    if (!rect.width || !rect.height) continue
+    nextPorts[key] = {
+      left: rect.left - stageRect.left,
+      right: rect.right - stageRect.left,
+      top: rect.top - stageRect.top,
+      bottom: rect.bottom - stageRect.top,
+    }
+  }
+  measuredBlocks.value = nextBlocks
+  measuredPorts.value = nextPorts
+}
+
+function selectConnection(sourceId: string) {
+  selectedBlockId.value = sourceId
+}
 
 function normalizeContent(value: Record<string, unknown>): DesignerContent {
   const normalized = JSON.parse(JSON.stringify(value)) as DesignerContent
@@ -393,6 +716,59 @@ function dropOnCanvas(event: DragEvent) {
     block.position = { x, y }
     emitContent()
   }
+}
+
+function nudgeSelected(deltaX: number, deltaY: number) {
+  if (readonly.value || !selectedBlock.value) return
+  selectedBlock.value.position = {
+    x: Math.max(16, selectedBlock.value.position.x + deltaX),
+    y: Math.max(16, selectedBlock.value.position.y + deltaY),
+  }
+  emitContent()
+}
+
+function autoArrangeBlocks() {
+  if (readonly.value || !content.value || !designerBlocks.value.length) return
+  const depths = new Map<string, number>()
+  const queue: string[] = []
+  if (content.value.nodes[content.value.start_node]) {
+    depths.set(content.value.start_node, 0)
+    queue.push(content.value.start_node)
+  }
+  while (queue.length) {
+    const nodeId = queue.shift()
+    if (!nodeId) continue
+    const depth = depths.get(nodeId) ?? 0
+    for (const option of content.value.nodes[nodeId]?.options ?? []) {
+      if (!content.value.nodes[option.target_node]) continue
+      if (depths.has(option.target_node)) continue
+      depths.set(option.target_node, depth + 1)
+      queue.push(option.target_node)
+    }
+  }
+  const remainingDepth =
+    Math.max(0, ...Array.from(depths.values())) + 1
+  for (const block of designerBlocks.value) {
+    if (!depths.has(block.id)) depths.set(block.id, remainingDepth)
+  }
+  const groups = new Map<number, BlockRule[]>()
+  for (const block of designerBlocks.value) {
+    const depth = depths.get(block.id) ?? 0
+    const group = groups.get(depth) ?? []
+    group.push(block)
+    groups.set(depth, group)
+  }
+  for (const [depth, blocks] of [...groups.entries()].sort(
+    ([left], [right]) => left - right,
+  )) {
+    blocks.forEach((block, index) => {
+      block.position = {
+        x: 32 + depth * 270,
+        y: 42 + index * 210,
+      }
+    })
+  }
+  emitContent()
 }
 
 function addBlock(type: BlockType, x: number, y: number) {
@@ -539,6 +915,7 @@ function emitContent() {
   if (readonly.value) return
   if (!content.value) return
   emit('update:modelValue', content.value as unknown as Record<string, unknown>)
+  void nextTick(scheduleMeasure)
 }
 
 function blockTypeLabel(type: BlockType) {

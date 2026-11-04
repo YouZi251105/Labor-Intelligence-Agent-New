@@ -141,7 +141,7 @@
           当前版本已锁定，可查看流程和参与复核，但不能修改。
         </p>
         <p v-else-if="selectedPackage" class="rule-package-drag-hint">
-          草稿支持从左侧拖拽积木到画布，并可拖动积木调整位置。
+          草稿支持点击或拖拽添加积木；配置出口目标后自动显示连线，选中积木可微调位置或自动整理。
         </p>
 
         <WorkflowBlockDesigner
