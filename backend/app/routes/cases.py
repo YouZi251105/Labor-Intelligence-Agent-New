@@ -1,5 +1,6 @@
 import json
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -30,7 +31,7 @@ from app.services.ai import (
 router = APIRouter(prefix="/cases", tags=["cases"])
 
 
-def _sse_event(event: str, payload: dict) -> str:
+def _sse_event(event: str, payload: dict[str, Any]) -> str:
     return (
         f"event: {event}\n"
         f"data: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
@@ -414,8 +415,8 @@ async def _run_consult_stream(
     payload: MessageCreate,
     user: CompleteWorkerProfile,
     *,
-    initial_case_payload: dict,
-    user_message_payload: dict,
+    initial_case_payload: dict[str, Any],
+    user_message_payload: dict[str, Any],
     action: str,
 ) -> AsyncIterator[str]:
     ai_result: AIResult | None = None

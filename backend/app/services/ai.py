@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 import httpx
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.models.case import Case, Message
 from app.services.dictionary import DISPUTE_KEYWORDS, DISPUTE_LABELS
 
@@ -483,7 +483,7 @@ async def _stream_qwen_content(
     *,
     prompt: str,
     text: str,
-    settings,
+    settings: Settings,
 ) -> AsyncIterator[str]:
     async with (
         httpx.AsyncClient(timeout=60) as client,
