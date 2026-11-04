@@ -4756,7 +4756,8 @@ summary:focus-visible {
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
-  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }
 
@@ -4765,7 +4766,7 @@ summary:focus-visible {
 }
 
 .workflow-connection.active .workflow-connection__path {
-  stroke-width: 2.7;
+  stroke-width: 2.3;
 }
 
 .workflow-connection__hit {
@@ -4782,7 +4783,6 @@ summary:focus-visible {
   transition: opacity 120ms ease;
 }
 
-.workflow-connection.active .workflow-connection__label,
 .workflow-connection:hover .workflow-connection__label {
   opacity: 1;
 }

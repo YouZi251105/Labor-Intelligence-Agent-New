@@ -35,15 +35,19 @@ describe('collectWorkflowConnections', () => {
 })
 
 describe('buildWorkflowEdge', () => {
-  it('connects rightward with a cubic path and centered label', () => {
+  it('connects rightward through the gap with an orthogonal path', () => {
     const edge = buildWorkflowEdge({
       sourceBlock: { left: 20, right: 220, top: 40, bottom: 180 },
       sourcePort: { left: 30, right: 210, top: 90, bottom: 118 },
-      targetBlock: { left: 360, right: 560, top: 70, bottom: 210 },
+      targetBlock: { left: 360, right: 560, top: 150, bottom: 290 },
+      laneOffset: 0,
     })
 
     expect(edge.path).toContain('M 210 104')
-    expect(edge.path).toContain('C ')
+    expect(edge.path).toContain('H ')
+    expect(edge.path).toContain('V ')
+    expect(edge.path).toContain('Q ')
+    expect(edge.path).not.toContain('C ')
     expect(edge.targetPoint.x).toBe(360)
     expect(edge.labelX).toBeGreaterThan(220)
     expect(edge.labelX).toBeLessThan(360)
@@ -54,23 +58,43 @@ describe('buildWorkflowEdge', () => {
       sourceBlock: { left: 220, right: 420, top: 40, bottom: 180 },
       sourcePort: { left: 230, right: 410, top: 90, bottom: 118 },
       targetBlock: { left: -180, right: 20, top: 260, bottom: 400 },
+      laneOffset: 0,
     })
 
     expect(edge.targetPoint.x).toBe(20)
-    expect(edge.path).toContain('C ')
+    expect(edge.path).toContain('H ')
+    expect(edge.path).toContain('V ')
+    expect(edge.path).not.toContain('C ')
     expect(edge.labelY).toBeGreaterThan(104)
   })
 
-  it('uses bottom and top anchors for a vertical path in the same column', () => {
+  it('uses a horizontal lane for a vertical path in the same column', () => {
     const edge = buildWorkflowEdge({
       sourceBlock: { left: 20, right: 220, top: 40, bottom: 180 },
       sourcePort: { left: 30, right: 210, top: 90, bottom: 118 },
       targetBlock: { left: 20, right: 220, top: 300, bottom: 440 },
+      laneOffset: 0,
     })
 
     expect(edge.path).toContain('M 120 118')
     expect(edge.targetPoint).toEqual({ x: 120, y: 300 })
+    expect(edge.path).toContain('V ')
+    expect(edge.path).not.toContain('C ')
     expect(edge.labelY).toBeGreaterThan(118)
     expect(edge.labelY).toBeLessThan(300)
+  })
+
+  it('separates shared lanes with a deterministic offset', () => {
+    const input = {
+      sourceBlock: { left: 20, right: 220, top: 40, bottom: 180 },
+      sourcePort: { left: 30, right: 210, top: 90, bottom: 118 },
+      targetBlock: { left: 360, right: 560, top: 240, bottom: 380 },
+    }
+
+    const center = buildWorkflowEdge({ ...input, laneOffset: 0 })
+    const shifted = buildWorkflowEdge({ ...input, laneOffset: 12 })
+
+    expect(center.labelX).not.toBe(shifted.labelX)
+    expect(shifted.labelX).toBeGreaterThan(center.labelX)
   })
 })

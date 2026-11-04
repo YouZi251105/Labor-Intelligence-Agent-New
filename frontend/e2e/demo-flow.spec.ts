@@ -443,6 +443,10 @@ test('admin can validate a rule package', async ({ page }, testInfo) => {
   await expect(page.locator('.workflow-designer__palette')).toHaveCount(0)
   await expect(page.locator('.workflow-block')).toHaveCount(6)
   await expect(page.locator('.workflow-connection').first()).toBeVisible()
+  await page
+    .locator('.workflow-connection__hit')
+    .first()
+    .hover({ force: true })
   await expect(page.locator('.workflow-connection__label text').first()).toBeVisible()
   await expect(page.locator('.workflow-designer input').first()).toBeDisabled()
   const wordDownloadPromise = page.waitForEvent('download')
@@ -524,6 +528,10 @@ test('admin can compose workflow blocks by drag and drop', async ({
   await expect(page.locator('.workflow-connection')).toHaveCount(
     initialConnections + 1,
   )
+  await page
+    .locator('.workflow-connection__hit')
+    .last()
+    .hover({ force: true })
   await expect(page.locator('.workflow-connection__label text').last()).toBeVisible()
 })
 

@@ -61,14 +61,25 @@
           <defs>
             <marker
               id="workflow-arrowhead"
-              markerWidth="9"
-              markerHeight="9"
+              markerWidth="8"
+              markerHeight="8"
               refX="7"
-              refY="4.5"
+              refY="4"
               orient="auto"
-              markerUnits="strokeWidth"
+              markerUnits="userSpaceOnUse"
             >
-              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="currentColor" />
+              <path d="M 0 0 L 8 4 L 0 8 z" fill="#93847e" />
+            </marker>
+            <marker
+              id="workflow-arrowhead-active"
+              markerWidth="8"
+              markerHeight="8"
+              refX="7"
+              refY="4"
+              orient="auto"
+              markerUnits="userSpaceOnUse"
+            >
+              <path d="M 0 0 L 8 4 L 0 8 z" fill="#a61b1b" />
             </marker>
           </defs>
           <g
@@ -81,7 +92,11 @@
             <path
               class="workflow-connection__path"
               :d="edge.path"
-              marker-end="url(#workflow-arrowhead)"
+              :marker-end="
+                edge.active
+                  ? 'url(#workflow-arrowhead-active)'
+                  : 'url(#workflow-arrowhead)'
+              "
             />
             <path
               class="workflow-connection__hit"
@@ -546,6 +561,7 @@ const workflowEdges = computed<RenderedWorkflowEdge[]>(() => {
       sourceBlock,
       sourcePort: port,
       targetBlock,
+      laneOffset: workflowLaneOffset(connection.id),
     })
     edges.push({
       ...connection,
@@ -645,6 +661,14 @@ function measureCanvas() {
 
 function selectConnection(sourceId: string) {
   selectedBlockId.value = sourceId
+}
+
+function workflowLaneOffset(connectionId: string) {
+  let hash = 0
+  for (const character of connectionId) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0
+  }
+  return ((hash % 7) - 3) * 5
 }
 
 function normalizeContent(value: Record<string, unknown>): DesignerContent {

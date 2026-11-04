@@ -62,8 +62,9 @@ export function buildWorkflowEdge(input: {
   sourceBlock: WorkflowRect
   sourcePort: WorkflowRect
   targetBlock: WorkflowRect
+  laneOffset?: number
 }): WorkflowEdgeGeometry {
-  const { sourceBlock, sourcePort, targetBlock } = input
+  const { sourceBlock, sourcePort, targetBlock, laneOffset = 0 } = input
   const sourceCenter = {
     x: (sourceBlock.left + sourceBlock.right) / 2,
     y: (sourceBlock.top + sourceBlock.bottom) / 2,
@@ -74,9 +75,7 @@ export function buildWorkflowEdge(input: {
   }
   const deltaX = targetCenter.x - sourceCenter.x
   const deltaY = targetCenter.y - sourceCenter.y
-  const vertical =
-    Math.abs(deltaY) > 120 &&
-    Math.abs(deltaY) > Math.abs(deltaX) * 0.72
+  const vertical = Math.abs(deltaX) < 80 && Math.abs(deltaY) > 80
   const sourcePoint = vertical
     ? {
         x: (sourcePort.left + sourcePort.right) / 2,
@@ -91,20 +90,24 @@ export function buildWorkflowEdge(input: {
       x: targetCenter.x,
       y: deltaY >= 0 ? targetBlock.top : targetBlock.bottom,
     }
-    const direction = targetPoint.y >= sourcePoint.y ? 1 : -1
-    const bend = Math.max(
-      52,
-      Math.min(180, Math.abs(targetPoint.y - sourcePoint.y) * 0.42),
+    const laneRange = Math.max(0, Math.abs(targetPoint.y - sourcePoint.y) / 2 - 20)
+    const offset = Math.max(-laneRange, Math.min(laneRange, laneOffset))
+    const laneY = (sourcePoint.y + targetPoint.y) / 2 + offset
+    const path = roundedOrthogonalPath(
+      [
+        sourcePoint,
+        { x: sourcePoint.x, y: laneY },
+        { x: targetPoint.x, y: laneY },
+        targetPoint,
+      ],
+      10,
     )
-    const control1 = {
-      x: sourcePoint.x,
-      y: sourcePoint.y + direction * bend,
+    return {
+      path,
+      targetPoint,
+      labelX: (sourcePoint.x + targetPoint.x) / 2,
+      labelY: laneY,
     }
-    const control2 = {
-      x: targetPoint.x,
-      y: targetPoint.y - direction * bend,
-    }
-    return edgeGeometry(sourcePoint, targetPoint, control1, control2)
   }
   const targetCenterX = (targetBlock.left + targetBlock.right) / 2
   const targetOnRight = targetCenterX >= sourcePoint.x
@@ -112,51 +115,97 @@ export function buildWorkflowEdge(input: {
     x: targetOnRight ? targetBlock.left : targetBlock.right,
     y: targetBlock.top + Math.min(34, (targetBlock.bottom - targetBlock.top) / 2),
   }
-  const direction = targetPoint.x >= sourcePoint.x ? 1 : -1
-  const bend = Math.max(
-    52,
-    Math.min(180, Math.abs(targetPoint.x - sourcePoint.x) * 0.48),
+  const laneRange = Math.max(0, Math.abs(targetPoint.x - sourcePoint.x) / 2 - 20)
+  const offset = Math.max(-laneRange, Math.min(laneRange, laneOffset))
+  const laneX = (sourcePoint.x + targetPoint.x) / 2 + offset
+  const path = roundedOrthogonalPath(
+    [
+      sourcePoint,
+      { x: laneX, y: sourcePoint.y },
+      { x: laneX, y: targetPoint.y },
+      targetPoint,
+    ],
+    10,
   )
-  const control1 = {
-    x: sourcePoint.x + direction * bend,
-    y: sourcePoint.y,
+  return {
+    path,
+    targetPoint,
+    labelX: laneX,
+    labelY: (sourcePoint.y + targetPoint.y) / 2,
   }
-  const control2 = {
-    x: targetPoint.x - direction * bend,
-    y: targetPoint.y,
-  }
-  return edgeGeometry(sourcePoint, targetPoint, control1, control2)
 }
 
-function edgeGeometry(
-  sourcePoint: WorkflowPoint,
-  targetPoint: WorkflowPoint,
-  control1: WorkflowPoint,
-  control2: WorkflowPoint,
-): WorkflowEdgeGeometry {
-  const labelX =
-    (sourcePoint.x +
-      3 * control1.x +
-      3 * control2.x +
-      targetPoint.x) /
-    8
-  const labelY =
-    (sourcePoint.y +
-      3 * control1.y +
-      3 * control2.y +
-      targetPoint.y) /
-    8
-  return {
-    path: [
-      `M ${round(sourcePoint.x)} ${round(sourcePoint.y)}`,
-      `C ${round(control1.x)} ${round(control1.y)},`,
-      `${round(control2.x)} ${round(control2.y)},`,
-      `${round(targetPoint.x)} ${round(targetPoint.y)}`,
-    ].join(' '),
-    targetPoint,
-    labelX,
-    labelY,
+function roundedOrthogonalPath(
+  points: WorkflowPoint[],
+  radius: number,
+): string {
+  const compact = points.filter(
+    (point, index) =>
+      index === 0 ||
+      point.x !== points[index - 1].x ||
+      point.y !== points[index - 1].y,
+  )
+  if (compact.length < 2) {
+    return `M ${round(compact[0]?.x ?? 0)} ${round(compact[0]?.y ?? 0)}`
   }
+  const start = compact[0]
+  const commands = [`M ${round(start.x)} ${round(start.y)}`]
+  const corners: Array<{
+    current: WorkflowPoint
+    previous: WorkflowPoint
+    next: WorkflowPoint
+  }> = []
+  for (let index = 1; index < compact.length - 1; index += 1) {
+    const previous = compact[index - 1]
+    const current = compact[index]
+    const next = compact[index + 1]
+    if (isCollinear(previous, current, next)) continue
+    corners.push({ previous, current, next })
+  }
+  if (!corners.length) {
+    return `${commands[0]} ${axisCommand(start, compact.at(-1)!)}`
+  }
+  let cursor = start
+  for (const { current, next } of corners) {
+    const before = moveToward(current, cursor, radius)
+    commands.push(axisCommand(cursor, before))
+    const after = moveToward(current, next, radius)
+    commands.push(
+      `Q ${round(current.x)} ${round(current.y)} ${round(after.x)} ${round(after.y)}`,
+    )
+    cursor = after
+  }
+  commands.push(axisCommand(cursor, compact.at(-1)!))
+  return commands.join(' ')
+}
+
+function axisCommand(from: WorkflowPoint, to: WorkflowPoint): string {
+  if (from.y === to.y) return `H ${round(to.x)}`
+  return `V ${round(to.y)}`
+}
+
+function moveToward(
+  from: WorkflowPoint,
+  to: WorkflowPoint,
+  maxDistance: number,
+): WorkflowPoint {
+  if (from.x === to.x) {
+    const distance = Math.sign(to.y - from.y) * Math.min(maxDistance, Math.abs(to.y - from.y) / 2)
+    return { x: from.x, y: from.y + distance }
+  }
+  const distance = Math.sign(to.x - from.x) * Math.min(maxDistance, Math.abs(to.x - from.x) / 2)
+  return { x: from.x + distance, y: from.y }
+}
+
+function isCollinear(
+  previous: WorkflowPoint,
+  current: WorkflowPoint,
+  next: WorkflowPoint,
+): boolean {
+  return (
+    (previous.x === current.x && current.x === next.x) ||
+    (previous.y === current.y && current.y === next.y)
+  )
 }
 
 function round(value: number) {
