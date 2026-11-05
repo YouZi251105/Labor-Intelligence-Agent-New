@@ -35,7 +35,7 @@
 - 前端：<http://127.0.0.1:5173/>
 - 后端：<http://127.0.0.1:8000/>
 - Swagger：<http://127.0.0.1:8000/docs>
-- 隔离验证环境：<http://劳务通.com/>
+- 隔离验证环境：<https://劳务通.com/>
 - 本地数据库：SQLite，位于 `backend/data/demo.db`
 - 本地材料：`backend/data/uploads/`
 
