@@ -36,7 +36,7 @@
           @click="router.push(`/cases/${item.id}`)"
         >
           <div class="case-card__top">
-            <span class="status-tag">{{ dictionary.disputeLabels[item.dispute_type] || '待识别' }}</span>
+            <span class="status-tag status-tag--wrap">{{ dictionary.disputeLabels[item.dispute_type] || '待识别' }}</span>
             <span class="case-card__id">#{{ item.id }}</span>
           </div>
           <h2>{{ item.title }}</h2>
@@ -324,7 +324,7 @@
             <div class="review-brief__section">
               <span class="review-brief__title">案件概要</span>
               <div class="review-brief__meta">
-                <span class="status-tag">
+                <span class="status-tag status-tag--wrap">
                   {{ dictionary.disputeLabels[reviewBriefs[modalReview.id]!.case.dispute_type] || '待识别' }}
                 </span>
                 <span class="status-tag">

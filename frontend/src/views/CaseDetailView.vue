@@ -8,7 +8,7 @@
         <span class="eyebrow">案件 #{{ caseItem.id }}</span>
         <h1>{{ caseItem.title }}</h1>
         <div class="tag-row">
-          <span class="status-tag">{{ dictionary.disputeLabels[caseItem.dispute_type] || '待识别' }}</span>
+          <span class="status-tag status-tag--wrap">{{ dictionary.disputeLabels[caseItem.dispute_type] || '待识别' }}</span>
           <span class="status-tag">{{ dictionary.stageLabels[caseItem.stage] || caseItem.stage }}</span>
           <span class="status-tag">
             {{ caseItem.legal_relationship === 'service' ? '劳务关系' : '劳动关系' }}

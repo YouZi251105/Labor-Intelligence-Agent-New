@@ -195,7 +195,7 @@
         <ElInput
           v-model="input"
           type="textarea"
-          :autosize="{ minRows: 2, maxRows: 6 }"
+          :autosize="{ minRows: 1, maxRows: 4 }"
           resize="none"
           placeholder="描述情况，例如：我在工地干了三个月，没有签合同，老板一直不发工资……"
           @keydown.enter.exact.prevent="sendMessage()"
@@ -344,6 +344,72 @@ const consumedFollowUpKeys = ref<string[]>([])
 let streamingBuffer = ''
 let streamFrame = 0
 let keepScrolledToBottom = true
+let persistTimer = 0
+
+const WORKSPACE_STATE_KEY = 'labor-workspace-view-state'
+
+interface WorkspaceViewState {
+  caseId: number | null
+  scrollTop: number
+  atBottom: boolean
+}
+
+function readSavedViewState(): WorkspaceViewState | null {
+  try {
+    const raw = sessionStorage.getItem(WORKSPACE_STATE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<WorkspaceViewState>
+    return {
+      caseId: typeof parsed.caseId === 'number' ? parsed.caseId : null,
+      scrollTop: typeof parsed.scrollTop === 'number' ? parsed.scrollTop : 0,
+      atBottom: parsed.atBottom === true,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveViewState() {
+  const element = chatMessageList.value
+  const state: WorkspaceViewState = {
+    caseId: activeCase.value?.id ?? null,
+    scrollTop: element?.scrollTop ?? 0,
+    atBottom: keepScrolledToBottom,
+  }
+  try {
+    sessionStorage.setItem(WORKSPACE_STATE_KEY, JSON.stringify(state))
+  } catch {
+    // 隐私模式下存储不可用时忽略
+  }
+}
+
+function scheduleSaveViewState() {
+  if (persistTimer) window.clearTimeout(persistTimer)
+  persistTimer = window.setTimeout(saveViewState, 200)
+}
+
+async function restoreChatScroll() {
+  const saved = readSavedViewState()
+  const sameCase = saved !== null && saved.caseId === (activeCase.value?.id ?? null)
+  const savedScrollTop = saved?.scrollTop ?? 0
+  const shouldKeepAtBottom = saved === null || saved.atBottom
+  await nextTick()
+  const apply = () => {
+    const element = chatMessageList.value
+    if (!element) return
+    if (sameCase && !shouldKeepAtBottom) {
+      element.scrollTop = Math.min(savedScrollTop, element.scrollHeight)
+      keepScrolledToBottom = false
+    } else {
+      element.scrollTop = element.scrollHeight
+      keepScrolledToBottom = true
+    }
+  }
+  apply()
+  // 富文本渲染完成后高度可能变化，再校正一次
+  window.requestAnimationFrame(apply)
+}
+
 const latestAssistantMessageId = computed(() =>
   latestActionableAssistantMessageId(messages.value),
 )
@@ -372,6 +438,7 @@ function onChatScroll() {
   if (!element) return
   keepScrolledToBottom =
     element.scrollHeight - element.scrollTop - element.clientHeight < 80
+  scheduleSaveViewState()
 }
 
 async function scrollToBottomIfNeeded() {
@@ -409,9 +476,16 @@ async function loadInitialCase() {
   historyCases.value = history.cases
   topicSummary.value = topics
   if (!cases.length) return
-  activeCase.value = cases[0]
+  const saved = readSavedViewState()
+  if (saved && saved.caseId === null) {
+    // 上次停留在「新开一轮对话」，保持空白会话
+    return
+  }
+  const preferred =
+    saved?.caseId != null ? cases.find((item) => item.id === saved.caseId) : undefined
+  activeCase.value = preferred ?? cases[0]
   messages.value = await apiRequest<MessageItem[]>(
-    `/cases/${cases[0].id}/messages`,
+    `/cases/${activeCase.value.id}/messages`,
   )
   if (messages.value.length) {
     const metadata = messages.value.at(-1)?.metadata_json ?? {}
@@ -426,6 +500,7 @@ async function loadInitialCase() {
     interventionRecommendation.value =
       structured?.intervention_recommendation ?? null
   }
+  await restoreChatScroll()
 }
 
 function startNewConversation() {
@@ -435,6 +510,8 @@ function startNewConversation() {
   evidenceGaps.value = []
   interventionRecommendation.value = null
   error.value = ''
+  keepScrolledToBottom = true
+  saveViewState()
 }
 
 async function selectCase(target: CaseItem) {
@@ -459,6 +536,7 @@ async function selectCase(target: CaseItem) {
     evidenceGaps.value = []
     interventionRecommendation.value = null
   }
+  await restoreChatScroll()
 }
 
 function onCaseSelect(event: Event) {
@@ -668,5 +746,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (streamFrame) window.cancelAnimationFrame(streamFrame)
+  if (persistTimer) window.clearTimeout(persistTimer)
+  saveViewState()
 })
 </script>

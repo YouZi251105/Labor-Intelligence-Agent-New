@@ -74,7 +74,7 @@
     <div v-else-if="cases.length" class="case-list">
       <article v-for="item in cases" :key="item.id" class="case-row" @click="openCase(item.id)">
         <div class="case-row__main">
-          <span class="status-tag">{{ dictionary.disputeLabels[item.dispute_type] || '待识别' }}</span>
+          <span class="status-tag status-tag--wrap">{{ dictionary.disputeLabels[item.dispute_type] || '待识别' }}</span>
           <div class="case-row__text">
             <h2>{{ item.title }}</h2>
             <p>{{ item.summary || item.facts || '暂无案件摘要' }}</p>

@@ -556,7 +556,7 @@ h2 {
   border: 1px solid var(--lia-border-strong);
   border-radius: var(--lia-radius);
   background: var(--lia-surface);
-  padding: 12px;
+  padding: 8px 12px;
 }
 
 .composer .el-textarea__inner {
@@ -564,7 +564,8 @@ h2 {
   box-shadow: none;
   color: var(--lia-text);
   font-size: 14px;
-  padding: 6px 7px 12px;
+  line-height: 1.5;
+  padding: 4px 7px 6px;
 }
 
 .composer .el-textarea__inner:focus {
@@ -577,7 +578,7 @@ h2 {
   justify-content: space-between;
   gap: 16px;
   border-top: 1px solid var(--lia-border);
-  padding: 11px 3px 0 7px;
+  padding: 7px 3px 0 7px;
 }
 
 .composer__footer > span {
@@ -878,6 +879,14 @@ summary:focus-visible {
   padding: 7px 14px;
 }
 
+/* 次要按钮紧凑尺寸：用于顶栏「申请律师介入」等，避免横向过宽 */
+.secondary-action--compact {
+  min-height: 34px;
+  padding: 6px 10px;
+  gap: 5px;
+  font-size: 12px;
+}
+
 .secondary-action {
   border-color: var(--lia-border-strong);
   background: var(--lia-surface);
@@ -1089,6 +1098,17 @@ summary:focus-visible {
   border-color: #c7e1d4;
   background: var(--lia-success-soft);
   color: var(--lia-success);
+}
+
+/* 长纠纷分类名换行展示全文，必须放在 .status-tag 之后才能覆盖 nowrap/ellipsis */
+.status-tag--wrap {
+  max-width: 260px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.45;
+  text-align: left;
+  word-break: break-word;
 }
 
 .status-tag--warning {
