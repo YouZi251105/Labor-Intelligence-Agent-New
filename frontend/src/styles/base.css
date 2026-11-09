@@ -5717,3 +5717,65 @@ summary:focus-visible {
     text-align: center;
   }
 }
+
+.lawyer-create-modal__card {
+  width: min(820px, 100%);
+}
+
+.lawyer-create-form {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.lawyer-create-form__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lawyer-create-actions {
+  justify-content: flex-end;
+  margin: 0;
+}
+
+@media (max-width: 680px) {
+  .review-modal {
+    align-items: stretch;
+    padding: 10px;
+  }
+
+  .lawyer-create-modal__card {
+    max-height: calc(100dvh - 20px);
+  }
+
+  .review-modal__head {
+    padding: 15px 16px 11px;
+  }
+
+  .review-modal__body {
+    padding: 14px 16px;
+  }
+
+  .review-modal__foot {
+    padding: 11px 16px 14px;
+  }
+
+  .lawyer-create-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lawyer-create-form__grid .form-grid__wide {
+    grid-column: 1;
+  }
+
+  .lawyer-create-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lawyer-create-actions button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+}

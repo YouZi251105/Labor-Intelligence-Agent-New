@@ -32,7 +32,7 @@
           "meta"
         ],
         "summary": "Get Dictionary",
-        "description": "è¿”å›çº çº·ç±»å‹ã€æ¡ˆä»¶é˜¶æ®µã€è¯æ®ç±»åˆ«çš„ç»Ÿä¸€å­—å…¸ï¼ˆå·²å‘å¸ƒåŒ…æˆ–å†…ç½®é»˜è®¤ï¼‰ã€‚",
+        "description": "·µ»Ø¾À·×ÀàĞÍ¡¢°¸¼ş½×¶Î¡¢Ö¤¾İÀà±ğµÄÍ³Ò»×Öµä£¨ÒÑ·¢²¼°ü»òÄÚÖÃÄ¬ÈÏ£©¡£",
         "operationId": "get_dictionary_api_v1_meta_dictionary_get",
         "responses": {
           "200": {
@@ -467,6 +467,53 @@
         }
       }
     },
+    "/api/v1/cases/consult": {
+      "post": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "Consult Auto Create",
+        "description": "ĞÂ¿ª»á»°£ºÏÈ·¢×ÉÑ¯ÔÙ×Ô¶¯½¨°¸£¬AI ·ÖÀà½á¹û»ØÌîµ½°¸¼ş¡£\n\n¹©Î´´´½¨°¸¼şµÄÓÃ»§Ö±½Ó×ÉÑ¯Ê¹ÓÃ£»ÒÑ½¨°¸¼ş¼ÌĞø×ß\n``POST /cases/{case_id}/consultations`` ÔÚ¼ÈÓĞ°¸¼şÖĞ¶Ô»°¡£",
+        "operationId": "consult_auto_create_api_v1_cases_consult_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}": {
       "get": {
         "tags": [
@@ -772,6 +819,51 @@
         }
       }
     },
+    "/api/v1/cases/consult/stream": {
+      "post": {
+        "tags": [
+          "cases"
+        ],
+        "summary": "Consult Auto Create Stream",
+        "description": "×Ô¶¯½¨°¸ + Á÷Ê½»Ø¸´£¬¹©Î´´´½¨°¸¼şµÄÓÃ»§Ö±½Ó´ò¿ªÊ×Ò³¼´×ÉÑ¯¡£",
+        "operationId": "consult_auto_create_stream_api_v1_cases_consult_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}/evidence": {
       "get": {
         "tags": [
@@ -1023,10 +1115,10 @@
             "description": "Successful Response"
           },
           "404": {
-            "description": "ææ–™ä¸å­˜åœ¨æˆ–ä¸å±äºå½“å‰æ¡ˆä»¶"
+            "description": "²ÄÁÏ²»´æÔÚ»ò²»ÊôÓÚµ±Ç°°¸¼ş"
           },
           "409": {
-            "description": "ææ–™å·²çº³å…¥æ³•å¾‹æ–‡ä¹¦ï¼Œä¸èƒ½ç›´æ¥åˆ é™¤"
+            "description": "²ÄÁÏÒÑÄÉÈë·¨ÂÉÎÄÊé£¬²»ÄÜÖ±½ÓÉ¾³ı"
           },
           "422": {
             "description": "Validation Error",
@@ -2543,7 +2635,7 @@
           "lawyer-service"
         ],
         "summary": "Record Review Decision",
-        "description": "å¤æ ¸ç»“è®ºå‡ºæ¥åï¼Œç”¨æˆ·é€‰æ‹©åç»­æ–¹å¼ï¼šè‡ªè¡ŒåŠç†æˆ–å¾‹å¸ˆååŠ©ã€‚å…è®¸å˜æ›´ã€‚",
+        "description": "¸´ºË½áÂÛ³öÀ´ºó£¬ÓÃ»§Ñ¡ÔñºóĞø·½Ê½£º×ÔĞĞ°ìÀí»òÂÉÊ¦Ğ­Öú¡£ÔÊĞí±ä¸ü¡£",
         "operationId": "record_review_decision_api_v1_lawyer_service_reviews__review_id__decision_post",
         "security": [
           {
@@ -2601,7 +2693,7 @@
           "lawyer-service"
         ],
         "summary": "Review Case Brief",
-        "description": "å¤æ ¸æ¡ˆä»¶ç®€æŠ¥ï¼šå¾‹å¸ˆå¤æ ¸æ—¶æŸ¥çœ‹æ¡ˆä»¶æ¦‚è¦ã€è¯æ®ææ–™ä¸æ–‡ä¹¦æ¸…å•ã€‚\n\nå¾…åˆ†é…çš„å¤æ ¸ä»»åŠ¡å¯¹æ‰€æœ‰å¾‹å¸ˆå¼€æ”¾ï¼›å·²åˆ†é…çš„ä»…é™æ‰¿åŠå¾‹å¸ˆã€‚",
+        "description": "¸´ºË°¸¼ş¼ò±¨£ºÂÉÊ¦¸´ºËÊ±²é¿´°¸¼ş¸ÅÒª¡¢Ö¤¾İ²ÄÁÏÓëÎÄÊéÇåµ¥¡£\n\n´ı·ÖÅäµÄ¸´ºËÈÎÎñ¶ÔËùÓĞÂÉÊ¦¿ª·Å£»ÒÑ·ÖÅäµÄ½öÏŞ³Ğ°ìÂÉÊ¦¡£",
         "operationId": "review_case_brief_api_v1_lawyer_service_reviews__review_id__case_brief_get",
         "security": [
           {
@@ -3319,10 +3411,10 @@
             }
           },
           "400": {
-            "description": "æ–‡ä»¶ç±»å‹ã€å¤§å°æˆ–å·¥ä½œç°¿ç»“æ„æ— æ•ˆ"
+            "description": "ÎÄ¼şÀàĞÍ¡¢´óĞ¡»ò¹¤×÷²¾½á¹¹ÎŞĞ§"
           },
           "422": {
-            "description": "Excel å­—æ®µã€å¼•ç”¨æˆ–è§„åˆ™ç»“æ„æ— æ•ˆ",
+            "description": "Excel ×Ö¶Î¡¢ÒıÓÃ»ò¹æÔò½á¹¹ÎŞĞ§",
             "content": {
               "application/json": {
                 "schema": {
@@ -3368,7 +3460,7 @@
             }
           },
           "422": {
-            "description": "AI è¾“å‡ºæœªé€šè¿‡è§„åˆ™åŒ…ç»“æ„æ ¡éªŒ",
+            "description": "AI Êä³öÎ´Í¨¹ı¹æÔò°ü½á¹¹Ğ£Ñé",
             "content": {
               "application/json": {
                 "schema": {
@@ -3378,7 +3470,7 @@
             }
           },
           "503": {
-            "description": "AI æœåŠ¡æœªé…ç½®æˆ–æš‚æ—¶ä¸å¯ç”¨"
+            "description": "AI ·şÎñÎ´ÅäÖÃ»òÔİÊ±²»¿ÉÓÃ"
           }
         },
         "security": [
@@ -4499,6 +4591,50 @@
             "HTTPBearer": []
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create Lawyer",
+        "operationId": "create_lawyer_api_v1_admin_lawyers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLawyerCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LawyerSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/cases": {
@@ -4983,6 +5119,70 @@
         ],
         "title": "AdminDashboardRead"
       },
+      "AdminLawyerCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Display Name"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Phone",
+            "default": ""
+          },
+          "license_no": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "License No"
+          },
+          "specialties": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Specialties",
+            "default": "ÀÍ¶¯¾À·×"
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Bio",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active"
+            ],
+            "title": "Status",
+            "default": "active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "display_name",
+          "license_no"
+        ],
+        "title": "AdminLawyerCreate"
+      },
       "AdminUserPage": {
         "properties": {
           "items": {
@@ -5226,7 +5426,7 @@
             "type": "string",
             "format": "binary",
             "title": "File",
-            "description": "è§„åˆ™åŒ… Excel å·¥ä½œç°¿"
+            "description": "¹æÔò°ü Excel ¹¤×÷²¾"
           }
         },
         "type": "object",
@@ -5319,7 +5519,7 @@
             "maxLength": 160,
             "minLength": 2,
             "title": "Title",
-            "default": "æ–°çš„åŠ³åŠ¨çº çº·å’¨è¯¢"
+            "default": "ĞÂµÄÀÍ¶¯¾À·××ÉÑ¯"
           },
           "dispute_type": {
             "type": "string",
@@ -6068,7 +6268,7 @@
           "content"
         ],
         "title": "DictionaryActiveResponse",
-        "description": "å½“å‰ç”Ÿæ•ˆå­—å…¸ï¼šå·²å‘å¸ƒåŒ…æˆ–å†…ç½®é»˜è®¤ï¼Œä¾›ç®¡ç†ç«¯ç¼–è¾‘å™¨åˆå§‹åŒ–ã€‚"
+        "description": "µ±Ç°ÉúĞ§×Öµä£ºÒÑ·¢²¼°ü»òÄÚÖÃÄ¬ÈÏ£¬¹©¹ÜÀí¶Ë±à¼­Æ÷³õÊ¼»¯¡£"
       },
       "DictionaryCategoryItem": {
         "properties": {

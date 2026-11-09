@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import ColumnElement, func, select
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DbSession, require_roles
 from app.core.security import hash_password
@@ -15,6 +16,7 @@ from app.models.lawyer import LawyerProfile
 from app.models.user import User
 from app.schemas.admin import (
     AdminDashboardRead,
+    AdminLawyerCreate,
     AdminUserPage,
     AdminUserSummary,
     AdminUserUpdate,
@@ -398,6 +400,78 @@ async def lawyers(session: DbSession, _: AdminRequired) -> list[LawyerSummary]:
         )
         for user, profile in rows
     ]
+
+
+@router.post("/lawyers", response_model=LawyerSummary, status_code=201)
+async def create_lawyer(
+    payload: AdminLawyerCreate,
+    session: DbSession,
+    admin: AdminRequired,
+) -> LawyerSummary:
+    username = payload.username.strip()
+    display_name = payload.display_name.strip()
+    license_no = payload.license_no.strip()
+    specialties = payload.specialties.strip()
+    if not username or not display_name or not license_no or not specialties:
+        raise HTTPException(status_code=422, detail="律师账号必填字段不能为空")
+    existing_user = await session.scalar(
+        select(User.id).where(User.username == username)
+    )
+    if existing_user is not None:
+        raise HTTPException(status_code=409, detail="登录用户名已存在")
+    existing_license = await session.scalar(
+        select(LawyerProfile.id).where(LawyerProfile.license_no == license_no)
+    )
+    if existing_license is not None:
+        raise HTTPException(status_code=409, detail="执业证号已存在")
+
+    user = User(
+        username=username,
+        password_hash=hash_password(payload.password),
+        role="lawyer",
+        display_name=display_name,
+        phone=payload.phone.strip(),
+        is_active=payload.status != "suspended",
+    )
+    session.add(user)
+    try:
+        await session.flush()
+        profile = LawyerProfile(
+            user_id=user.id,
+            license_no=license_no,
+            specialties=specialties,
+            bio=payload.bio.strip(),
+            status=payload.status,
+        )
+        session.add(profile)
+        session.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="admin.lawyer_created",
+                object_type="user",
+                object_id=user.id,
+                metadata_json={
+                    "username": username,
+                    "license_no": license_no,
+                    "status": payload.status,
+                },
+            )
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="律师账号或执业证号已存在") from None
+
+    await session.refresh(user)
+    await session.refresh(profile)
+    return LawyerSummary(
+        id=user.id,
+        username=user.username,
+        display_name=user.display_name,
+        license_no=profile.license_no,
+        specialties=profile.specialties,
+        status=profile.status,
+    )
 
 
 @router.get("/cases", response_model=list[CaseRead])

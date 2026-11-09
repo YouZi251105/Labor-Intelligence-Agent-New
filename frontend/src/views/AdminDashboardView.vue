@@ -239,8 +239,20 @@
     </section>
 
     <section v-else-if="activeTab === '律师'" class="detail-card">
-      <span class="eyebrow">律师审核</span>
-      <h2>律师状态</h2>
+      <div class="detail-section-heading">
+        <div>
+          <span class="eyebrow">律师审核</span>
+          <h2>律师状态</h2>
+        </div>
+        <button
+          type="button"
+          class="primary-action primary-action--compact"
+          @click="openLawyerCreate"
+        >
+          <UserPlus :size="16" />
+          新增律师
+        </button>
+      </div>
       <div class="admin-table">
         <article v-for="lawyerItem in lawyers" :key="lawyerItem.id">
           <div>
@@ -254,6 +266,139 @@
           </select>
           <button type="button" @click="updateLawyerStatus(lawyerItem.id)">保存</button>
         </article>
+        <p v-if="!lawyers.length" class="muted-text">还没有律师账号。</p>
+      </div>
+
+      <div
+        v-if="lawyerCreateOpen"
+        class="review-modal"
+        @click.self="closeLawyerCreate"
+      >
+        <section
+          class="review-modal__card lawyer-create-modal__card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lawyer-create-title"
+        >
+          <header class="review-modal__head">
+            <div>
+              <span class="eyebrow">平台律师入驻</span>
+              <h3 id="lawyer-create-title">新增律师账号</h3>
+            </div>
+            <button
+              type="button"
+              class="icon-button"
+              title="关闭"
+              aria-label="关闭新增律师窗口"
+              :disabled="lawyerCreating"
+              @click="closeLawyerCreate"
+            >
+              <X :size="18" />
+            </button>
+          </header>
+          <form class="lawyer-create-form" @submit.prevent="createLawyer">
+            <div class="review-modal__body">
+              <p v-if="lawyerCreateError" class="inline-error">{{ lawyerCreateError }}</p>
+              <div class="form-grid lawyer-create-form__grid">
+                <label>
+                  <span>登录用户名</span>
+                  <input
+                    v-model.trim="lawyerCreateForm.username"
+                    autocomplete="off"
+                    minlength="3"
+                    maxlength="64"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>初始密码</span>
+                  <input
+                    v-model="lawyerCreateForm.password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    maxlength="128"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>律师姓名</span>
+                  <input
+                    v-model.trim="lawyerCreateForm.display_name"
+                    autocomplete="name"
+                    minlength="2"
+                    maxlength="80"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>手机号</span>
+                  <input
+                    v-model.trim="lawyerCreateForm.phone"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    maxlength="32"
+                  />
+                </label>
+                <label>
+                  <span>执业证号</span>
+                  <input
+                    v-model.trim="lawyerCreateForm.license_no"
+                    maxlength="80"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>专业方向</span>
+                  <input
+                    v-model.trim="lawyerCreateForm.specialties"
+                    maxlength="500"
+                    required
+                  />
+                </label>
+                <label class="form-grid__wide">
+                  <span>律师简介</span>
+                  <textarea
+                    v-model.trim="lawyerCreateForm.bio"
+                    rows="3"
+                    maxlength="2000"
+                    placeholder="例如：擅长欠薪、违法解除和工伤待遇争议。"
+                  />
+                </label>
+                <label>
+                  <span>初始状态</span>
+                  <select v-model="lawyerCreateForm.status">
+                    <option value="active">正常</option>
+                    <option value="pending">待审核</option>
+                  </select>
+                </label>
+              </div>
+              <p class="muted-text">
+                初始密码只用于首次登录，请通过安全渠道交给律师。账号创建后可在列表中调整状态或重置密码。
+              </p>
+            </div>
+            <footer class="review-modal__foot">
+              <div class="form-actions lawyer-create-actions">
+                <button
+                  type="button"
+                  class="secondary-action"
+                  :disabled="lawyerCreating"
+                  @click="closeLawyerCreate"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  class="primary-action primary-action--compact"
+                  :disabled="lawyerCreating"
+                >
+                  <Plus :size="16" />
+                  {{ lawyerCreating ? '创建中...' : '创建律师账号' }}
+                </button>
+              </div>
+            </footer>
+          </form>
+        </section>
       </div>
     </section>
 
@@ -349,6 +494,7 @@
 </template>
 
 <script setup lang="ts">
+import { Plus, UserPlus, X } from '@lucide/vue'
 import {
   computed,
   defineAsyncComponent,
@@ -393,6 +539,17 @@ interface LawyerSummary {
   license_no: string
   specialties: string
   status: string
+}
+
+interface CreateLawyerPayload {
+  username: string
+  password: string
+  display_name: string
+  phone: string
+  license_no: string
+  specialties: string
+  bio: string
+  status: 'pending' | 'active'
 }
 
 const route = useRoute()
@@ -482,6 +639,19 @@ const userRoleFilter = ref('all')
 const userStatusFilter = ref('all')
 const selectedUser = ref<AdminUserSummary | null>(null)
 const verificationSelections = reactive<Record<number, string>>({})
+const lawyerCreateOpen = ref(false)
+const lawyerCreating = ref(false)
+const lawyerCreateError = ref('')
+const lawyerCreateForm = reactive<CreateLawyerPayload>({
+  username: '',
+  password: '',
+  display_name: '',
+  phone: '',
+  license_no: '',
+  specialties: '劳动纠纷',
+  bio: '',
+  status: 'active',
+})
 let userSearchTimer: ReturnType<typeof setTimeout> | null = null
 
 const roleLabels: Record<string, string> = { user: '劳动者', lawyer: '律师', admin: '管理员' }
@@ -505,6 +675,7 @@ const auditLabels: Record<string, string> = {
   'admin.dictionary_version_updated': '字典草稿编辑',
   'admin.dictionary_version_published': '字典版本发布',
   'admin.dictionary_version_deleted': '字典草稿删除',
+  'admin.lawyer_created': '律师账号创建',
   'admin.lawyer_status_changed': '律师状态变更',
   'admin.revenue_status_changed': '收益状态变更',
   'admin.user_status_changed': '账号状态变更',
@@ -767,6 +938,48 @@ async function updateLawyerStatus(userId: number) {
     if (index >= 0) lawyers.value[index] = updated
   } catch (err) {
     error.value = err instanceof Error ? err.message : '律师状态更新失败'
+  }
+}
+
+function openLawyerCreate() {
+  lawyerCreateError.value = ''
+  Object.assign(lawyerCreateForm, {
+    username: '',
+    password: '',
+    display_name: '',
+    phone: '',
+    license_no: '',
+    specialties: '劳动纠纷',
+    bio: '',
+    status: 'active',
+  })
+  lawyerCreateOpen.value = true
+}
+
+function closeLawyerCreate() {
+  if (lawyerCreating.value) return
+  lawyerCreateOpen.value = false
+  lawyerCreateError.value = ''
+}
+
+async function createLawyer() {
+  lawyerCreating.value = true
+  lawyerCreateError.value = ''
+  try {
+    const created = await apiRequest<LawyerSummary>('/admin/lawyers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lawyerCreateForm),
+    })
+    lawyerCreateOpen.value = false
+    lawyerCreateForm.password = ''
+    await loadLawyers()
+    notifySuccess(`律师账号 ${created.username} 已创建`)
+  } catch (err) {
+    lawyerCreateError.value =
+      err instanceof Error ? err.message : '律师账号创建失败'
+  } finally {
+    lawyerCreating.value = false
   }
 }
 

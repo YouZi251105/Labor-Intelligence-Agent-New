@@ -13,6 +13,17 @@ class LawyerSummary(BaseModel):
     status: str
 
 
+class AdminLawyerCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=8, max_length=128)
+    display_name: str = Field(min_length=2, max_length=80)
+    phone: str = Field(default="", max_length=32)
+    license_no: str = Field(min_length=1, max_length=80)
+    specialties: str = Field(default="劳动纠纷", min_length=1, max_length=500)
+    bio: str = Field(default="", max_length=2_000)
+    status: Literal["pending", "active"] = "active"
+
+
 class CaseAssignmentRequest(BaseModel):
     lawyer_id: int
 

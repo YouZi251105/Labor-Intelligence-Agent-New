@@ -169,6 +169,7 @@ file
 | POST | `/admin/users/{user_id}/reset-password` | 重置密码 | 管理员 |
 | PATCH | `/admin/users/{user_id}/status` | 启用或停用账号 | 管理员 |
 | GET | `/admin/lawyers` | 律师列表 | 管理员 |
+| POST | `/admin/lawyers` | 创建律师账号和律师档案 | 管理员 |
 | GET | `/admin/cases` | 全部案件 | 管理员 |
 | POST | `/admin/cases/{case_id}/assign` | 分配律师 | 管理员 |
 | GET | `/admin/materials` | 材料元数据 | 管理员 |
@@ -195,6 +196,23 @@ file
 普通管理员前端只提供 Excel 和可视化流程入口。JSON 模板、JSON 导入和原文读写接口保留给系统工具、自动化任务和排障使用，不作为日常管理员操作界面。
 
 分配参数：
+
+创建律师参数：
+
+```json
+{
+  "username": "lawyer_zhang",
+  "password": "Temporary123!",
+  "display_name": "张律师",
+  "phone": "13800000000",
+  "license_no": "14501202611223344",
+  "specialties": "欠薪、违法解除",
+  "bio": "平台合作律师。",
+  "status": "active"
+}
+```
+
+创建接口固定角色为 `lawyer`，不允许通过该接口创建管理员。用户名或执业证号重复返回 `409`。
 
 ```json
 {

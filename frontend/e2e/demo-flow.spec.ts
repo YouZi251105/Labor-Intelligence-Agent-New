@@ -720,6 +720,33 @@ test('admin navigation group collapses and remembers its state', async ({ page }
   await expect(page.getByRole('link', { name: '用户管理', exact: true })).toBeVisible()
 })
 
+test('admin can create a lawyer account', async ({ page }, testInfo) => {
+  const username = `e2e_lawyer_${testInfo.project.name}_${Date.now()}`
+  const licenseNo = `E2E-LAWYER-${testInfo.project.name}-${Date.now()}`
+  await login(page, 'admin', 'Admin123!')
+  await page.goto('/admin/lawyers')
+
+  await page.getByRole('button', { name: '新增律师', exact: true }).click()
+  await expect(
+    page.getByRole('heading', { name: '新增律师账号' }),
+  ).toBeVisible()
+  await page.getByLabel('登录用户名').fill(username)
+  await page.getByLabel('初始密码').fill('E2eLawyer123!')
+  await page.getByLabel('律师姓名').fill('自动化测试律师')
+  await page.getByLabel('手机号').fill('13900002222')
+  await page.getByLabel('执业证号').fill(licenseNo)
+  await page.getByLabel('专业方向').fill('欠薪、违法解除')
+  await page.getByLabel('律师简介').fill('用于验证管理员新增律师账号。')
+  await page.getByRole('button', { name: '创建律师账号', exact: true }).click()
+
+  await expect(page.getByText(licenseNo, { exact: false })).toBeVisible()
+  const loginResponse = await page.request.post(`${API_BASE_URL}/api/v1/auth/login`, {
+    data: { username, password: 'E2eLawyer123!' },
+  })
+  expect(loginResponse.ok()).toBeTruthy()
+  expect((await loginResponse.json()).user.role).toBe('lawyer')
+})
+
 test('lawyer can open the assigned-case dashboard', async ({ page }, testInfo) => {
   await login(page, 'lawyer', 'Lawyer123!')
   await expect(page.getByRole('heading', { name: '律师工作台' })).toBeVisible()
