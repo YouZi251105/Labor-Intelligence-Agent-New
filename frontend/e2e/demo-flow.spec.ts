@@ -133,6 +133,39 @@ test('session expires after twenty minutes without activity', async ({ page }) =
   await expect(page.locator('.app-shell')).toHaveCount(0)
 })
 
+test('profile page adapts to desktop and mobile widths', async ({ page }, testInfo) => {
+  await login(page, 'demo', 'Demo123!')
+  await page.goto('/profile')
+  await page.locator('.profile-page-grid').waitFor()
+
+  const layout = await page.evaluate(() => {
+    const grid = document.querySelector('.profile-page-grid')
+    const input = document.querySelector('.profile-page-grid input')
+    const button = document.querySelector('.profile-page-grid button[type=submit]')
+    const inputBox = input?.getBoundingClientRect()
+    const buttonBox = button?.getBoundingClientRect()
+    return {
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      columns: grid ? getComputedStyle(grid).gridTemplateColumns : '',
+      inputWidth: inputBox?.width ?? 0,
+      buttonWidth: buttonBox?.width ?? 0,
+      buttonHeight: buttonBox?.height ?? 0,
+    }
+  })
+
+  expect(layout.scrollWidth).toBe(layout.clientWidth)
+  const columnCount = layout.columns.trim().split(/\s+/).length
+  if (testInfo.project.name === 'mobile') {
+    expect(columnCount).toBe(1)
+    expect(layout.inputWidth).toBeGreaterThan(250)
+    expect(layout.buttonWidth).toBeGreaterThan(250)
+    expect(layout.buttonHeight).toBeGreaterThanOrEqual(44)
+  } else {
+    expect(columnCount).toBe(2)
+  }
+})
+
 test('workspace stays usable at 100 percent zoom', async ({ page }) => {
   await login(page, 'demo', 'Demo123!')
 
